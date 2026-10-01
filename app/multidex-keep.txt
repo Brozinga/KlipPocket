@@ -1,0 +1,5 @@
+ru/ytkab0bp/beamklipper/KlipperApp.class
+ru/ytkab0bp/beamklipper/cloud/CloudAPI.class
+ru/ytkab0bp/beamklipper/cloud/CloudAPI$Companion.class
+ru/ytkab0bp/beamklipper/cloud/CloudAPI$Companion$INSTANCE$1.class
+ru/ytkab0bp/beamklipper/cloud/CloudController.class

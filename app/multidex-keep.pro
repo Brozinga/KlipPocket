@@ -1,0 +1,4 @@
+-keep class ru.ytkab0bp.beamklipper.KlipperApp { *; }
+-keep class ru.ytkab0bp.beamklipper.cloud.CloudAPI { *; }
+-keep class ru.ytkab0bp.beamklipper.cloud.CloudAPI$* { *; }
+-keep class ru.ytkab0bp.beamklipper.cloud.CloudController { *; }

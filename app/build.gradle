@@ -1,0 +1,680 @@
+import org.json.JSONArray
+import org.json.JSONObject
+
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+
+plugins {
+    id 'com.android.application'
+    id 'com.chaquo.python'
+    id 'org.jetbrains.kotlin.android'
+    id 'jacoco'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+apply plugin: 'kotlin-kapt'
+
+def commit = getGitCommitHash(file('.'))
+
+def keystorePropertiesFile = rootProject.file('local.properties')
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+def hasReleaseKeystore = keystoreProperties['key.store'] != null &&
+        file(keystoreProperties['key.store']).exists()
+
+android {
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(keystoreProperties['key.store'])
+                storePassword keystoreProperties['key.store.password']
+                keyAlias keystoreProperties['key.alias']
+                keyPassword keystoreProperties['key.key.password']
+            }
+        }
+    }
+    namespace 'ru.ytkab0bp.beamklipper'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.brozinga.klippocket"
+        minSdk 21
+        targetSdk 35
+        multiDexEnabled true
+        multiDexKeepFile file('multidex-keep.txt')
+        multiDexKeepProguard file('multidex-keep.pro')
+        versionCode 1
+        versionName "0.0.1"
+
+        buildConfigField "int", "SLOTS_COUNT", "4"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        python {
+            version = "3.10"
+            def configuredBuildPython = keystoreProperties['chaquopy.python'] ?:
+                    System.getenv('CHAQUOPY_PYTHON')
+            if (configuredBuildPython != null && !configuredBuildPython.trim().isEmpty()) {
+                buildPython configuredBuildPython.trim()
+            }
+            pip {
+                options("--find-links", "file://" + project.projectDir.toString() + "/python_wheels")
+
+                install "cffi==1.15.1"
+                install "pyserial==3.5"
+                install "greenlet==3.0.1"
+                install "python-can==3.3.4"
+                install "markupsafe==2.1.5"
+                install "tornado==6.4.0"
+                install "pyserial-asyncio==0.6"
+                // Moonraker wants pillow>=9.5.0, but Chaquopy's wheel mirror
+                // only ships cp310 pillow up to 9.2.0. The 9.5.0 wheels for all
+                // three ABIs are cross-compiled locally into python_wheels/
+                // (see docs/build-pillow-wheels.md).
+                install "pillow==9.5.0"
+                // The locally-built Pillow wheel links against libjpeg_chaquopy.so
+                // (DT_NEEDED) but, unlike Chaquopy's own Pillow wheel, does not
+                // declare the Requires-Dist on chaquopy-libjpeg. Without this line
+                // libjpeg_chaquopy.so is never bundled and PIL/_imaging.so fails to
+                // dlopen at runtime -> metadata/thumbnail extraction crashes.
+                install "chaquopy-libjpeg==1.5.3"
+                install "streaming-form-data==1.15.0"
+                install "distro==1.9.0"
+                install "inotify-simple==2.0.1"
+                install "libnacl==2.1.0"
+                install "paho-mqtt==2.1.0"
+                install "zeroconf==0.131.0"
+                install "preprocess-cancellation==0.2.1"
+                install "jinja2==3.1.6"
+                install "dbus-fast==5.0.22"
+                install "apprise==1.13.0"
+                install "ldap3==2.9.1"
+                install "python-periphery==2.4.1"
+                install "pynacl==1.5.0"
+                install "importlib_metadata==9.0.0"
+
+                install "numpy==1.26.2"
+                install "click==8.1.8"
+
+                // OctoEverywhere companion (app/src/main/octoeverywhere), vendored
+                // from github.com/QuinnDamerell/OctoPrint-OctoEverywhere. Versions
+                // match its requirements.txt; "configparser" and "zstandard" are
+                // deliberately omitted (stdlib-already / optional-and-gracefully-
+                // skipped-when-absent, see moonraker_octoeverywhere/README notes).
+                install "octowebsocket_client==1.9.1"
+                install "requests>=2.31.0"
+                install "octoflatbuffers==24.3.27"
+                install "certifi>=2026.7.22"
+                install "rsa>=4.9"
+                install "dnspython>=2.3.0"
+                install "httpx>=0.24.1"
+                install "urllib3>=2.0.7"
+                install "sentry-sdk>=2.20.0,<3"
+                install "pybind11"
+                install "qrcode<=8.0.0"
+
+                // Obico companion (app/src/main/obico), vendored from
+                // github.com/TheSpaghettiDetective/moonraker-obico. Versions
+                // match its requirements.txt; "requests", "distro" and
+                // "sentry-sdk" are already installed above and shared —
+                // its own sentry-sdk==1.23.1 pin is skipped since we always
+                // ship with telemetry opted out (see ObicoService) and its
+                // basic sentry_sdk.init()/capture_exception() usage is stable
+                // across both major versions.
+                install "websocket-client==1.2.1"
+                install "bson==0.5.10"
+                install "backoff==1.11.1"
+                install "pathvalidate==2.5.0"
+                install "sarge==0.1.6"
+                install "flask==2.2.5"
+                install "netaddr==0.8.0"
+            }
+            pyc {
+                src true
+            }
+        }
+    }
+
+    flavorDimensions 'abi'
+
+    productFlavors {
+        armv7 {
+            dimension 'abi'
+            ndk {
+                abiFilters 'armeabi-v7a'
+            }
+        }
+        arm64 {
+            dimension 'abi'
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
+        }
+        amd64 {
+            dimension 'abi'
+            ndk {
+                abiFilters 'x86_64'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            }
+            buildConfigField "boolean", "IS_GOOGLE_PLAY", "false"
+            buildConfigField "String", "COMMIT", "\"" + commit + "\""
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            buildConfigField "boolean", "IS_GOOGLE_PLAY", "false"
+            buildConfigField "String", "COMMIT", "\"" + commit + "\""
+            ndk {
+                debugSymbolLevel 'NONE'
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    externalNativeBuild {
+        cmake {
+            path file('CMakeLists.txt')
+        }
+        ndkVersion "23.2.8568313"
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            jacoco { includeNoLocationClasses = true; excludes = ['jdk.internal.*'] }
+        }
+    }
+
+    buildFeatures {
+        aidl true
+        buildConfig true
+        compose true
+    }
+
+    kapt {
+        correctErrorTypes true
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+        freeCompilerArgs += [
+            "-P",
+            "plugin:androidx.compose.compiler.plugins.kotlin:strongSkipping=true",
+            "-P",
+            "plugin:androidx.compose.compiler.plugins.kotlin:reportsDestination=${buildDir}/compose_reports"
+        ]
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def abi = output.getFilter(com.android.build.OutputFile.ABI)
+            def suffix = abi != null ? abi : variant.flavorName
+            outputFileName = "KlipPocket_v" + variant.versionName + (suffix ? "_" + suffix : "") + ".apk"
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.github.mik3y:usb-serial-for-android:3.7.2'
+    implementation 'androidx.annotation:annotation:1.9.1'
+    implementation 'androidx.core:core:1.16.0'
+    implementation 'androidx.activity:activity:1.10.1'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'org.java-websocket:Java-WebSocket:1.6.0'
+    implementation 'com.squareup.okhttp3:okhttp:3.14.9'
+    implementation 'com.google.code.gson:gson:2.13.1'
+    implementation 'androidx.multidex:multidex:2.0.1'
+    implementation 'com.github.androidmads:QRGenerator:1.0.5'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1'
+
+    def composeBom = platform('androidx.compose:compose-bom:2024.09.03')
+    implementation composeBom
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-graphics'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.activity:activity-compose:1.10.1'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
+    implementation 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1'
+    testImplementation 'androidx.test:core:1.6.1'
+    testImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation composeBom
+    androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+
+    implementation project(":eventbus")
+    implementation project(":eventbus_api")
+    kapt project(":eventbus_processor")
+
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+
+    implementation 'com.goterl:lazysodium-android:5.1.0@aar'
+
+    constraints {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21") {
+            because("kotlin-stdlib-jdk7 is now a part of kotlin-stdlib")
+        }
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21") {
+            because("kotlin-stdlib-jdk8 is now a part of kotlin-stdlib")
+        }
+    }
+}
+
+static String getGitCommitHash(File dir) {
+    try {
+        return Runtime.getRuntime().exec("git rev-parse HEAD", null, dir).inputStream.readLines().get(0).substring(0, 10)
+    } catch (Exception e){
+        println("Unable to get git commit hash:")
+        e.printStackTrace()
+        return "non-git build"
+    }
+}
+
+static void collectFiles(File f, List<File> files) {
+    // Never bundle Python bytecode caches. They are (a) machine/interpreter
+    // specific, (b) gitignored so they slip in unnoticed after any local
+    // `python`/`make menuconfig` run, and (c) silently dropped from the APK by
+    // aapt2's default ignore pattern (any dir starting with "_"), which then
+    // makes BundleInstaller.unpack() throw FileNotFoundException on device
+    // because index.json still lists them -> no printer profiles load.
+    def name = f.getName()
+    if (name == '__pycache__' || name.endsWith('.pyc') || name.endsWith('.pyo')) {
+        return
+    }
+    if (f.isDirectory()) {
+        f.listFiles().each {
+            collectFiles(it, files)
+        }
+    } else {
+        files.add(f)
+    }
+}
+
+def registerFrontendBundle(String taskName, String dirName, String versionProp, Closure<String> zipUrl) {
+    tasks.register(taskName) {
+        doFirst {
+            var assets = file('src/main/assets')
+            var versionFile = new File(assets, dirName + '_version')
+            var configVersion = project.property(versionProp)
+
+            if (versionFile.exists() && configVersion == versionFile.text.trim()) {
+                return
+            }
+
+            var frontendDir = new File(assets, dirName)
+            var files = new ArrayList<File>()
+            collectFiles(frontendDir, files)
+            files.each {
+                it.delete()
+            }
+
+            def con = new URL(zipUrl(configVersion)).openConnection() as HttpURLConnection
+            if (con.getResponseCode() == 200) {
+                ZipInputStream zis = new ZipInputStream(con.getInputStream())
+                ZipEntry entry
+                byte[] buf = new byte[10240]
+                int c
+
+                while (entry = zis.getNextEntry()) {
+                    File f = new File(frontendDir, entry.getName())
+                    if (entry.isDirectory()) {
+                        f.mkdirs()
+                        continue
+                    }
+
+                    f.getParentFile().mkdirs()
+                    var fos = new FileOutputStream(f)
+
+                    while ((c = zis.read(buf)) != -1) {
+                        fos.write(buf, 0, c)
+                    }
+                    fos.close()
+                }
+                zis.close()
+
+                versionFile.text = configVersion
+            } else {
+                throw new IllegalStateException('Failed to download ' + dirName)
+            }
+        }
+    }
+}
+
+registerFrontendBundle('bundleFluidd', 'fluidd', 'beam.fluidd_version') { v ->
+    'https://github.com/fluidd-core/fluidd/releases/download/' + v + '/fluidd.zip'
+}
+registerFrontendBundle('bundleMainsail', 'mainsail', 'beam.mainsail_version') { v ->
+    'https://github.com/mainsail-crew/mainsail/releases/download/' + v + '/mainsail.zip'
+}
+registerFrontendBundle('bundleVoyager', 'voyager', 'beam.voyager_version') { v ->
+    'https://github.com/ozancs/voyager-ui/releases/download/' + v + '/voyager-ui.zip'
+}
+
+tasks.register('bundleKlipper') {
+    doFirst {
+        var assets = file('src/main/assets')
+        var versionFile = new File(assets, 'bundle_version')
+        var kalicoHash = file('src/main/kalico').exists() ? getGitCommitHash(file('src/main/kalico')) : 'none'
+        var addonsVersionFile = file('src/main/assets/klipper/addons_version')
+        var addonsVersion = addonsVersionFile.exists() ? addonsVersionFile.text.trim() : '0'
+        var octoeverywhereVersion = file('src/main/octoeverywhere/vendor_version').exists() ? file('src/main/octoeverywhere/vendor_version').text.trim() : 'none'
+        var obicoVersion = file('src/main/obico/vendor_version').exists() ? file('src/main/obico/vendor_version').text.trim() : 'none'
+        var version = 'klipper-' + getGitCommitHash(file('src/main/klipper')) + '_kalico-' + kalicoHash + '_moonraker-' + getGitCommitHash(file('src/main/moonraker')) + '_happyhare-' + getGitCommitHash(file('src/main/happyhare')) + '_klipper_tmc_autotune-' + getGitCommitHash(file('src/main/klipper_tmc_autotune')) + '_moonraker_timelapse-' + getGitCommitHash(file('src/main/moonraker_timelapse')) + '_beamext-' + file('src/main/assets/klipper/beam_ext/ext_version').text + '_addons-' + addonsVersion + '_octoeverywhere-' + octoeverywhereVersion + '_obico-' + obicoVersion
+        if (!versionFile.exists() || versionFile.text != version) {
+            var files = new ArrayList<File>()
+            collectFiles(file('src/main/assets/klipper/klippy'), files)
+            collectFiles(file('src/main/assets/kalico/klippy'), files)
+            collectFiles(file('src/main/assets/moonraker/moonraker'), files)
+            collectFiles(file('src/main/assets/octoeverywhere'), files)
+            collectFiles(file('src/main/assets/obico'), files)
+            files.each {
+                it.delete()
+            }
+
+            files.clear()
+
+            var klippy = file('src/main/klipper/klippy')
+            collectFiles(klippy, files)
+
+            JSONArray arr = new JSONArray()
+            files.each {
+                var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                if (sub.startsWith("chelper/") && !sub.endsWith("__init__.py")) return
+                arr.put('klippy/' + sub)
+                var f = new File(assets, 'klipper/klippy/' + sub)
+                f.getParentFile().mkdirs()
+                Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            files.clear()
+            klippy = file('src/main/happyhare/extras')
+            collectFiles(klippy, files)
+            files.each {
+                if (it.getName() == ".pylintrc") return
+
+                var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                arr.put('klippy/extras/' + sub)
+                var f = new File(assets, 'klipper/klippy/extras/' + sub)
+                f.getParentFile().mkdirs()
+                Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            // Vendored Klipper add-on mods (pure-python extras, dormant until the
+            // matching [section] is added to printer.cfg). See docs/mods/.
+            ['klipper_tmc_autotune', 'klipper_led_effect', 'klipper_z_calibration',
+             'klipper_auto_speed', 'klipper_print_recovery', 'klipper_beam_ext'].each { modName ->
+                files.clear()
+                klippy = file('src/main/' + modName)
+                collectFiles(klippy, files)
+                files.each {
+                    if (!it.getName().endsWith(".py") && !it.getName().endsWith(".cfg")) return
+
+                    var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                    if (sub.startsWith(".") || sub.contains("/.")) return
+                    arr.put('klippy/extras/' + sub)
+                    var f = new File(assets, 'klipper/klippy/extras/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+
+            files.clear()
+            klippy = file('src/main/assets/klipper/beam_ext')
+            collectFiles(klippy, files)
+            files.each {
+                if (it.getName() == "ext_version") return
+
+                var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                arr.put('beam_ext/' + sub)
+                var f = new File(assets, 'klipper/beam_ext/' + sub)
+                f.getParentFile().mkdirs()
+                Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            files.clear()
+            klippy = file('src/main/klipper/config')
+            collectFiles(klippy, files)
+            files.each {
+                var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                arr.put('config/' + sub)
+                var f = new File(assets, 'klipper/config/' + sub)
+                f.getParentFile().mkdirs()
+                Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            JSONObject index = new JSONObject()
+            index.put('klipper', arr)
+
+            if (file('src/main/kalico/klippy').exists()) {
+                arr = new JSONArray()
+                klippy = file('src/main/kalico/klippy')
+                files.clear()
+                collectFiles(klippy, files)
+                files.each {
+                    var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                    if (sub.startsWith(".") || sub.contains("/.")) return
+                    if (sub.startsWith("chelper/") && !sub.endsWith("__init__.py")) return
+                    arr.put('klippy/' + sub)
+                    var f = new File(assets, 'kalico/klippy/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+
+                files.clear()
+                klippy = file('src/main/happyhare/extras')
+                collectFiles(klippy, files)
+                files.each {
+                    if (it.getName() == ".pylintrc") return
+
+                    var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                    if (sub.startsWith(".") || sub.contains("/.")) return
+                    arr.put('klippy/extras/' + sub)
+                    var f = new File(assets, 'kalico/klippy/extras/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+
+                ['klipper_tmc_autotune', 'klipper_led_effect', 'klipper_z_calibration',
+                 'klipper_auto_speed', 'klipper_print_recovery', 'klipper_beam_ext'].each { modName ->
+                    files.clear()
+                    klippy = file('src/main/' + modName)
+                    collectFiles(klippy, files)
+                    files.each {
+                        if (!it.getName().endsWith(".py") && !it.getName().endsWith(".cfg")) return
+
+                        var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                        if (sub.startsWith(".") || sub.contains("/.")) return
+                        arr.put('klippy/extras/' + sub)
+                        var f = new File(assets, 'kalico/klippy/extras/' + sub)
+                        f.getParentFile().mkdirs()
+                        Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+
+                files.clear()
+                klippy = file('src/main/assets/klipper/beam_ext')
+                collectFiles(klippy, files)
+                files.each {
+                    if (it.getName() == "ext_version") return
+
+                    var sub = it.getAbsolutePath().substring(klippy.getAbsolutePath().length() + 1).replace('\\', '/')
+                    if (sub.startsWith(".") || sub.contains("/.")) return
+                    arr.put('beam_ext/' + sub)
+                    var f = new File(assets, 'kalico/beam_ext/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+
+                index.put('kalico', arr)
+            }
+
+            arr = new JSONArray()
+            arr.put('bootstrap.py')
+            var moonraker = file('src/main/moonraker/moonraker')
+            files.clear()
+            collectFiles(moonraker, files)
+            files.each {
+                var sub = it.getAbsolutePath().substring(moonraker.getAbsolutePath().length() + 1).replace('\\', '/')
+                arr.put('moonraker/' + sub)
+                var f = new File(assets, 'moonraker/moonraker/' + sub)
+                f.getParentFile().mkdirs()
+                Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            // Moonraker reports its version from git / pip metadata / a version
+            // file — the bundle is none of those, so /server/info returned
+            // "Version: ?". Stamp moonraker/__version__.py (the path pdm-build
+            // would generate) from 'moonraker_version', a plain marker file
+            // (same idea as beam_ext/ext_version) updated by hand whenever the
+            // vendored Moonraker source is re-synced. NOT derived from
+            // docs/changelog.md: upstream stopped adding numbered "## [x.y.z]"
+            // headings after 0.8.0 (2023) and has kept everything under
+            // "## [Unreleased]" since, so parsing the changelog's top heading
+            // always resolved to the stale "v0.8.0" regardless of how current
+            // the actual vendored source was.
+            var mrVersionFile = file('src/main/moonraker/moonraker_version')
+            var mrVersion = mrVersionFile.exists() ? (mrVersionFile.text.trim() + '-beam') : 'v0.0.0-beam'
+            var mrVerFile = new File(assets, 'moonraker/moonraker/__version__.py')
+            mrVerFile.getParentFile().mkdirs()
+            mrVerFile.text = "__version__ = '" + mrVersion + "'\n"
+            arr.put('moonraker/__version__.py')
+
+            moonraker = file('src/main/happyhare/components/')
+            files.clear()
+            collectFiles(moonraker, files)
+            files.each {
+                var sub = it.getAbsolutePath().substring(moonraker.getAbsolutePath().length() + 1).replace('\\', '/')
+                arr.put('moonraker/components/' + sub)
+                var f = new File(assets, 'moonraker/moonraker/components/' + sub)
+                f.getParentFile().mkdirs()
+                Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+
+            arr.put('moonraker/components/timelapse.py')
+            Files.copy(file('src/main/moonraker_timelapse/component/timelapse.py').toPath(), new File(assets, 'moonraker/moonraker/components/timelapse.py').toPath(), StandardCopyOption.REPLACE_EXISTING)
+
+            arr.put('timelapse.cfg')
+            Files.copy(file('src/main/moonraker_timelapse/klipper_macro/timelapse.cfg').toPath(), new File(assets, 'moonraker/timelapse.cfg').toPath(), StandardCopyOption.REPLACE_EXISTING)
+
+            index.put('moonraker', arr)
+
+            // OctoEverywhere companion (real vendored source, see docs). Copied
+            // wholesale, unlike klipper/moonraker above, since it isn't filtered
+            // to just klippy/moonraker component subfolders — RepoRootFolder
+            // needs a real pyproject.toml at its root and moonraker_octoeverywhere
+            // ships its own static/ web assets.
+            arr = new JSONArray()
+            var octoRoot = file('src/main/octoeverywhere')
+            if (octoRoot.exists()) {
+                files.clear()
+                collectFiles(octoRoot, files)
+                files.each {
+                    if (it.getName() == 'vendor_version') return
+                    var sub = it.getAbsolutePath().substring(octoRoot.getAbsolutePath().length() + 1).replace('\\', '/')
+                    if (sub.startsWith('.') || sub.contains('/.')) return
+                    arr.put(sub)
+                    var f = new File(assets, 'octoeverywhere/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+                index.put('octoeverywhere', arr)
+            }
+
+            // Obico companion (real vendored source, see docs/obico.md). Also
+            // copied wholesale like octoeverywhere above — it's a plain
+            // Python package (moonraker_obico/), not filtered to a klippy/
+            // moonraker component subfolder.
+            arr = new JSONArray()
+            var obicoRoot = file('src/main/obico')
+            if (obicoRoot.exists()) {
+                files.clear()
+                collectFiles(obicoRoot, files)
+                files.each {
+                    if (it.getName() == 'vendor_version') return
+                    var sub = it.getAbsolutePath().substring(obicoRoot.getAbsolutePath().length() + 1).replace('\\', '/')
+                    if (sub.startsWith('.') || sub.contains('/.')) return
+                    arr.put(sub)
+                    var f = new File(assets, 'obico/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+                index.put('obico', arr)
+            }
+
+            var indexFile = file('src/main/assets/index.json')
+            if (!indexFile.exists()) indexFile.createNewFile()
+            indexFile.text = index.toString()
+
+            if (!versionFile.exists()) versionFile.createNewFile()
+            versionFile.text = version
+        }
+
+        // Flat, runtime-readable markers of the exact upstream commit each
+        // rolling-repo vendor tree (no real releases) was last synced to —
+        // read by FrontendUpdateChecker for the Settings "current vs.
+        // latest" display. Copied unconditionally (not gated by the version
+        // check above) since getGitCommitHash() on these dirs resolves to
+        // this repo's own HEAD, not a real per-tree staleness signal, and a
+        // single-line text copy is too cheap to bother caching.
+        var klipperCommitFile = file('src/main/klipper/klipper_commit')
+        new File(assets, 'klipper_commit').text = klipperCommitFile.exists() ? klipperCommitFile.text.trim() : 'unknown'
+        var moonrakerCommitFile = file('src/main/moonraker/moonraker_commit')
+        new File(assets, 'moonraker_commit').text = moonrakerCommitFile.exists() ? moonrakerCommitFile.text.trim() : 'unknown'
+
+        // Version tags shown in Settings and compared against the newest
+        // upstream tag (Klipper3d/klipper, Arksine/moonraker). Plain marker
+        // files updated by hand whenever the vendored source is re-synced.
+        var klipperVersionFile = file('src/main/klipper/klipper_version')
+        new File(assets, 'klipper_version').text = klipperVersionFile.exists() ? klipperVersionFile.text.trim() : 'unknown'
+        var moonrakerVersionFile = file('src/main/moonraker/moonraker_version')
+        new File(assets, 'moonraker_version').text = moonrakerVersionFile.exists() ? moonrakerVersionFile.text.trim() : 'unknown'
+    }
+}
+tasks.getByName('preBuild').dependsOn('bundleKlipper')
+tasks.getByName('preBuild').dependsOn('bundleFluidd')
+tasks.getByName('preBuild').dependsOn('bundleMainsail')
+tasks.getByName('preBuild').dependsOn('bundleVoyager')
+
+// Line coverage of the unit tests: ./gradlew :app:jacocoUnitTestReport
+// (report in app/build/reports/jacoco/jacocoUnitTestReport/html/index.html).
+// Compose screens, generated code and the vendored NanoHTTPD are left out.
+tasks.register('jacocoUnitTestReport', JacocoReport) {
+    dependsOn 'testArm64DebugUnitTest'
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    classDirectories.setFrom(fileTree(dir: "$buildDir/tmp/kotlin-classes/arm64Debug", excludes: [
+        '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/*ComposableSingletons*',
+        '**/ui/screens/**', '**/ui/theme/**', '**/ui/components/**', '**/ui/NavHost*', '**/ui/KlipApp*',
+        '**/*\\$WhenMappings*', '**/*\\$Companion*'
+    ]))
+    sourceDirectories.setFrom(files('src/main/java'))
+    executionData.setFrom(fileTree(dir: "$buildDir", includes: ['jacoco/testArm64DebugUnitTest.exec', 'outputs/unit_test_code_coverage/**/*.exec']))
+}
