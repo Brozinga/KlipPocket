@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="AppName" translatable="false">KlipPocket</string>
+    <string name="InstanceN">%s</string>
+    <string name="ServicesChannel">Services</string>
+    <string name="KlippyTitle">Klippy (%s)</string>
+    <string name="KlippyDescription">Klippy is running in background…</string>
+    <string name="MoonrakerTitle">Moonraker (%s)</string>
+    <string name="MoonrakerDescription">Moonraker is running in background…</string>
+    <string name="MoonrakerStartFailed">Failed to bind to port — please restart the instance</string>
+    <string name="WebTitle">Web server</string>
+    <string name="WebDescription">Web server is running in background…</string>
+    <string name="CameraTitle">Camera server</string>
+    <string name="CameraDescription">Camera server is running in background…</string>
+    <string name="BatteryOptimizationExclusion">Battery optimization exclusion</string>
+    <string name="Notifications">Notifications</string>
+    <string name="HideNotificationsChannel">Hide notifications channel</string>
+    <string name="HideNotificationsChannelInfo">You need to disable «%s» channel</string>
+    <string name="NotOnSdcard">App is not broken by installing on SD Card</string>
+    <string name="NotOnSdcardInfo">App can\'t work on SD Card</string>
+    <string name="IgnoreBatteryOptimization">Ignore battery optimization (Doze)</string>
+    <string name="WatchdogChannel" translatable="false">Watchdog</string>
+    <string name="WatchdogChannelDesc">Crashed service recovery notifications</string>
+    <string name="WatchdogCrashTitle">%s service crashed</string>
+    <string name="WatchdogCrashRestarting">%1$s service crashed, restarting (attempt %2$d of %3$d)…</string>
+    <string name="WatchdogCrashGaveUp">%s service crashed %d times, stopping to avoid thrashing.</string>
+    <string name="Next">Next</string>
+    <string name="Instances">Profiles</string>
+    <string name="InstanceStarting">Starting…</string>
+    <string name="InstanceStopping">Stopping…</string>
+    <string name="InstanceRunning">Running</string>
+    <string name="InstanceIdle">Idle</string>
+    <string name="InstanceDefaultName">Printer %d</string>
+    <string name="InstanceDefaultNameHint">e.g. Printer 1</string>
+    <string name="InstanceName">Name</string>
+    <string name="InstanceConfig">Config</string>
+    <string name="InstanceCreate">Create</string>
+    <string name="InstanceConfigHint">Tap to select a config file…</string>
+    <string name="InstanceConfigLoading">Preparing configs, please wait…</string>
+    <string name="InstanceDelete">Delete «%s»?</string>
+    <string name="InstanceDeleteConfirm">Are you sure?</string>
+    <string name="InstanceOK">OK</string>
+    <string name="NewInstance">New profile</string>
+    <string name="EditInstance">Edit profile</string>
+    <string name="EditOpenDirectory">Open profile folder</string>
+    <string name="NoFreeSlotsDescription">Only %d profiles can be created and run at the same time.</string>
+    <string name="Error">Error</string>
+    <string name="ErrorNameEmpty">Name can not be empty</string>
+    <string name="ErrorConfigEmpty">Select a config</string>
+    <string name="Settings">Settings</string>
+    <string name="Camera">Camera</string>
+    <string name="EnableCamera">Enable camera server</string>
+    <string name="CameraSource">Camera source</string>
+    <string name="CameraSourceTitle">Select camera source</string>
+    <string name="CameraSourceAuto">Automatic (prefer USB webcam)</string>
+    <string name="CameraSourceUsbWebcam">USB webcam (%1$s)</string>
+    <string name="CameraSourceBuiltInBack">Built-in back camera (%1$s)</string>
+    <string name="CameraSourceBuiltInFront">Built-in front camera (%1$s)</string>
+    <string name="CameraSourceOther">Camera %1$s</string>
+    <string name="CameraSourceBackN">Back camera %1$d</string>
+    <string name="CameraSourceFrontN">Front camera %1$d</string>
+    <string name="CameraRotation">Camera rotation</string>
+    <string name="CameraResolution">Camera resolution</string>
+    <string name="CameraResolutionLow">Low (640×480) — best for remote/OctoEverywhere</string>
+    <string name="CameraResolutionMedium">Medium (1280×720)</string>
+    <string name="CameraResolutionHigh">High (1920×1080) — best on a strong LAN</string>
+    <string name="OctoEverywhereTitle" translatable="false">OctoEverywhere</string>
+    <string name="OctoEverywhereDescription">OctoEverywhere companion is running in background…</string>
+    <string name="RemoteAccess">Remote access</string>
+    <string name="EnableOctoEverywhere" translatable="false">Enable OctoEverywhere</string>
+    <string name="LinkOctoEverywhere">Link printer</string>
+    <string name="LinkOctoEverywhereHint">Scan the QR code to connect your OctoEverywhere account</string>
+    <string name="LinkOctoEverywhereNotReady">Not ready yet — give it a few seconds after enabling, then try again</string>
+    <string name="ObicoTitle" translatable="false">Obico</string>
+    <string name="ObicoDescription">Obico companion is running in background…</string>
+    <string name="Obico" translatable="false">Obico</string>
+    <string name="EnableObico" translatable="false">Enable Obico</string>
+    <string name="ObicoServer">Obico server</string>
+    <string name="ObicoServerHint">Connect to Obico Cloud, or a self-hosted Obico Server</string>
+    <string name="ObicoServerCloud">Obico Cloud (app.obico.io)</string>
+    <string name="ObicoServerSelfHosted">Self-hosted</string>
+    <string name="ObicoServerSelfHostedHint">https://your-obico-server.example.com</string>
+    <string name="ObicoLink">Link printer</string>
+    <string name="ObicoLinked">Linked ✓</string>
+    <string name="ObicoNotLinked">Not linked</string>
+    <string name="ObicoLinkHint">Open the Obico app or website, add a printer, choose Klipper (self-installed), and enter the code below when asked</string>
+    <string name="ObicoAlreadyLinkedHint">This printer is already linked to your Obico account.</string>
+    <string name="ObicoLinkCodeHint">6-digit code</string>
+    <string name="ObicoLinkAction">Link</string>
+    <string name="ObicoLinking">Linking…</string>
+    <string name="ObicoUnlink">Unlink</string>
+    <string name="ObicoInvalidCode">Invalid or expired code</string>
+    <string name="ObicoNetworkError">Couldn\'t reach the server</string>
+    <string name="ObicoGeneratedCodeLabel">Your printer\'s code</string>
+    <string name="ObicoCodeTapToCopy">Tap the code to copy it</string>
+    <string name="ObicoCodeCopied">Copied</string>
+    <string name="ObicoOpenLink">Open link</string>
+    <string name="ObicoWaitingForCode">Waiting for the companion to generate a code… make sure Enable Obico is on and a printer is running</string>
+    <string name="ObicoManualCodeHint">Already have a code from Obico instead (e.g. OctoPrint-style setup)? Enter it here</string>
+    <string name="USB" translatable="false">USB</string>
+    <string name="ListUSB">List USB devices</string>
+    <string name="ListUSBTitle">USB devices</string>
+    <string name="ListUSBNoDevices">USB devices not found</string>
+    <string name="USBDeviceNaming">Device naming</string>
+    <string name="USBDeviceNamingByPath">By path</string>
+    <string name="USBDeviceNamingByVidPid">By VID/PID</string>
+    <string name="Autostart">Autostart</string>
+    <string name="Fluidd" translatable="false">Fluidd</string>
+    <string name="Mainsail" translatable="false">Mainsail</string>
+    <string name="Voyager" translatable="false">Voyager UI</string>
+    <string name="Kalico" translatable="false">Kalico</string>
+    <string name="Klipper" translatable="false">Klipper</string>
+    <string name="Moonraker" translatable="false">Moonraker</string>
+    <string name="IPInfo" translatable="false">http://%s:%d/</string>
+    <string name="General">General</string>
+    <string name="WebFrontend">Web frontend</string>
+    <string name="FirmwareEngine">Firmware engine</string>
+    <string name="EngineNotBundled">Kalico files are not installed yet. Build and reopen the app to use this engine.</string>
+    <string name="EngineRestartRequired">Restart running profiles for the firmware engine change to take effect.</string>
+    <string name="AppLanguage">App language</string>
+    <string name="LanguageSystem">Follow system</string>
+    <string name="LanguageEnglish">English</string>
+    <string name="LanguagePortuguese">Português (BR)</string>
+    <string name="LanguageRussian">Русский</string>
+    <string name="LanguageChineseSimplified">简体中文</string>
+    <string name="LanguageChineseTraditional">繁體中文</string>
+    <string name="SystemSettings">System settings</string>
+    <string name="Other">Other</string>
+    <string name="OtherGetFirmware">Get MCU firmware</string>
+    <string name="No">No</string>
+    <string name="Yes">Yes</string>
+    <string name="ErrorTryLater">Error. Please try again later.</string>
+    <string name="QRCode">QR Code</string>
+    <string name="QRCopy">Copy link</string>
+    <string name="QROpen">Open link</string>
+    <string name="QRCancel">Cancel</string>
+    <string name="Cancel">Cancel</string>
+    <string name="Changelog">Changelog</string>
+    <string name="ChangelogNext">Next</string>
+    <string name="ChangelogOK">OK</string>
+
+    <string name="About">About KlipPocket</string>
+    <string name="IntroTitle">What is KlipPocket?</string>
+    <string name="IntroText">KlipPocket brings Klipper to your Android device, turning an old phone or tablet into the brain of your 3D printer.\n\nHighlights:\n• Klipper and Kalico firmware support\n• Up to 10 concurrent instances\n• Native Android timelapse (no FFmpeg)\n• Mainsail, Fluidd and Voyager web interfaces\n• Camera, OctoEverywhere, Obico and Print Recovery\n\n1. Tap \"+\" to create a printer profile.\n2. Tap the Run button to start the engine.\n3. Open Fluidd, Mainsail or Voyager UI to control your printer.\n4. Use settings to switch engines and frontends.\n\nAll processing happens locally on your device.</string>
+    <string name="GitHubRepo">GitHub repository</string>
+    <string name="OriginalBeamKlipper">Original: Beam Klipper by utkabobr</string>
+    <string name="CreditsTitle">Credits</string>
+    <string name="CreditsText">KlipPocket is a Kotlin app based on Beam Klipper, originally created by utkabobr. Without his work this app would not exist.</string>
+    <string name="AppSettings">App settings</string>
+    <string name="EngineFrontend">Engine &amp; Frontend</string>
+    <string name="QuickStart">Quick start</string>
+    <string name="PrivacyNote">Everything runs on your device. No data leaves your phone.</string>
+    <string name="SelectIcon">Choose an icon</string>
+    <string name="Done">Done</string>
+    <string name="CameraZoom">Camera zoom</string>
+    <string name="CameraZoomUnsupported">Not supported by this camera</string>
+    <string name="CameraPreview">Camera preview</string>
+    <string name="CameraPreviewPermission">Camera permission is required to show the preview.</string>
+    <string name="CameraPreviewGrant">Grant camera permission</string>
+    <string name="CameraPreviewConnecting">Connecting to the camera server…</string>
+    <string name="CameraPreviewHint">Live view of what Fluidd/Mainsail will see, including rotation, resolution and zoom. Leaving this tab disconnects the preview.</string>
+    <string name="CameraPreviewFocusHint">Tap the preview to focus on that spot.</string>
+    <string name="CameraPreviewFocusUnsupported">This camera does not support tap-to-focus.</string>
+    <string name="CameraPreviewFocusReset">Reset focus</string>
+    <string name="CameraPreviewFocusSaved">The focus is remembered after the app restarts. Reset it after changing the camera or its position.</string>
+    <string name="LogsSourceNotFound">Log source not found.</string>
+    <string name="LogsLoadFailed">Failed to load: %1$s</string>
+    <string name="LogsLoading">Loading…</string>
+    <string name="LogsRefresh">Refresh</string>
+    <string name="LogsCopy">Copy</string>
+    <string name="LogsCopied">Copied</string>
+    <string name="LogsDownload">Download</string>
+    <string name="LogsSavedTo">Saved to %1$s</string>
+    <string name="LogsSaveFailed">Failed to save</string>
+    <string name="LogsShare">Share</string>
+    <string name="LogsShareTitle">Share logs</string>
+    <string name="LogsClear">Clear</string>
+    <string name="LogsClearTitle">Clear logs?</string>
+    <string name="LogsClearMessage">This deletes the current logs so any new error stands out. It can\'t be undone.</string>
+    <string name="LogsCleared">Logs cleared</string>
+    <string name="LogsClearFailed">Couldn\'t clear some logs</string>
+    <string name="KlipperApp" translatable="false">Klipper App</string>
+
+    <string name="SoftwareVersions">Software versions</string>
+    <string name="FrontendUpdateAction">Update</string>
+    <string name="FrontendVersionUnknown">Unknown</string>
+    <string name="FrontendVersionUpToDate">Up to date (%1$s)</string>
+    <string name="FrontendVersionAvailable">%1$s → %2$s available</string>
+    <string name="FrontendUpdateConfirmTitle">Update %1$s?</string>
+    <string name="FrontendUpdateConfirmMessage">Update from %1$s to %2$s?</string>
+    <string name="FrontendUpdatePrintWarning">A print is currently active. This is safe, but an already-open page may briefly reload.</string>
+    <string name="FrontendUpdateDownloading">Downloading… %1$d%%</string>
+    <string name="FrontendUpdateExtracting">Extracting…</string>
+    <string name="FrontendUpdateReplacing">Replacing files…</string>
+    <string name="FrontendUpdateDone">Update complete</string>
+    <string name="FrontendUpdateError">Update failed: %1$s</string>
+    <string name="FrontendUpdateErrorGeneric">Update failed</string>
+</resources>

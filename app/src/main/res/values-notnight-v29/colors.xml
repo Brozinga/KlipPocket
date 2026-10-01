@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="windowBackground">#F4F5F6</color>
+    <color name="navigationBarColor">#F4F5F6</color>
+    <color name="cardOutlineColor">#DDE1E6</color>
+</resources>

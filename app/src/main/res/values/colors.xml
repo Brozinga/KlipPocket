@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default = dark theme (used on Android < 10 and when the system is in dark mode). -->
+    <color name="windowBackground">#111315</color>
+    <color name="navigationBarColor">#111315</color>
+    <color name="iconBackground">#121619</color>
+    <color name="cardOutlineColor">#2A2F37</color>
+    <color name="accent">#49CBEB</color>
+</resources>
