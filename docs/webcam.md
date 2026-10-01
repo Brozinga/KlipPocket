@@ -25,7 +25,10 @@ device's own built-in camera, or a USB UVC webcam plugged in via OTG/a hub.
 
 The feed is served at `http://<device-ip>:8889/` (stream) and
 `http://<device-ip>:8889/snapshot` (single JPEG), independent of whichever
-port Fluidd/Mainsail themselves are running on.
+port Fluidd/Mainsail themselves are running on. The webcam-style addresses
+`http://<device-ip>:8889/webcam/?action=stream` and
+`http://<device-ip>:8889/webcam/?action=snapshot` answer with the same stream
+and snapshot, for tools that expect them.
 
 ### Live preview tab
 
@@ -100,8 +103,8 @@ to add it **once**, in either front end, and it shows up in both.
 |---|---|
 | Name | anything, e.g. "USB Cam" |
 | Service | `MJPEG-Streamer` |
-| Stream URL | `http://<device-ip>:8889/` |
-| Snapshot URL | `http://<device-ip>:8889/snapshot` |
+| Stream URL | `http://<device-ip>:8889/` (or `http://<device-ip>:8889/webcam/?action=stream`) |
+| Snapshot URL | `http://<device-ip>:8889/snapshot` (or `http://<device-ip>:8889/webcam/?action=snapshot`) |
 
 Use `127.0.0.1` only if you're viewing Fluidd in a browser on the phone
 itself; from another device, use the phone's LAN IP (the same one already

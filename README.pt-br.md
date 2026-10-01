@@ -85,6 +85,8 @@ O endereço aparece na tela principal sempre que alguma instância está rodando
 | Voyager UI | `http://IP:4410/` |
 | Transmissão da câmera | `http://IP:8889/` |
 | Snapshot da câmera (JPEG único) | `http://IP:8889/snapshot` |
+| Transmissão da câmera (estilo webcam) | `http://IP:8889/webcam/?action=stream` |
+| Snapshot da câmera (estilo webcam) | `http://IP:8889/webcam/?action=snapshot` |
 
 ## Início automático
 

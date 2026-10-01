@@ -85,6 +85,8 @@ The address is shown on the main screen whenever an instance is running (`IP` is
 | Voyager UI | `http://IP:4410/` |
 | Camera stream | `http://IP:8889/` |
 | Camera snapshot (single JPEG) | `http://IP:8889/snapshot` |
+| Camera stream (webcam style) | `http://IP:8889/webcam/?action=stream` |
+| Camera snapshot (webcam style) | `http://IP:8889/webcam/?action=snapshot` |
 
 ## Autostart
 

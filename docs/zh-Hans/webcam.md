@@ -20,7 +20,9 @@ KlipPocket 可以推送实时摄像头画面用于监控打印——可以是设
 3. **摄像头旋转**在 0°/90°/180°/270° 之间循环，适用于横放或倒置安装的手机。
 
 画面会通过 `http://<设备-ip>:8889/`（推流）和
-`http://<设备-ip>:8889/snapshot`（单张 JPEG）提供，与 Fluidd/Mainsail 自己使用
+`http://<设备-ip>:8889/snapshot`（单张 JPEG）提供；webcam 风格的地址
+`http://<设备-ip>:8889/webcam/?action=stream` 和
+`http://<设备-ip>:8889/webcam/?action=snapshot` 会返回相同的视频流和快照，供需要它们的工具使用。与 Fluidd/Mainsail 自己使用
 的端口无关。
 
 ### 实时预览标签页
@@ -79,8 +81,8 @@ Fluidd 和 Mainsail 的摄像头列表来自同一个地方——该打印机配
 |---|---|
 | 名称 | 任意，例如 "USB 摄像头" |
 | Service | `MJPEG-Streamer` |
-| Stream URL | `http://<设备-ip>:8889/` |
-| Snapshot URL | `http://<设备-ip>:8889/snapshot` |
+| Stream URL | `http://<设备-ip>:8889/`（或 `http://<设备-ip>:8889/webcam/?action=stream`） |
+| Snapshot URL | `http://<设备-ip>:8889/snapshot`（或 `http://<设备-ip>:8889/webcam/?action=snapshot`） |
 
 只有在手机本机浏览器中查看 Fluidd 时才用 `127.0.0.1`；从其他设备访问时，使用
 手机的局域网 IP（就是你 Fluidd/Mainsail 网址里已经用的那个）。

@@ -85,6 +85,8 @@ KlipPocket 提供三种 APK：
 | Voyager UI | `http://IP:4410/` |
 | 摄像头视频流 | `http://IP:8889/` |
 | 摄像头快照（单张 JPEG） | `http://IP:8889/snapshot` |
+| 摄像头视频流（webcam 风格） | `http://IP:8889/webcam/?action=stream` |
+| 摄像头快照（webcam 风格） | `http://IP:8889/webcam/?action=snapshot` |
 
 ## 自动启动
 
