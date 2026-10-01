@@ -1,0 +1,1 @@
+class LDAPExceptionError(Exception): pass

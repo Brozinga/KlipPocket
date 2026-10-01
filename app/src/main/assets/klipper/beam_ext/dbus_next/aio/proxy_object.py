@@ -1,0 +1,1 @@
+ProxyInterface = object

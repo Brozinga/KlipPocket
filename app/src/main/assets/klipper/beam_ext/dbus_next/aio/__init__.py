@@ -1,0 +1,2 @@
+MessageBus = object
+ProxyInterface = object
