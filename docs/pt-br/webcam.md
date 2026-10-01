@@ -25,7 +25,10 @@ UVC conectada via OTG/hub.
    montado de lado ou de cabeça para baixo.
 
 A imagem é servida em `http://<ip-do-aparelho>:8889/` (stream) e
-`http://<ip-do-aparelho>:8889/snapshot` (JPEG único), independente da
+`http://<ip-do-aparelho>:8889/snapshot` (JPEG único); os endereços no estilo webcam
+`http://<ip-do-aparelho>:8889/webcam/?action=stream` e
+`http://<ip-do-aparelho>:8889/webcam/?action=snapshot` respondem com o mesmo
+stream e o mesmo snapshot, para ferramentas que os esperam. Independente da
 porta que o Fluidd/Mainsail estejam usando.
 
 ### Aba de pré-visualização ao vivo
@@ -104,8 +107,8 @@ Adicionar Camera**:
 |---|---|
 | Nome | qualquer um, ex.: "Webcam USB" |
 | Service | `MJPEG-Streamer` |
-| Stream URL | `http://<ip-do-aparelho>:8889/` |
-| Snapshot URL | `http://<ip-do-aparelho>:8889/snapshot` |
+| Stream URL | `http://<ip-do-aparelho>:8889/` (ou `http://<ip-do-aparelho>:8889/webcam/?action=stream`) |
+| Snapshot URL | `http://<ip-do-aparelho>:8889/snapshot` (ou `http://<ip-do-aparelho>:8889/webcam/?action=snapshot`) |
 
 Use `127.0.0.1` só se estiver vendo o Fluidd num navegador no próprio
 celular; de outro aparelho, use o IP local do celular (o mesmo que já está

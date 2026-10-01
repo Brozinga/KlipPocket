@@ -28,6 +28,7 @@ Muitas impressoras "clássicas" ainda usam placas Marlin lentas e fechadas. O Kl
 - **Softwares atualizados** — Moonraker, Fluidd, Mainsail e Voyager UI recentes embutidos no app
 - **Conexão remota** — acesse sua impressora de qualquer lugar com OctoEverywhere, Obico e outros
 - **Detecção de falhas por IA** — perceba impressões com problema cedo, via Obico
+- **SimplyPrint** — monitoramento remoto e detecção de falhas por IA, já suportado pelo Moonraker embutido
 - **Print Recovery** — retome uma impressão após uma queda de energia
 - **Monitoramento por câmera** — use a câmera do aparelho ou uma webcam USB, com pré-visualização ao vivo, zoom e timelapse
 - **Interfaces web** — Fluidd, Mainsail e Voyager UI, servidas pelo próprio aparelho
@@ -70,6 +71,7 @@ Todos os guias ficam em [`docs/`](docs/pt-br/index.md) (também em English e 简
 - [Câmera / Webcam](docs/pt-br/webcam.md) — câmera do aparelho, webcam USB, pré-visualização, zoom e toque para focar
 - [OctoEverywhere](docs/pt-br/octoeverywhere.md) — acesso remoto com OctoEverywhere
 - [Obico](docs/pt-br/obico.md) — acesso remoto e detecção de falhas por IA com Obico
+- [SimplyPrint](docs/pt-br/simplyprint.md) — monitoramento remoto e detecção de falhas por IA com SimplyPrint
 - [Complementos do Klipper](docs/pt-br/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper sem acelerômetro](docs/pt-br/mods/input-shaper-manual.md) — método da torre de ringing e macros
 - [Compilando o APK](docs/pt-br/build-app.md) — compile o app você mesmo
@@ -85,6 +87,8 @@ O endereço aparece na tela principal sempre que alguma instância está rodando
 | Voyager UI | `http://IP:4410/` |
 | Transmissão da câmera | `http://IP:8889/` |
 | Snapshot da câmera (JPEG único) | `http://IP:8889/snapshot` |
+| Transmissão da câmera (estilo webcam) | `http://IP:8889/webcam/?action=stream` |
+| Snapshot da câmera (estilo webcam) | `http://IP:8889/webcam/?action=snapshot` |
 
 ## Início automático
 

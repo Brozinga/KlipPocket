@@ -28,6 +28,7 @@
 - **軟體保持最新** —— 應用內建較新的 Moonraker、Fluidd、Mainsail 和 Voyager UI
 - **遠端連線** —— 透過 OctoEverywhere、Obico 等隨時隨地訪問印表機
 - **AI 故障檢測** —— 藉助 Obico 及早發現失敗的列印
+- **SimplyPrint** —— 遠端監控和 AI 故障檢測，內建的 Moonraker 已原生支援
 - **Print Recovery（斷電續打）** —— 斷電後繼續列印
 - **攝像頭監控** —— 使用裝置攝像頭或 USB 攝像頭，支援實時預覽、縮放和延時攝影
 - **網頁介面** —— Fluidd、Mainsail 和 Voyager UI，由裝置本身提供
@@ -70,6 +71,7 @@ KlipPocket 提供三種 APK：
 - [攝像頭 / 網路攝像頭](docs/zh-Hans/webcam.md) —— 裝置攝像頭、USB 攝像頭、預覽、縮放和點選對焦
 - [OctoEverywhere](docs/zh-Hans/octoeverywhere.md) —— 使用 OctoEverywhere 遠端訪問
 - [Obico](docs/zh-Hans/obico.md) —— 使用 Obico 遠端訪問和 AI 故障檢測
+- [SimplyPrint](docs/zh-Hans/simplyprint.md) —— 使用 SimplyPrint 遠端監控和 AI 故障檢測
 - [Klipper 附加元件](docs/zh-Hans/mods/klipper-addons.md) —— KAMP、LED Effect、Z Calibration、Auto Speed、TMC Autotune
 - [無加速度計的 Input Shaper](docs/zh-Hans/mods/input-shaper-manual.md) —— 振鈴塔方法和宏
 - [構建 APK](docs/zh-Hans/build-app.md) —— 自己編譯應用
@@ -85,6 +87,8 @@ KlipPocket 提供三種 APK：
 | Voyager UI | `http://IP:4410/` |
 | 攝像頭影片流 | `http://IP:8889/` |
 | 攝像頭快照（單張 JPEG） | `http://IP:8889/snapshot` |
+| 攝像頭影片流（webcam 風格） | `http://IP:8889/webcam/?action=stream` |
+| 攝像頭快照（webcam 風格） | `http://IP:8889/webcam/?action=snapshot` |
 
 ## 自動啟動
 

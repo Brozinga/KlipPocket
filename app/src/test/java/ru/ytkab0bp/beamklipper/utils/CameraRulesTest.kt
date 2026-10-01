@@ -250,11 +250,14 @@ class CameraHttpTest {
     fun `a snapshot path is recognised`() {
         assertTrue(CameraHttp.isSnapshotRequest("GET /snapshot HTTP/1.1"))
         assertTrue(CameraHttp.isSnapshotRequest("GET /snapshot?cb=123 HTTP/1.0"))
+        assertTrue(CameraHttp.isSnapshotRequest("GET /webcam/?action=snapshot HTTP/1.1"))
+        assertTrue(CameraHttp.isSnapshotRequest("GET /webcam?action=snapshot&cb=1 HTTP/1.1"))
     }
 
     @Test
     fun `the stream path and everything else is not a snapshot`() {
         assertFalse(CameraHttp.isSnapshotRequest("GET / HTTP/1.1"))
+        assertFalse(CameraHttp.isSnapshotRequest("GET /webcam/?action=stream HTTP/1.1"))
         assertFalse(CameraHttp.isSnapshotRequest("GET /stream HTTP/1.1"))
         assertFalse(CameraHttp.isSnapshotRequest("POST /snapshot HTTP/1.1"))
     }

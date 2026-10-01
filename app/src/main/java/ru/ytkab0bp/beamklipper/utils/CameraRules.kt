@@ -133,11 +133,15 @@ object CameraHttp {
     fun framePartHeader(size: Int): String =
         "--camera-frame\r\nContent-Type: image/jpeg\r\nContent-Length: $size\r\n\r\n"
 
-    // "GET /snapshot ..." (with or without a query) asks for one frame;
-    // anything else, including a missing request line, gets the stream.
+    // One frame is requested by "GET /snapshot ..." or by the webcam-style
+    // "GET /webcam/?action=snapshot"; anything else ("/", "/webcam/?action=stream",
+    // a missing request line, ...) gets the stream.
     fun isSnapshotRequest(requestLine: String?): Boolean {
         if (requestLine == null) return false
-        val m = PATH.find(requestLine) ?: return false
-        return m.groupValues[1].startsWith("/snapshot")
+        val target = PATH.find(requestLine)?.groupValues?.get(1) ?: return false
+        if (target.startsWith("/snapshot")) return true
+        if (!target.startsWith("/webcam")) return false
+        val query = target.substringAfter('?', "")
+        return query.split('&').any { it == "action=snapshot" }
     }
 }
