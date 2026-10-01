@@ -28,6 +28,7 @@ Many "classic" printers still run slow, closed Marlin boards. KlipPocket brings 
 - **Up-to-date software** — recent Moonraker, Fluidd, Mainsail and Voyager UI bundled in the app
 - **Remote connection** — reach your printer from anywhere with OctoEverywhere, Obico and others
 - **AI failure detection** — spot failed prints early through Obico
+- **SimplyPrint** — remote monitoring and AI failure detection, already supported by the bundled Moonraker
 - **Print Recovery** — resume a print after a power loss
 - **Camera monitoring** — use the device camera or a USB webcam, with live preview, zoom and timelapse
 - **Web interfaces** — Fluidd, Mainsail and Voyager UI, served by the device itself
@@ -70,6 +71,7 @@ All guides live in [`docs/`](docs/index.md) (also available in Português and �
 - [Camera / Webcam](docs/webcam.md) — device camera, USB webcam, preview, zoom and tap to focus
 - [OctoEverywhere](docs/octoeverywhere.md) — remote access with OctoEverywhere
 - [Obico](docs/obico.md) — remote access and AI failure detection with Obico
+- [SimplyPrint](docs/simplyprint.md) — remote monitoring and AI failure detection with SimplyPrint
 - [Klipper add-ons](docs/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper without an accelerometer](docs/mods/input-shaper-manual.md) — ringing-tower method and macros
 - [Building the APK](docs/build-app.md) — compile the app yourself
