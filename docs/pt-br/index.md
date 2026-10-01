@@ -7,6 +7,7 @@
 | [getting-started.md](getting-started.md) | Passo a passo para iniciantes — instalar o APK, adicionar uma impressora, abrir o Fluidd/Mainsail e corrigir os avisos de "configuração faltando". |
 | [octoeverywhere.md](octoeverywhere.md) | Como usar o companion do OctoEverywhere para acesso remoto — ativação e vinculação. |
 | [obico.md](obico.md) | Como usar o companion do Obico para acesso remoto — ativação e vinculação, Obico Cloud ou auto-hospedado. |
+| [simplyprint.md](simplyprint.md) | Usando o SimplyPrint para monitoramento remoto e detecção de falhas por IA — como ligar no Moonraker e vincular a impressora. |
 | [print-recovery.md](print-recovery.md) | Recuperação de impressão — retomar após queda de energia ou desconexão. |
 | [timelapse.md](timelapse.md) | Timelapse — como ativar, configurar o fatiador, renderizar e onde fica o vídeo. |
 | [webcam.md](webcam.md) | Câmera / webcam USB — seletor de fonte, rotação, como adicionar no Fluidd e Mainsail. |

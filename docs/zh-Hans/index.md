@@ -7,6 +7,7 @@
 | [getting-started.md](getting-started.md) | 新手分步指南 —— 安装 APK、添加打印机、打开 Fluidd/Mainsail、处理“缺少配置”警告。 |
 | [octoeverywhere.md](octoeverywhere.md) | 如何使用内置的 OctoEverywhere 伴生程序进行远程访问——启用与关联。 |
 | [obico.md](obico.md) | 如何使用内置的 Obico 伴生程序进行远程访问——启用与关联，Obico Cloud 或自建服务器。 |
+| [simplyprint.md](simplyprint.md) | 使用 SimplyPrint 进行远程监控和 AI 故障检测——在 Moonraker 中开启并关联打印机。 |
 | [print-recovery.md](print-recovery.md) | 断电续打 —— 断电或断线后恢复打印。 |
 | [timelapse.md](timelapse.md) | 延时摄影 —— 启用、切片软件设置、渲染，以及生成的视频存放位置。 |
 | [webcam.md](webcam.md) | 摄像头 / USB 摄像头——来源选择器、旋转、如何添加到 Fluidd 和 Mainsail。 |
