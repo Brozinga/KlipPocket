@@ -7,6 +7,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import ru.ytkab0bp.beamklipper.update.VersionCompare
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileNotFoundException
@@ -23,10 +24,34 @@ class BundlePatchesTest {
     }
 
     @Test
-    fun `klipper's mcu still carries the serial directory placeholder`() {
-        // Kalico's mcu.py has no such placeholder: the installer's TTY_PATH
-        // patch of it changes nothing.
+    fun `kalico keeps the changes the app makes to its host`() {
+        // Re-applied by hand each time the vendored tree is re-synced.
+        assertTrue(source("kalico/klippy/printer.py").contains("--beam-input"))
+        assertTrue(source("kalico/klippy/gcode.py").contains("self.is_beam"))
+        assertTrue(source("kalico/klippy/mcu.py").contains("cfg_restart_method"))
+        // Python on Android has no os.getloadavg(), which would end the run.
+        assertFalse(Regex("(?m)^\\s+self\\.last_load_avg = os\\.getloadavg").containsMatchIn(source("kalico/klippy/extras/statistics.py")))
+    }
+
+    @Test
+    fun `the kalico version marker is a plain release tag`() {
+        val tag = source("kalico/kalico_version").trim()
+        assertEquals(tag, VersionCompare.highestTag(listOf(tag)))
+    }
+
+    @Test
+    fun `klipper and kalico mcu still carry the serial directory placeholder`() {
         assertTrue(source("klipper/klippy/mcu.py").contains(BundlePatches.TTY_PATH))
+        assertTrue(source("kalico/klippy/mcu.py").contains(BundlePatches.TTY_PATH))
+    }
+
+    @Test
+    fun `kalico's mcu maps any device path to the app's virtual serial like klipper's`() {
+        val kalico = source("kalico/klippy/mcu.py")
+        assertTrue(kalico.contains("startswith(\"/dev/\")"))
+        assertTrue(kalico.contains("\"<auto>\""))
+        // The baud stays 0, so the link is opened as a pipe, with no port lock.
+        assertFalse(Regex("(?m)^\\s+self\\._baud = config\\.getint").containsMatchIn(kalico))
     }
 
     @Test

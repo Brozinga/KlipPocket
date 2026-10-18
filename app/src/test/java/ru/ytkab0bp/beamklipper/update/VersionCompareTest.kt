@@ -56,4 +56,12 @@ class VersionCompareTest {
         assertEquals("v0.13.0", VersionCompare.highestTag(listOf("v0.9.1", "v0.13.0", "v0.12.0", "v0.14.0-rc1", "latest")))
         assertNull(VersionCompare.highestTag(listOf("latest", "nightly")))
     }
+
+    @Test
+    fun `kalico's monthly tags compare numerically`() {
+        assertTrue(VersionCompare.tagBehind("v2026.08.00", "v2026.10.00"))
+        assertTrue(VersionCompare.tagBehind("v2026.09.00", "v2026.10.00"))
+        assertFalse(VersionCompare.tagBehind("v2026.10.00", "v2026.10.00"))
+        assertEquals("v2026.10.00", VersionCompare.highestTag(listOf("v2026.08.00", "v2026.10.00", "v2026.09.00", "v2025.12.00")))
+    }
 }

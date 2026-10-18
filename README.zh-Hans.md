@@ -14,7 +14,7 @@
 **其他语言: [English](README.md) · [Português (BR)](README.pt-br.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
 
 **KlipPocket 把一台 Android 手机或平板变成 3D 打印机的“大脑”。**
-通过 USB 连接打印机，它就能为你运行 [Klipper](https://github.com/KevinOConnor/klipper) 或 [Kalico](https://github.com/KalicoDTU/kalico) —— 不需要树莓派，不需要 SSH，也不用维护 Linux。
+通过 USB 连接打印机，它就能为你运行 [Klipper](https://github.com/KevinOConnor/klipper) 或 [Kalico](https://github.com/KalicoCrew/kalico) —— 不需要树莓派，不需要 SSH，也不用维护 Linux。
 
 许多“经典”打印机仍在使用缓慢且封闭的 Marlin 主板。KlipPocket 让它们用上现代的 Klipper 固件，而没有通常的复杂度：安装应用，给打印机刷一次固件，然后在浏览器里通过网页界面控制一切。所有内容都在你已有的设备上本地运行，远程访问、摄像头监控、故障检测、断电续打等额外工具，一键即可开启。
 
@@ -24,7 +24,7 @@
 
 ## 功能
 
-- **支持 Klipper 0.13 及更早版本** —— 兼容当前和较旧的 Klipper 固件（同时支持 Kalico）
+- **支持 Klipper 0.13 及更早版本** —— 兼容当前和较旧的 Klipper 固件（同时支持 Kalico v2026.10.00）
 - **软件保持最新** —— 应用内置较新的 Moonraker、Fluidd、Mainsail 和 Voyager UI
 - **远程连接** —— 通过 OctoEverywhere、Obico 等随时随地访问打印机
 - **AI 故障检测** —— 借助 Obico 及早发现失败的打印

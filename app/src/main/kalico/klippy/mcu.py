@@ -18,6 +18,8 @@ class error(Exception):
 
 # Minimum time host needs to get scheduled events queued into mcu
 MIN_SCHEDULE_TIME = 0.100
+# Like MIN_SCHEDULE_TIME, but used during MCU initialization
+MIN_SCHEDULE_TIME_INIT = 0.200
 # The maximum number of clock cycles an MCU is expected
 # to schedule into the future, due to the protocol and firmware.
 MAX_SCHEDULE_TICKS = (1 << 31) - 1
@@ -598,7 +600,9 @@ class MCU_pwm:
         cmd_queue = self._mcu.alloc_command_queue()
         curtime = self._mcu.get_printer().get_reactor().monotonic()
         printtime = self._mcu.estimated_print_time(curtime)
-        self._last_clock = self._mcu.print_time_to_clock(printtime + 0.200)
+        self._last_clock = self._mcu.print_time_to_clock(
+            printtime + MIN_SCHEDULE_TIME_INIT
+        )
         cycle_ticks = self._mcu.seconds_to_clock(self._cycle_time)
         mdur_ticks = self._mcu.seconds_to_clock(self._max_duration)
         if mdur_ticks > MAX_SCHEDULE_TICKS:
@@ -663,10 +667,12 @@ class MCU_pwm:
         )
 
     def set_pwm(self, print_time, value):
+        clock = self._mcu.print_time_to_clock(print_time)
+        if clock < self._last_clock and not self._mcu.is_fileoutput():
+            raise error("Tried to set PWM target before last update")
         if self._invert:
             value = 1.0 - value
         v = int(max(0.0, min(1.0, value)) * self._pwm_max + 0.5)
-        clock = self._mcu.print_time_to_clock(print_time)
         self._set_cmd.send(
             [self._oid, clock, v], minclock=self._last_clock, reqclock=clock
         )
@@ -790,11 +796,42 @@ class MCU:
             self._printer.load_object(config, "canbus_stats %s" % (self._name,))
         else:
             self._serialport = config.get("serial")
-            if not (
-                self._serialport.startswith("/dev/rpmsg_")
-                or self._serialport.startswith("/tmp/klipper_host_")
-            ):
-                self._baud = config.getint("baud", 250000, minval=2400)
+
+            # Beam changed: Android has no /dev/serial, the USB device is
+            # exposed as a virtual serial under the app's files/serial folder.
+            if self._serialport.startswith("/dev/"):
+                logging.info(
+                    "[Beam] Note: ignoring serial setting %s, using '<auto>' instead",
+                    self._serialport,
+                )
+                self._serialport = "<auto>"
+
+            if self._serialport == "<auto>":
+                files = os.listdir(${TTY_PATH})
+                if len(files) != 1:
+                    if len(files) > 1:
+                        logging.error(
+                            "[Beam] Error: failed to configure <auto>, more than one serial device found"
+                        )
+                    else:
+                        logging.error(
+                            "[Beam] Error: failed to configure <auto>, no devices found"
+                        )
+                    raise error(
+                        "Failed to find serial port with <auto> setting. Check logs for more info!"
+                    )
+                self._serialport = ${TTY_PATH} + "/" + files[0]
+                logging.info(
+                    "[Beam] Configured '<auto>' to '%s'", self._serialport
+                )
+
+            # Beam changed: must use virtual serial, it's better to use
+            # connect_pipe with it (baud stays 0, so no pyserial port lock)
+            # if not (
+            #     self._serialport.startswith("/dev/rpmsg_")
+            #     or self._serialport.startswith("/tmp/klipper_host_")
+            # ):
+            #     self._baud = config.getint("baud", 250000, minval=2400)
         # Restarts
         restart_methods = [None, "arduino", "cheetah", "command", "rpi_usb"]
         self._restart_method = "command"
@@ -1298,6 +1335,7 @@ class MCU:
         self._get_status_info["mcu_version"] = version
         self._get_status_info["mcu_build_versions"] = build_versions
         self._get_status_info["mcu_constants"] = msgparser.get_constants()
+        self._get_status_info["mcu_kconfig"] = msgparser.get_kconfig()
         if app in ("Klipper", "Danger-Klipper"):
             pconfig = self._printer.lookup_object("configfile")
             pconfig.runtime_warning(

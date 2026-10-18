@@ -25,4 +25,7 @@ object FrontendRepos {
     const val KLIPPER_REPO = "klipper"
     const val MOONRAKER_OWNER = "Arksine"
     const val MOONRAKER_REPO = "moonraker"
+    // Kalico tags monthly (vYYYY.MM.NN), which the same vX.Y.Z comparison covers.
+    const val KALICO_OWNER = "KalicoCrew"
+    const val KALICO_REPO = "kalico"
 }

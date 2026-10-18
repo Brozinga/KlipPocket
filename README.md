@@ -14,7 +14,7 @@
 **Read this in other languages: [English](README.md) · [Português (BR)](README.pt-br.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
 
 **KlipPocket turns an Android phone or tablet into the brain of your 3D printer.**
-Plug it into the printer over USB and it runs [Klipper](https://github.com/KevinOConnor/klipper) or [Kalico](https://github.com/KalicoDTU/kalico) for you — no Raspberry Pi, no SSH, no Linux to maintain.
+Plug it into the printer over USB and it runs [Klipper](https://github.com/KevinOConnor/klipper) or [Kalico](https://github.com/KalicoCrew/kalico) for you — no Raspberry Pi, no SSH, no Linux to maintain.
 
 Many "classic" printers still run slow, closed Marlin boards. KlipPocket brings them modern Klipper firmware without the usual complexity: install the app, flash the printer once, and control everything from the web interfaces in your browser. Everything runs locally on the device you already own, and the extra tools — remote access, camera monitoring, failure detection, print recovery — are a switch away.
 
@@ -24,7 +24,7 @@ Many "classic" printers still run slow, closed Marlin boards. KlipPocket brings 
 
 ## Features
 
-- **Klipper 0.13 and earlier** — compatible with current and older Klipper firmware (Kalico also supported)
+- **Klipper 0.13 and earlier** — compatible with current and older Klipper firmware (Kalico v2026.10.00 also supported)
 - **Up-to-date software** — recent Moonraker, Fluidd, Mainsail and Voyager UI bundled in the app
 - **Remote connection** — reach your printer from anywhere with OctoEverywhere, Obico and others
 - **AI failure detection** — spot failed prints early through Obico

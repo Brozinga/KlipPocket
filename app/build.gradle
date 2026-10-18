@@ -47,8 +47,8 @@ android {
         multiDexEnabled true
         multiDexKeepFile file('multidex-keep.txt')
         multiDexKeepProguard file('multidex-keep.pro')
-        versionCode 2
-        versionName "0.0.2"
+        versionCode 3
+        versionName "0.0.3"
 
         buildConfigField "int", "SLOTS_COUNT", "4"
 
@@ -652,6 +652,8 @@ tasks.register('bundleKlipper') {
         // files updated by hand whenever the vendored source is re-synced.
         var klipperVersionFile = file('src/main/klipper/klipper_version')
         new File(assets, 'klipper_version').text = klipperVersionFile.exists() ? klipperVersionFile.text.trim() : 'unknown'
+        var kalicoVersionFile = file('src/main/kalico/kalico_version')
+        new File(assets, 'kalico_version').text = kalicoVersionFile.exists() ? kalicoVersionFile.text.trim() : 'unknown'
         var moonrakerVersionFile = file('src/main/moonraker/moonraker_version')
         new File(assets, 'moonraker_version').text = moonrakerVersionFile.exists() ? moonrakerVersionFile.text.trim() : 'unknown'
     }

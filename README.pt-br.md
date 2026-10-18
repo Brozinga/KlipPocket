@@ -14,7 +14,7 @@
 **Leia em outros idiomas: [English](README.md) · [Português (BR)](README.pt-br.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
 
 **O KlipPocket transforma um celular ou tablet Android no cérebro da sua impressora 3D.**
-Conecte-o à impressora por USB e ele roda o [Klipper](https://github.com/KevinOConnor/klipper) ou o [Kalico](https://github.com/KalicoDTU/kalico) para você — sem Raspberry Pi, sem SSH, sem Linux para manter.
+Conecte-o à impressora por USB e ele roda o [Klipper](https://github.com/KevinOConnor/klipper) ou o [Kalico](https://github.com/KalicoCrew/kalico) para você — sem Raspberry Pi, sem SSH, sem Linux para manter.
 
 Muitas impressoras "clássicas" ainda usam placas Marlin lentas e fechadas. O KlipPocket leva o Klipper moderno até elas, sem a complexidade de sempre: instale o app, grave o firmware na impressora uma vez e controle tudo pelas interfaces web no navegador. Tudo roda localmente no aparelho que você já tem, e as ferramentas extras — acesso remoto, monitoramento por câmera, detecção de falhas, recuperação de impressão — ficam a um toque de distância.
 
@@ -24,7 +24,7 @@ Muitas impressoras "clássicas" ainda usam placas Marlin lentas e fechadas. O Kl
 
 ## Funcionalidades
 
-- **Klipper 0.13 e anteriores** — compatível com o firmware Klipper atual e com versões antigas (Kalico também é suportado)
+- **Klipper 0.13 e anteriores** — compatível com o firmware Klipper atual e com versões antigas (Kalico v2026.10.00 também é suportado)
 - **Softwares atualizados** — Moonraker, Fluidd, Mainsail e Voyager UI recentes embutidos no app
 - **Conexão remota** — acesse sua impressora de qualquer lugar com OctoEverywhere, Obico e outros
 - **Detecção de falhas por IA** — perceba impressões com problema cedo, via Obico
