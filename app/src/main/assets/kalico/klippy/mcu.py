@@ -796,11 +796,42 @@ class MCU:
             self._printer.load_object(config, "canbus_stats %s" % (self._name,))
         else:
             self._serialport = config.get("serial")
-            if not (
-                self._serialport.startswith("/dev/rpmsg_")
-                or self._serialport.startswith("/tmp/klipper_host_")
-            ):
-                self._baud = config.getint("baud", 250000, minval=2400)
+
+            # Beam changed: Android has no /dev/serial, the USB device is
+            # exposed as a virtual serial under the app's files/serial folder.
+            if self._serialport.startswith("/dev/"):
+                logging.info(
+                    "[Beam] Note: ignoring serial setting %s, using '<auto>' instead",
+                    self._serialport,
+                )
+                self._serialport = "<auto>"
+
+            if self._serialport == "<auto>":
+                files = os.listdir(${TTY_PATH})
+                if len(files) != 1:
+                    if len(files) > 1:
+                        logging.error(
+                            "[Beam] Error: failed to configure <auto>, more than one serial device found"
+                        )
+                    else:
+                        logging.error(
+                            "[Beam] Error: failed to configure <auto>, no devices found"
+                        )
+                    raise error(
+                        "Failed to find serial port with <auto> setting. Check logs for more info!"
+                    )
+                self._serialport = ${TTY_PATH} + "/" + files[0]
+                logging.info(
+                    "[Beam] Configured '<auto>' to '%s'", self._serialport
+                )
+
+            # Beam changed: must use virtual serial, it's better to use
+            # connect_pipe with it (baud stays 0, so no pyserial port lock)
+            # if not (
+            #     self._serialport.startswith("/dev/rpmsg_")
+            #     or self._serialport.startswith("/tmp/klipper_host_")
+            # ):
+            #     self._baud = config.getint("baud", 250000, minval=2400)
         # Restarts
         restart_methods = [None, "arduino", "cheetah", "command", "rpi_usb"]
         self._restart_method = "command"
