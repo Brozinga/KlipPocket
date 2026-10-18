@@ -72,6 +72,7 @@ KlipPocket 提供三種 APK：
 - [OctoEverywhere](docs/zh-Hans/octoeverywhere.md) —— 使用 OctoEverywhere 遠端訪問
 - [Obico](docs/zh-Hans/obico.md) —— 使用 Obico 遠端訪問和 AI 故障檢測
 - [SimplyPrint](docs/zh-Hans/simplyprint.md) —— 使用 SimplyPrint 遠端監控和 AI 故障檢測
+- [Kalico](docs/zh-Hans/kalico.md) —— 切换到 Kalico 引擎，哪些可用、哪些不可用
 - [Klipper 附加元件](docs/zh-Hans/mods/klipper-addons.md) —— KAMP、LED Effect、Z Calibration、Auto Speed、TMC Autotune
 - [無加速度計的 Input Shaper](docs/zh-Hans/mods/input-shaper-manual.md) —— 振鈴塔方法和宏
 - [構建 APK](docs/zh-Hans/build-app.md) —— 自己編譯應用
