@@ -72,6 +72,7 @@ Todos os guias ficam em [`docs/`](docs/pt-br/index.md) (também em English e 简
 - [OctoEverywhere](docs/pt-br/octoeverywhere.md) — acesso remoto com OctoEverywhere
 - [Obico](docs/pt-br/obico.md) — acesso remoto e detecção de falhas por IA com Obico
 - [SimplyPrint](docs/pt-br/simplyprint.md) — monitoramento remoto e detecção de falhas por IA com SimplyPrint
+- [Kalico](docs/pt-br/kalico.md) — trocar o motor para o Kalico, o que funciona e o que não funciona
 - [Complementos do Klipper](docs/pt-br/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper sem acelerômetro](docs/pt-br/mods/input-shaper-manual.md) — método da torre de ringing e macros
 - [Compilando o APK](docs/pt-br/build-app.md) — compile o app você mesmo

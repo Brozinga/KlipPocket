@@ -4,7 +4,10 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import logging
-from mcu import MCU_endstop
+try:
+    from ..mcu import MCU_endstop  # Kalico: klippy is a package
+except ImportError:
+    from mcu import MCU_endstop  # Klipper: klippy is on the path
 
 class ZCalibrationHelper:
     def __init__(self, config):
