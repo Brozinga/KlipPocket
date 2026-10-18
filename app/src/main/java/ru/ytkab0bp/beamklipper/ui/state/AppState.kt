@@ -99,6 +99,7 @@ object AppState {
     // so its flows are re-exported directly rather than duplicated through
     // another MutableStateFlow layer.
     val klipperVersion: StateFlow<VersionStatus> = FrontendUpdateChecker.klipperStatus
+    val kalicoVersion: StateFlow<VersionStatus> = FrontendUpdateChecker.kalicoStatus
     val moonrakerVersion: StateFlow<VersionStatus> = FrontendUpdateChecker.moonrakerStatus
     val fluiddVersion: StateFlow<FrontendVersionStatus> = FrontendUpdateChecker.fluiddStatus
     val mainsailVersion: StateFlow<FrontendVersionStatus> = FrontendUpdateChecker.mainsailStatus

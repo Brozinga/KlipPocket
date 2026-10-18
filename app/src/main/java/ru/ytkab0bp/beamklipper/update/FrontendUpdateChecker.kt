@@ -39,6 +39,9 @@ object FrontendUpdateChecker {
     private val _klipperStatus = MutableStateFlow(VersionStatus(null, null, 0L))
     val klipperStatus: StateFlow<VersionStatus> = _klipperStatus
 
+    private val _kalicoStatus = MutableStateFlow(VersionStatus(null, null, 0L))
+    val kalicoStatus: StateFlow<VersionStatus> = _kalicoStatus
+
     private val _moonrakerStatus = MutableStateFlow(VersionStatus(null, null, 0L))
     val moonrakerStatus: StateFlow<VersionStatus> = _moonrakerStatus
 
@@ -79,6 +82,7 @@ object FrontendUpdateChecker {
     fun checkAllNow() {
         KlipperApp.appScope.launch(Dispatchers.IO) {
             checkKlipper()
+            checkKalico()
             checkMoonraker()
             checkFrontend(Prefs.FRONTEND_FLUIDD, _fluiddStatus)
             checkFrontend(Prefs.FRONTEND_MAINSAIL, _mainsailStatus)
@@ -93,6 +97,16 @@ object FrontendUpdateChecker {
             _klipperStatus.value = VersionStatus(bundled, latest, System.currentTimeMillis())
         } catch (_: Exception) {
             _klipperStatus.value = _klipperStatus.value.copy(bundled = bundled, checkedAtMs = System.currentTimeMillis(), error = true)
+        }
+    }
+
+    private fun checkKalico() {
+        val bundled = readAsset("kalico_version")
+        try {
+            val latest = GitHubReleases.latestVersionTag(FrontendRepos.KALICO_OWNER, FrontendRepos.KALICO_REPO)
+            _kalicoStatus.value = VersionStatus(bundled, latest, System.currentTimeMillis())
+        } catch (_: Exception) {
+            _kalicoStatus.value = _kalicoStatus.value.copy(bundled = bundled, checkedAtMs = System.currentTimeMillis(), error = true)
         }
     }
 

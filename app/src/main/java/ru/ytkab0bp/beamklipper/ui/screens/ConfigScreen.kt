@@ -108,6 +108,7 @@ fun ConfigScreen(
     val obicoLinked by viewModel.obicoLinked.collectAsStateWithLifecycle()
     val appLanguage by viewModel.appLanguage.collectAsStateWithLifecycle()
     val klipperVersion by viewModel.klipperVersion.collectAsStateWithLifecycle()
+    val kalicoVersion by viewModel.kalicoVersion.collectAsStateWithLifecycle()
     val moonrakerVersion by viewModel.moonrakerVersion.collectAsStateWithLifecycle()
     val fluiddVersion by viewModel.fluiddVersion.collectAsStateWithLifecycle()
     val mainsailVersion by viewModel.mainsailVersion.collectAsStateWithLifecycle()
@@ -209,6 +210,11 @@ fun ConfigScreen(
         KlipInfoRow(
             title = stringResource(R.string.KlipperApp),
             value = versionStatusText(klipperVersion.bundled, klipperVersion.latest)
+        )
+        Spacer(Modifier.height(8.dp))
+        KlipInfoRow(
+            title = stringResource(R.string.Kalico),
+            value = versionStatusText(kalicoVersion.bundled, kalicoVersion.latest)
         )
         Spacer(Modifier.height(8.dp))
         KlipInfoRow(

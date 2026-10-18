@@ -65,6 +65,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     val obicoLinked: StateFlow<Boolean> = AppState.obicoLinked
     val appLanguage: StateFlow<String> = AppState.appLanguage
     val klipperVersion: StateFlow<VersionStatus> = AppState.klipperVersion
+    val kalicoVersion: StateFlow<VersionStatus> = AppState.kalicoVersion
     val moonrakerVersion: StateFlow<VersionStatus> = AppState.moonrakerVersion
     val fluiddVersion: StateFlow<FrontendVersionStatus> = AppState.fluiddVersion
     val mainsailVersion: StateFlow<FrontendVersionStatus> = AppState.mainsailVersion
