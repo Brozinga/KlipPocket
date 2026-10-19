@@ -9,6 +9,7 @@
 | [obico.md](obico.md) | 如何使用内置的 Obico 伴生程序进行远程访问——启用与关联，Obico Cloud 或自建服务器。 |
 | [simplyprint.md](simplyprint.md) | 使用 SimplyPrint 进行远程监控和 AI 故障检测——在 Moonraker 中开启并关联打印机。 |
 | [kalico.md](kalico.md) | 用 Kalico 代替 Klipper——切换引擎、可能需要的配置修改，以及哪些功能可用。 |
+| [multi-mcu.md](multi-mcu.md) | 使用多个 MCU——USB 板、如何找到每块板的路径并写入 `printer.cfg`，以及不支持的情况（CAN）。 |
 | [print-recovery.md](print-recovery.md) | 断电续打 —— 断电或断线后恢复打印。 |
 | [timelapse.md](timelapse.md) | 延时摄影 —— 启用、切片软件设置、渲染，以及生成的视频存放位置。 |
 | [webcam.md](webcam.md) | 摄像头 / USB 摄像头——来源选择器、旋转、如何添加到 Fluidd 和 Mainsail。 |

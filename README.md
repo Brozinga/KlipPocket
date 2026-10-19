@@ -73,6 +73,7 @@ All guides live in [`docs/`](docs/index.md) (also available in Português and �
 - [Obico](docs/obico.md) — remote access and AI failure detection with Obico
 - [SimplyPrint](docs/simplyprint.md) — remote monitoring and AI failure detection with SimplyPrint
 - [Kalico](docs/kalico.md) — switch the engine to Kalico, what works and what does not
+- [Multi-MCU](docs/multi-mcu.md) — use extra USB boards (toolhead, sensors, extra ports) with `printer.cfg` examples
 - [Klipper add-ons](docs/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper without an accelerometer](docs/mods/input-shaper-manual.md) — ringing-tower method and macros
 - [Building the APK](docs/build-app.md) — compile the app yourself
