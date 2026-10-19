@@ -69,6 +69,7 @@ import ru.ytkab0bp.beamklipper.MainActivity
 import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.utils.CameraZoom
 import ru.ytkab0bp.beamklipper.serial.KlipperProbeTable
+import ru.ytkab0bp.beamklipper.serial.UsbDeviceLabel
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import ru.ytkab0bp.beamklipper.ui.components.KlipButton
 import ru.ytkab0bp.beamklipper.ui.components.KlipSwitch
@@ -967,11 +968,17 @@ internal fun KlipAlertDialog(
 @Composable
 private fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
     val manager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+    // Sorted by bus path so the numbers given to devices with the same name are stable.
+    val devices = manager.deviceList.values.sortedBy { it.deviceName }
+    val names = UsbDeviceLabel.numbered(devices.map {
+        UsbDeviceLabel.baseName(try { it.productName } catch (e: SecurityException) { null })
+    })
     val list = mutableListOf<String>()
-    for (dev in manager.deviceList.values) {
+    for ((i, dev) in devices.withIndex()) {
         val drv = KlipperProbeTable.getInstance().findDriver(dev)
         list.add(
-            Integer.toHexString(dev.vendorId) + "/" + Integer.toHexString(dev.productId) +
+            (if (names[i].isNotEmpty()) names[i] + " - " else "") +
+                    Integer.toHexString(dev.vendorId) + "/" + Integer.toHexString(dev.productId) +
                     " - " + dev.deviceName +
                     (if (drv != null) " - " + drv.name + "\n" +
                             File(KlipperApp.INSTANCE.filesDir, "serial/" + UsbSerialManager.getUID(dev)).absolutePath else "")
