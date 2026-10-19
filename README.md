@@ -65,7 +65,7 @@ Follow these steps in order:
 All guides live in [`docs/`](docs/index.md) (also available in Português and 简体中文):
 
 - [Getting Started](docs/getting-started.md) — install the app and set up your first printer, step by step
-- [Building the MCU firmware](docs/build-firmware.md) — generate the firmware to flash on your printer board
+- [Building the MCU firmware](docs/build-firmware.md) — interactive menu for Klipper or Kalico firmware (Docker): build, validate, flash (USB, UART, DFU, RP2040) and verify
 - [Print Recovery](docs/print-recovery.md) — resume a print after a power loss
 - [Timelapse](docs/timelapse.md) — record a timelapse and find the video
 - [Camera / Webcam](docs/webcam.md) — device camera, USB webcam, preview, zoom and tap to focus
