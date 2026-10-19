@@ -1002,7 +1002,7 @@ private fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
         list.add(buildAnnotatedString {
             if (names[i].isNotEmpty()) {
                 withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(names[i]) }
-                append(" - ")
+                append(": ")
             }
             append(details)
         })
