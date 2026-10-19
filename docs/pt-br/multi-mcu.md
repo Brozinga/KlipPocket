@@ -65,7 +65,7 @@ Mudar a nomeação muda os caminhos; por isso decida antes de editar o
    cada uma.
 2. Abra **Configurações → USB → List USB devices**.
 
-Cada placa reconhecida aparece começando pelo **nome dela** (o que o próprio
+Cada placa reconhecida aparece começando pelo **nome dela**, em negrito (o que o próprio
 dispositivo informa, como `rp2040` — o mesmo nome que aparece no pedido de
 permissão USB), depois `vid/pid`, o nome do dispositivo, o driver e, na linha
 seguinte, **o caminho serial para usar no `printer.cfg`**. Se dois dispositivos

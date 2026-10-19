@@ -62,7 +62,7 @@ and restart the profile after changing it.
    each one.
 2. Open **Settings → USB → List USB devices**.
 
-Each recognized board is listed starting with **its name** (the one the device
+Each recognized board is listed starting with **its name**, in bold (the one the device
 reports, such as `rp2040` — the same name the USB permission prompt shows), then
 its `vid/pid`, the device name, the driver and, on the next line, **the serial
 path to use in `printer.cfg`**. If two devices report the same name they are
