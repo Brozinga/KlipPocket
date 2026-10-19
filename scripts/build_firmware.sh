@@ -16,6 +16,14 @@
 #                  "#! flash_filename:" directive, else "klipper.bin").
 #   [klipper-tag]  overrides the config's "#! klipper_tag:" (default: v0.13.0).
 #
+# Environment (set by the Docker image / scripts/firmware_menu.*):
+#   FW_KLIPPER_SRC   engine source tree to build (Klipper OR Kalico checkout)
+#   FW_ENGINE        "klipper" (default) or "kalico" — only used in logs/manifest
+#   FW_ENGINE_TAG    tag of that source tree (overrides "#! klipper_tag:")
+#   FW_OUT_BASE      base name of the outputs (default "klipper"): the build
+#                    writes <base>.bin / .uf2 / .hex / .elf, whichever the chip
+#                    produces, plus <base>.dict and <base>.manifest.json
+#
 # Config directives (optional header lines in firmware/configs/*.config):
 #   #! board_name:      free text, shown in the log
 #   #! flash_filename:  the exact name the board's SD bootloader looks for
@@ -38,6 +46,7 @@ BUILD_DIR="${FW_BUILD_DIR:-$REPO_ROOT/firmware/.klipper-build}"
 
 DEFAULT_KLIPPER_TAG="v0.13.0"
 KLIPPER_REPO="https://github.com/Klipper3d/klipper.git"
+[ "${FW_ENGINE:-klipper}" = kalico ] && KLIPPER_REPO="https://github.com/KalicoCrew/kalico.git"
 TOOLCHAIN_VERSION="${FW_TOOLCHAIN_VERSION:-10.3-2021.07}"
 case "$(uname -s)" in
     Darwin) _TC_HOST="mac" ;;
@@ -80,13 +89,17 @@ ALLOW_NO_BL="$(directive allow_no_bootloader)"
 ASSERTS=()
 while IFS= read -r _a; do ASSERTS+=("$_a"); done < <(sed -n 's/^#![[:space:]]*assert:[[:space:]]*//p' "$CONFIG_SRC")
 
-KLIPPER_TAG="${3:-${DIR_TAG:-$DEFAULT_KLIPPER_TAG}}"
-OUT_NAME="${2:-${DIR_FLASH_NAME:-klipper.bin}}"
+ENGINE="${FW_ENGINE:-klipper}"
+KLIPPER_TAG="${3:-${FW_ENGINE_TAG:-${DIR_TAG:-$DEFAULT_KLIPPER_TAG}}}"
+OUT_BASE="${FW_OUT_BASE:-klipper}"
+# explicit name (argument or "#! flash_filename:") applies to the .bin only
+OUT_NAME="${2:-${DIR_FLASH_NAME:-}}"
+FW_CHECK_TOOL="${FW_CHECK_TOOL:-$REPO_ROOT/firmware/container/fwcheck.py}"
 
 log "Board:        $BOARD_NAME"
 log "Config:       ${CONFIG_SRC#$REPO_ROOT/}"
-log "Klipper tag:  $KLIPPER_TAG"
-log "Output name:  $OUT_NAME"
+log "Engine:       $ENGINE $KLIPPER_TAG"
+log "Output base:  $OUT_BASE${OUT_NAME:+ (bin renamed to $OUT_NAME)}"
 
 for tool in make python3 git; do command -v "$tool" >/dev/null || die "missing required tool: $tool"; done
 
@@ -104,12 +117,13 @@ else
 fi
 [ -x "$TOOLCHAIN_BIN/arm-none-eabi-gcc" ] || die "toolchain not found at $TOOLCHAIN_BIN"
 export PATH="$TOOLCHAIN_BIN:$PATH"
-log "Compiler:     $("$TOOLCHAIN_BIN/arm-none-eabi-gcc" --version | head -1)"
+log "ARM compiler: $("$TOOLCHAIN_BIN/arm-none-eabi-gcc" --version | head -1)"
+command -v avr-gcc >/dev/null && log "AVR compiler: $(avr-gcc --version | head -1)" || true
 
 # --- Klipper source ----------------------------------------------------
 if [ -n "${FW_KLIPPER_SRC:-}" ]; then
     BUILD_DIR="$FW_KLIPPER_SRC"                             # Docker: baked checkout
-    log "Klipper source (provided): $BUILD_DIR"
+    log "$ENGINE source (provided): $BUILD_DIR"
 elif [ -d "$BUILD_DIR/.git" ] && [ "$(git -C "$BUILD_DIR" describe --tags --always 2>/dev/null)" = "$KLIPPER_TAG" ]; then
     log "Klipper $KLIPPER_TAG already checked out."
 else
@@ -142,6 +156,9 @@ run_asserts "after olddefconfig"
 # generic bootloader-safety check: refuse to emit an image linked at flash start
 app_addr="$(sed -n 's/^CONFIG_FLASH_APPLICATION_ADDRESS=//p' .config)"
 boot_addr="$(sed -n 's/^CONFIG_FLASH_BOOT_ADDRESS=//p' .config)"
+# RP2040/RP2350 boot from a ROM bootloader, nothing in flash to overwrite
+mcu_name="$(sed -n 's/^CONFIG_MCU="\(.*\)"/\1/p' .config)"
+case "$mcu_name" in rp2040|rp2350) ALLOW_NO_BL="${ALLOW_NO_BL:-yes}" ;; esac
 if [ -z "$ALLOW_NO_BL" ] && [ -n "$app_addr" ] && [ -n "$boot_addr" ] && [ "$app_addr" = "$boot_addr" ]; then
     die "CONFIG_FLASH_APPLICATION_ADDRESS == CONFIG_FLASH_BOOT_ADDRESS ($app_addr): this image would sit on top of the bootloader. If your board genuinely has no bootloader, add '#! allow_no_bootloader: yes' to the config."
 fi
@@ -150,31 +167,60 @@ fi
 log "Compiling..."
 make clean >/dev/null
 make -j"$(ncpu)"
-[ -f out/klipper.bin ] || die "build finished but out/klipper.bin was not produced"
+# Which file the chip produces: .bin (ARM/AVR-less), .uf2 (RP2040), .elf.hex (AVR), .elf (Linux)
+ARTIFACTS=()
+for ext in bin uf2 elf.hex elf; do [ -f "out/klipper.$ext" ] && ARTIFACTS+=("$ext"); done
+[ ${#ARTIFACTS[@]} -gt 0 ] || die "build finished but no firmware image (klipper.bin/.uf2/.elf.hex/.elf) was produced in out/"
+# the .elf is only a deliverable when it is the sole image (Linux process MCU)
+if [ ${#ARTIFACTS[@]} -gt 1 ]; then
+    _keep=(); for ext in "${ARTIFACTS[@]}"; do [ "$ext" = elf ] || _keep+=("$ext"); done
+    ARTIFACTS=("${_keep[@]}")
+fi
+PRIMARY="${ARTIFACTS[0]}"
+fw_size=$(fsize "out/klipper.$PRIMARY")
+[ "$fw_size" -gt 0 ] || die "out/klipper.$PRIMARY is empty"
 
-fw_size=$(fsize out/klipper.bin)
 flash_size_hex="$(sed -n 's/^CONFIG_FLASH_SIZE=//p' .config)"
-if [ -n "$flash_size_hex" ] && [ -n "$app_addr" ] && [ -n "$boot_addr" ]; then
+if [ "$PRIMARY" = bin ] && [ -n "$flash_size_hex" ] && [ -n "$app_addr" ] && [ -n "$boot_addr" ]; then
     app_area=$(( flash_size_hex - (app_addr - boot_addr) ))
     [ "$fw_size" -le "$app_area" ] || die "firmware ($fw_size B) exceeds the application area ($app_area B) — DO NOT flash."
     log "Size OK: $fw_size B (application area $app_area B)."
 else
-    log "Size: $fw_size B (could not compute application area — no CONFIG_FLASH_SIZE assert)."
+    log "Size: $fw_size B (klipper.$PRIMARY)."
 fi
 
-# --- package (plain binary, renamed — NO obfuscation) ----------------
+# --- package (plain images, renamed — NO obfuscation) -------------------
 mkdir -p "$OUTPUT_DIR"
-final="$OUTPUT_DIR/$OUT_NAME"
-cp out/klipper.bin "$final"
+FILES=()
+for ext in "${ARTIFACTS[@]}"; do
+    case "$ext" in
+        elf.hex) dst="$OUT_BASE.hex" ;;
+        bin)     dst="${OUT_NAME:-$OUT_BASE.bin}" ;;
+        *)       dst="$OUT_BASE.$ext" ;;
+    esac
+    cp "out/klipper.$ext" "$OUTPUT_DIR/$dst"
+    FILES+=("$dst")
+done
+final="$OUTPUT_DIR/${FILES[0]}"
 sha="$(sha256sum "$final" | cut -d' ' -f1)"
 ver="$(cat out/*.version 2>/dev/null || echo "$KLIPPER_TAG")"
+cp out/klipper.dict "$OUTPUT_DIR/$OUT_BASE.dict" 2>/dev/null || true
+cp .config "$OUTPUT_DIR/$OUT_BASE.config.used"
+if [ -f "$FW_CHECK_TOOL" ]; then
+    python3 "$FW_CHECK_TOOL" manifest --out-dir "$OUTPUT_DIR" --base "$OUT_BASE" --engine "$ENGINE" \
+        --tag "$KLIPPER_TAG" --version "$ver" --config "$CONFIG_SRC" --used-config .config \
+        --files "${FILES[@]}" || warn "could not write the manifest"
+fi
 
 echo
 log "Done: ${final}"
-echo "    Klipper $ver | $fw_size bytes | sha256 $sha"
-echo "    Plain klipper.bin — flash this file as-is (no update_mks_robin.py / no obfuscation)."
+for f in "${FILES[@]}"; do echo "    $f"; done
+echo "    $ENGINE $ver | $fw_size bytes | sha256 $sha"
+echo "    Plain image — flash it as-is (no update_mks_robin.py / no obfuscation)."
 
-if [ -n "$EXPECT_SHA" ]; then
+if [ -n "$EXPECT_SHA" ] && [ "$ENGINE" != klipper ]; then
+    warn "#! expect_sha256 is pinned to a Klipper build — skipped for $ENGINE."
+elif [ -n "$EXPECT_SHA" ]; then
     if [ "$sha" = "$EXPECT_SHA" ]; then
         log "Reproducibility check PASSED (matches #! expect_sha256)."
     else
