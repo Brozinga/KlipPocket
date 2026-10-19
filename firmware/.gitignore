@@ -1,3 +1,6 @@
 /output/
 /toolchain/
 /.klipper-build/
+/.menu-state
+/.menu-state.json
+/configs/*.config.old

@@ -1,0 +1,4 @@
+# Only what the Dockerfile COPYs is needed; keep the build context tiny.
+*
+!scripts/build_firmware.sh
+!firmware/container/

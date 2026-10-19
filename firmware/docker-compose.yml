@@ -2,7 +2,7 @@
 #
 # Run from the repo root:
 #
-#   # build the image once (pins Klipper v0.13.0 + ARM gcc 10.3-2021.07)
+#   # build the image once (pins Klipper v0.13.0 + Kalico v2026.10.00 + ARM gcc 10.3-2021.07)
 #   docker compose -f firmware/docker-compose.yml build
 #
 #   # build firmware for a board in firmware/configs/  ->  firmware/output/
@@ -23,6 +23,7 @@ services:
       dockerfile: firmware/Dockerfile
       args:
         KLIPPER_TAG: v0.13.0
+        KALICO_TAG: v2026.10.00
         TOOLCHAIN_VERSION: 10.3-2021.07
     image: klippocket-firmware
     volumes:
