@@ -101,7 +101,8 @@ object UsbSerialManager {
     }
 
     fun disconnectAll() {
-        for (uid in portMap.keys) {
+        // close() removes the port from portMap: iterate over a copy
+        for (uid in portMap.keys.toList()) {
             close(uid)
         }
     }

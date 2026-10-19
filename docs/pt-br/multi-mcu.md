@@ -65,11 +65,16 @@ Mudar a nomeação muda os caminhos; por isso decida antes de editar o
    cada uma.
 2. Abra **Configurações → USB → List USB devices**.
 
-Cada placa reconhecida aparece com `vid/pid`, o nome do dispositivo, o driver e,
-na linha seguinte, **o caminho serial para usar no `printer.cfg`**. Exemplo
+Cada placa reconhecida aparece começando pelo **nome dela**, em negrito (o que o próprio
+dispositivo informa, como `rp2040` — o mesmo nome que aparece no pedido de
+permissão USB), depois `vid/pid`, o nome do dispositivo, o driver e, na linha
+seguinte, **o caminho serial para usar no `printer.cfg`**. Se dois dispositivos
+informam o mesmo nome, eles são numerados, na ordem do caminho no barramento:
+`rp2040 (1)`, `rp2040 (2)`. Um dispositivo que não informa nome começa direto
+pelo `vid/pid`. Exemplo
 real:
 
-A primeira placa é a principal (chip CH340, `1a86/7523`), com o caminho serial na linha seguinte. A segunda entrada (`1908/226`) é uma webcam: não tem linha de caminho porque não é uma placa Klipper. A mesma placa recebe um caminho diferente conforme o modo de nomeação:
+No exemplo, a primeira entrada (`1908/226`, sem nome) é uma webcam: não tem linha de caminho porque não é uma placa Klipper. `USB Serial` (`1a86/7523`) é uma placa CH340 e `rp2040` (`1d50/614e`) é um Raspberry Pi Pico rodando Klipper. A mesma placa recebe um caminho diferente conforme o modo de nomeação:
 
 | By path | By VID/PID |
 |---|---|

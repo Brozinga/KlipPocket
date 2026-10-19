@@ -52,6 +52,14 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.window.DialogProperties
+import android.content.res.Configuration
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +77,7 @@ import ru.ytkab0bp.beamklipper.MainActivity
 import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.utils.CameraZoom
 import ru.ytkab0bp.beamklipper.serial.KlipperProbeTable
+import ru.ytkab0bp.beamklipper.serial.UsbDeviceLabel
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import ru.ytkab0bp.beamklipper.ui.components.KlipButton
 import ru.ytkab0bp.beamklipper.ui.components.KlipSwitch
@@ -916,16 +925,27 @@ internal fun KlipAlertDialog(
     title: @Composable () -> Unit,
     text: @Composable () -> Unit,
     confirmButton: @Composable () -> Unit,
-    dismissButton: @Composable (() -> Unit)? = null
+    dismissButton: @Composable (() -> Unit)? = null,
+    wideInLandscape: Boolean = false
 ) {
-    Dialog(onDismissRequest = onDismissRequest) {
+    // The default dialog window is only about a phone's portrait width. Content with long
+    // lines (paths) is cramped in landscape, so a dialog can ask for most of the screen.
+    val wide = wideInLandscape &&
+            LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(usePlatformDefaultWidth = !wide)
+    ) {
         // Dialog windows are bounded to the screen, but a plain wrap-content
         // Column doesn't know that — on a short viewport (landscape) content
         // that doesn't fit just gets clipped by the window edge with no way
         // to reach it, since nothing here was scrollable. BoxWithConstraints
         // gives the real available height so the middle (text()) can be
         // capped and scrolled while title/buttons stay fully visible.
-        BoxWithConstraints(modifier = Modifier.padding(20.dp)) {
+        BoxWithConstraints(
+            modifier = if (wide) Modifier.fillMaxWidth().padding(horizontal = 48.dp, vertical = 20.dp)
+            else Modifier.padding(20.dp)
+        ) {
             val dialogMaxHeight = maxHeight
             Box(
                 modifier = Modifier
@@ -967,25 +987,47 @@ internal fun KlipAlertDialog(
 @Composable
 private fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
     val manager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-    val list = mutableListOf<String>()
-    for (dev in manager.deviceList.values) {
+    // Sorted by bus path so the numbers given to devices with the same name are stable.
+    val devices = manager.deviceList.values.sortedBy { it.deviceName }
+    val names = UsbDeviceLabel.numbered(devices.map {
+        UsbDeviceLabel.baseName(try { it.productName } catch (e: SecurityException) { null })
+    })
+    val list = mutableListOf<AnnotatedString>()
+    for ((i, dev) in devices.withIndex()) {
         val drv = KlipperProbeTable.getInstance().findDriver(dev)
-        list.add(
-            Integer.toHexString(dev.vendorId) + "/" + Integer.toHexString(dev.productId) +
-                    " - " + dev.deviceName +
-                    (if (drv != null) " - " + drv.name + "\n" +
-                            File(KlipperApp.INSTANCE.filesDir, "serial/" + UsbSerialManager.getUID(dev)).absolutePath else "")
-        )
+        val details = Integer.toHexString(dev.vendorId) + "/" + Integer.toHexString(dev.productId) +
+                " - " + dev.deviceName +
+                (if (drv != null) " - " + drv.name + "\n" +
+                        File(KlipperApp.INSTANCE.filesDir, "serial/" + UsbSerialManager.getUID(dev)).absolutePath else "")
+        list.add(buildAnnotatedString {
+            if (names[i].isNotEmpty()) {
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(names[i]) }
+                append(": ")
+            }
+            append(details)
+        })
     }
     KlipAlertDialog(
         onDismissRequest = onDismiss,
+        wideInLandscape = true,
         title = { Text(stringResource(R.string.ListUSBTitle), style = MaterialTheme.typography.titleLarge, color = Ink) },
         text = {
             if (list.isEmpty()) {
                 Text(stringResource(R.string.ListUSBNoDevices), color = Ink)
             } else {
                 Column {
-                    list.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = Ink) }
+                    list.forEachIndexed { i, item ->
+                        Text(
+                            item,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Ink,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                        // a line under each item separates it from the next one
+                        if (i < list.lastIndex) {
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
+                        }
+                    }
                 }
             }
         },
