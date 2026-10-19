@@ -62,11 +62,15 @@ and restart the profile after changing it.
    each one.
 2. Open **Settings → USB → List USB devices**.
 
-Each recognized board is listed with its `vid/pid`, the device name, the driver
-and, on the next line, **the serial path to use in `printer.cfg`**. Real
+Each recognized board is listed starting with **its name** (the one the device
+reports, such as `rp2040` — the same name the USB permission prompt shows), then
+its `vid/pid`, the device name, the driver and, on the next line, **the serial
+path to use in `printer.cfg`**. If two devices report the same name they are
+numbered, in the order of their bus path: `rp2040 (1)`, `rp2040 (2)`. A device
+that reports no name starts directly with its `vid/pid`. Real
 example:
 
-The first board is the main one (a CH340 chip, `1a86/7523`), with its serial path on the next line. The second entry (`1908/226`) is a webcam: it has no path line because it is not a Klipper board. The same board gets a different path depending on the naming mode:
+In the example, the first entry (`1908/226`, no name) is a webcam: it has no path line because it is not a Klipper board. `USB Serial` (`1a86/7523`) is a CH340 board and `rp2040` (`1d50/614e`) is a Raspberry Pi Pico running Klipper. The same board gets a different path depending on the naming mode:
 
 | By path | By VID/PID |
 |---|---|
