@@ -14,8 +14,8 @@ equivalente, no aparelho, da opção **6 Flash Firmware** do
 
 | Modo | Placa | Situação |
 |---|---|---|
-| **RP2040** | Raspberry Pi Pico / RP2040 já em BOOTSEL (`2e8a:0003`) | **Testado** num Pico |
-| **USB** | Placa rodando Klipper por USB. O app envia o pedido de bootloader a 1200 bps (como o `make flash` do Klipper) e grava pelo bootloader que aparecer: RP2040 BOOTSEL, STM32 DFU ou AVR109 (ATmega32U4 / Caterina) | **Testado** com o RP2040 e um `.uf2`; os outros bootloaders são **experimentais** |
+| **RP2040 / RP2350** | Raspberry Pi Pico / Pico 2 já em BOOTSEL (`2e8a:0003` / `2e8a:000f`) | **Testado** num Pico (RP2040). O **RP2350 é experimental** (sem Pico 2 para testar) |
+| **USB** | Placa rodando Klipper por USB. O app envia o pedido de bootloader a 1200 bps (como o `make flash` do Klipper) e grava pelo bootloader que aparecer: RP2040 BOOTSEL, STM32 DFU ou AVR109 (ATmega32U4 / Caterina) | **Testado** com o RP2040 e um `.uf2`; os outros bootloaders (e o RP2350) são **experimentais** |
 | **DFU** | STM32 em modo DFU (`0483:df11`), protocolo DfuSe: apaga setores, grava, lê de volta, sai | **Experimental** |
 | **UART** | Adaptador USB-serial ligado ao bootloader serial da placa: STM32 (ST AN3155, toda a flash é apagada) ou AVR (STK500v1 "arduino", STK500v2 "wiring") | **Experimental** |
 
@@ -24,13 +24,15 @@ equivalente, no aparelho, da opção **6 Flash Firmware** do
 > O app os marca na lista de modos e avisa de novo antes de gravar. **O uso é por
 > sua conta e risco.**
 
-**Não** cobre também: Pico 2 / RP2350, placas que carregam o firmware por
+**Não** cobre também: placas que carregam o firmware por
 cartão SD (por exemplo a Neptune 3 Pro: copie o `.bin` para o cartão), placas
 CAN e bootloaders diferentes dos acima (Katapult, HID-Flash, SAM-BA). O app
 recusa arquivo ou dispositivo que não combina com o modo: um `.uf2` deve ser
-feito para o RP2040, um `.bin` de RP2040 deve começar com um bloco boot2 válido
-(assim um `.bin` de STM32 nunca é gravado num Pico), e DFU / UART precisam de
-um `.bin` ou `.hex`.
+feito para o chip, um `.bin` para Pico deve começar com um bloco boot2 de RP2040
+válido (ou um bloco IMAGE_DEF de RP2350), assim um `.bin` de STM32 nunca é gravado
+num Pico, e DFU / UART precisam de um `.bin` ou `.hex`. O Klipper grava o mesmo
+ID de família UF2 para o RP2040 e o RP2350, então o app os distingue olhando
+dentro da imagem; um arquivo do outro chip é recusado antes de gravar qualquer coisa.
 
 > **Gravar firmware pode deixar a placa inutilizável.** Grave só um arquivo
 > feito para aquela placa, mantenha o cabo conectado e a tela aberta, e lembre
@@ -50,6 +52,13 @@ Abaixo dos botões, **Arquivos de firmware** lista o que está guardado no app
 arquivo que você já tem (por exemplo um compilado no PC) pelo seletor de
 arquivos do sistema. Aceitos: `.bin`, `.hex`, `.uf2` e `.zip` (os firmwares
 dentro dele são extraídos).
+
+### Excluir arquivos
+
+Cada arquivo tem um botão **Excluir** (também no passo 1 do assistente), e
+**Excluir todos** remove todos os firmwares guardados. Os dois pedem confirmação.
+
+![Botões de excluir](../images/firmware-tab/delete-files.png)
 
 ## Baixar um firmware
 
@@ -144,7 +153,7 @@ A aba segue o tema e o idioma do app (English, Português, 简体中文, 繁體�
 | Este tipo de arquivo não serve para o modo escolhido | RP2040: `.uf2` ou `.bin`; STM32 / AVR: `.bin` ou `.hex`. |
 | O endereço inicial da flash não é válido | Arquivos `.bin` de STM32 vão entre `0x08000000` e `0x0FFFFFFF`. |
 | A permissão USB não foi concedida | Tente de novo e aceite o pedido do Android. |
-| Este UF2 não é para o RP2040 | Compile o firmware para o RP2040 (veja [build-firmware.md](build-firmware.md)). |
+| O arquivo não é para este chip | O RP2040 e o RP2350 precisam cada um do seu firmware: compile para o chip que você tem (veja [build-firmware.md](build-firmware.md)). |
 | A flash não confere com o arquivo | Não desconecte; execute de novo. Um RP2040 fica em BOOTSEL e sempre pode ser regravado. |
 
 O Pico mantém sempre o seu carregador BOOTSEL, então uma gravação ruim se

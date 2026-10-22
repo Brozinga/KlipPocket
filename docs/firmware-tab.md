@@ -14,8 +14,8 @@ the on-device counterpart of option **6 Flash Firmware** of the
 
 | Mode | Board | Status |
 |---|---|---|
-| **RP2040** | Raspberry Pi Pico / RP2040 already in BOOTSEL (`2e8a:0003`) | **Tested** on a Pico |
-| **USB** | A board running Klipper over USB. The app sends the 1200 bps bootloader request (as Klipper's `make flash` does) and flashes through the bootloader that appears: RP2040 BOOTSEL, STM32 DFU or AVR109 (ATmega32U4 / Caterina) | **Tested** for the RP2040 with a `.uf2`; the other bootloaders are **experimental** |
+| **RP2040 / RP2350** | Raspberry Pi Pico / Pico 2 already in BOOTSEL (`2e8a:0003` / `2e8a:000f`) | **Tested** on a Pico (RP2040). The **RP2350 is experimental** (no Pico 2 to test with) |
+| **USB** | A board running Klipper over USB. The app sends the 1200 bps bootloader request (as Klipper's `make flash` does) and flashes through the bootloader that appears: RP2040 BOOTSEL, STM32 DFU or AVR109 (ATmega32U4 / Caterina) | **Tested** for the RP2040 with a `.uf2`; the other bootloaders (and the RP2350) are **experimental** |
 | **DFU** | STM32 in DFU mode (`0483:df11`), DfuSe protocol: erase sectors, write, read back, leave | **Experimental** |
 | **UART** | USB-serial adapter wired to the board's serial bootloader: STM32 (ST AN3155, the whole flash is erased) or AVR (STK500v1 "arduino", STK500v2 "wiring") | **Experimental** |
 
@@ -24,13 +24,15 @@ the on-device counterpart of option **6 Flash Firmware** of the
 > app marks them in the mode list and warns again before writing. **Use them at
 > your own risk.**
 
-Also **not** covered: Pico 2 / RP2350, boards that load their firmware from an
+Also **not** covered: boards that load their firmware from an
 SD card (for example the Neptune 3 Pro: copy the `.bin` to the card instead),
 CAN boards, and bootloaders other than the ones above (Katapult, HID-Flash,
 SAM-BA). The app refuses a file or a device that does not fit the mode: a
-`.uf2` must be built for the RP2040, a raw RP2040 `.bin` must start with a valid
-boot2 block (so an STM32 `.bin` is never written to a Pico), and DFU / UART need
-a `.bin` or `.hex`.
+`.uf2` must be built for the chip, a raw `.bin` for a Pico must start with a valid
+RP2040 boot2 block (or an RP2350 IMAGE_DEF block), so an STM32 `.bin` is never
+written to a Pico, and DFU / UART need a `.bin` or `.hex`. Klipper writes the
+same UF2 family id for the RP2040 and the RP2350, so the app tells them apart by
+looking inside the image; a file for the other chip is refused before anything is written.
 
 > **Writing firmware can leave a board unusable.** Flash only a file built for
 > that exact board, keep the cable connected and the screen open, and
@@ -49,6 +51,13 @@ Below the buttons, **Firmware files** lists what is stored in the app (name,
 type, size) with **Delete**, and **Import from device** copies a file you
 already have (for example one you built on a PC) using the system file picker.
 Accepted files: `.bin`, `.hex`, `.uf2` and `.zip` (the firmware files inside are extracted).
+
+### Delete files
+
+Every file has a **Delete** button (also in step 1 of the assistant), and
+**Delete all** removes every stored firmware. Both ask for confirmation first.
+
+![Delete buttons](images/firmware-tab/delete-files.png)
 
 ## Download a firmware
 
@@ -142,7 +151,7 @@ The tab follows the app theme and language (English, Português, 简体中文, �
 | This file type does not fit the chosen mode | RP2040: `.uf2` or `.bin`; STM32 / AVR: `.bin` or `.hex`. |
 | The flash start address is not valid | STM32 `.bin` files go between `0x08000000` and `0x0FFFFFFF`. |
 | USB permission was not granted | Try again and accept the Android prompt. |
-| This UF2 is not for the RP2040 | Build the firmware for the RP2040 (see [build-firmware.md](build-firmware.md)). |
+| The file is not for this chip | The RP2040 and the RP2350 each need their own firmware: build it for the chip you have (see [build-firmware.md](build-firmware.md)). |
 | The flash does not match the file | Do not unplug; run it again. An RP2040 stays in BOOTSEL and can always be re-flashed. |
 
 A Pico always keeps its BOOTSEL loader, so a bad flash can be fixed by holding
