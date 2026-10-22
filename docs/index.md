@@ -10,6 +10,7 @@
 | [simplyprint.md](simplyprint.md) | Using SimplyPrint for remote monitoring and AI failure detection — turning it on in Moonraker and linking the printer. |
 | [kalico.md](kalico.md) | Using Kalico instead of Klipper — switching the engine, the one config change it may need, and what works. |
 | [multi-mcu.md](multi-mcu.md) | Using more than one MCU — USB boards, how to find each board's path and write it in `printer.cfg`, and what does not work (CAN). |
+| [firmware-tab.md](firmware-tab.md) | The Firmware tab — download a firmware and flash a Pico (USB / RP2040 modes) from the app, step by step. |
 | [print-recovery.md](print-recovery.md) | Print recovery — resume a print after a power loss or disconnection. |
 | [timelapse.md](timelapse.md) | Timelapse — enabling it, slicer setup, rendering, and where the resulting video is. |
 | [webcam.md](webcam.md) | Camera / USB webcam — source picker, rotation, adding it to Fluidd and Mainsail. |

@@ -193,6 +193,8 @@ with a Raspberry Pi Pico.
 
 ## Flashing the board
 
+> **Away from the PC?** The [Firmware tab](firmware-tab.md) of the app downloads a firmware and flashes a Raspberry Pi Pico / RP2040 straight from the phone.
+
 *Flash Firmware* (option **6**) has its own menu. The first half **lists what is
 connected** without writing anything, so you can check that the board is
 recognised before you flash; the second half flashes. Both come in four modes:

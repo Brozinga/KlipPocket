@@ -194,6 +194,8 @@ a seguir com um Raspberry Pi Pico.
 
 ## Gravando a placa
 
+> **Longe do PC?** A [aba Firmware](firmware-tab.md) do app baixa um firmware e grava um Raspberry Pi Pico / RP2040 direto pelo celular.
+
 *Flash Firmware* (opção **6**) tem um menu próprio. A primeira metade **lista o que
 está conectado** sem gravar nada, para você conferir que a placa é reconhecida
 antes de gravar; a segunda metade grava. As duas têm quatro modos:
