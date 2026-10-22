@@ -60,7 +60,7 @@ the first build) and regenerates `app/src/main/assets/` from the vendored
 |---|---|
 | Kotlin unit tests (all the app's business rules: front ends, camera, print recovery add-on wiring, Prefs, the printer profile database and view models, moonraker.conf/companion configs, printer.cfg edits, the embedded web server's routing/proxy, USB naming, the SAF file provider, logs), no device needed | `./gradlew :app:testArm64DebugUnitTest` |
 | Line coverage report of the unit tests | `./gradlew :app:jacocoUnitTestReport` (`app/build/reports/jacoco/jacocoUnitTestReport/html/index.html`) |
-| Klipper add-on tests (`print_recovery`, `beam_beeper`/`beam_camera`), plain Python | `python3 -m unittest discover -s app/src/test/python -v` |
+| Klipper add-on tests (`print_recovery`, `beam_beeper`/`beam_camera`) and the simulated bootloaders of the Firmware tab (checked against Klipper's `flash_can.py`, `hid-flash` and `bossac`; skipped when `g++`/`gcc`/`pyserial` are missing), plain Python | `python3 -m unittest discover -s app/src/test/python -v` |
 | UI tests (Compose components and the front end tile), on a connected device or emulator | `./gradlew :app:connectedArm64DebugAndroidTest` |
 
 The UI tests install a test APK next to the app, and Gradle uninstalls both when

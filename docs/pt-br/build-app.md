@@ -60,7 +60,7 @@ primeiro build) e regera `app/src/main/assets/` a partir das fontes vendoradas e
 |---|---|
 | Testes unitários em Kotlin (todas as regras de negócio do app: front ends, câmera, integração do add-on de recuperação de impressão, Prefs, o banco de perfis de impressora e os view models, configs do moonraker.conf/companions, edições do printer.cfg, roteamento/proxy do servidor web embutido, nomeação USB, o provedor de arquivos SAF, logs), sem aparelho | `./gradlew :app:testArm64DebugUnitTest` |
 | Relatório de cobertura de linhas dos testes unitários | `./gradlew :app:jacocoUnitTestReport` (`app/build/reports/jacoco/jacocoUnitTestReport/html/index.html`) |
-| Testes do add-on do Klipper (`print_recovery`, `beam_beeper`/`beam_camera`), Python puro | `python3 -m unittest discover -s app/src/test/python -v` |
+| Testes do add-on do Klipper (`print_recovery`, `beam_beeper`/`beam_camera`) e dos bootloaders simulados da aba Firmware (conferidos contra `flash_can.py`, `hid-flash` e `bossac` do Klipper; pulados se faltar `g++`/`gcc`/`pyserial`), Python puro | `python3 -m unittest discover -s app/src/test/python -v` |
 | Testes de interface (componentes Compose e o tile de front end), em aparelho ou emulador conectado | `./gradlew :app:connectedArm64DebugAndroidTest` |
 
 Os testes de interface instalam um APK de teste ao lado do app, e o Gradle

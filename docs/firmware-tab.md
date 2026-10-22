@@ -18,6 +18,10 @@ the on-device counterpart of option **6 Flash Firmware** of the
 | **USB** | A board running Klipper over USB. The app sends the 1200 bps bootloader request (as Klipper's `make flash` does) and flashes through the bootloader that appears: RP2040 BOOTSEL, STM32 DFU or AVR109 (ATmega32U4 / Caterina) | **Tested** for the RP2040 with a `.uf2`; the other bootloaders (and the RP2350) are **experimental** |
 | **DFU** | STM32 in DFU mode (`0483:df11`), DfuSe protocol: erase sectors, write, read back, leave | **Experimental** |
 | **UART** | USB-serial adapter wired to the board's serial bootloader: STM32 (ST AN3155, the whole flash is erased) or AVR (STK500v1 "arduino", STK500v2 "wiring") | **Experimental** |
+| **Katapult** | Klipper's [Katapult](https://github.com/Arksine/katapult) bootloader (`1d50:6177`) over USB, or over a USB-serial adapter wired to its UART (250000 baud). A Klipper board over USB is sent to Katapult first (1200 bps). Raw `.bin` | **Experimental** |
+| **HID-Flash** | STM32F1/F4 with the HID bootloader (`1209:beba`), the protocol of Klipper's `hid-flash`. A Klipper board over USB is sent to it first (1200 bps). Raw `.bin` | **Experimental** |
+| **SAM-BA** | Atmel SAM3 / SAM4 / SAME70 (Arduino Due, SAM4E boards…) in the ROM bootloader (`03eb:6124`): erases the whole flash, writes, reads back, boots from flash and resets, like `bossac`. A Klipper board over USB is sent to it first (1200 bps). Raw `.bin` | **Experimental** |
+| **CAN** | Katapult over a CAN bus, through a gs_usb / candlelight adapter or Klipper's USB-to-CAN bridge (`1d50:606f`). You give the node's **UUID** (`canbus_query.py`) and the bus speed; the app sends the node to Katapult, gives it an id and flashes it, like `flash_can.py`. Raw `.bin` | **Experimental** |
 
 > **Experimental modes** are fully implemented, but they have **no conclusive
 > tests on real boards** (only unit tests against simulated bootloaders). The
@@ -26,11 +30,11 @@ the on-device counterpart of option **6 Flash Firmware** of the
 
 Also **not** covered: boards that load their firmware from an
 SD card (for example the Neptune 3 Pro: copy the `.bin` to the card instead),
-CAN boards, and bootloaders other than the ones above (Katapult, HID-Flash,
-SAM-BA). The app refuses a file or a device that does not fit the mode: a
+the SAMD / SAME5x boards of the SAM-BA family (another flash controller) and
+bootloaders other than the ones above. The app refuses a file or a device that does not fit the mode: a
 `.uf2` must be built for the chip, a raw `.bin` for a Pico must start with a valid
 RP2040 boot2 block (or an RP2350 IMAGE_DEF block), so an STM32 `.bin` is never
-written to a Pico, and DFU / UART need a `.bin` or `.hex`. Klipper writes the
+written to a Pico, DFU / UART need a `.bin` or `.hex`, and Katapult / HID-Flash / SAM-BA / CAN need a `.bin`. Klipper writes the
 same UF2 family id for the RP2040 and the RP2350, so the app tells them apart by
 looking inside the image; a file for the other chip is refused before anything is written.
 
@@ -98,6 +102,11 @@ bootloader of yours sits below; Klipper's *Bootloader offset* is that size).
 
 ![Start address](images/firmware-tab/start-address.png)
 
+In **CAN** mode two fields appear instead: the **CAN UUID** of the node (12 hex
+digits, as `canbus_query.py` prints it) and the **bus speed** in bit/s
+(1000000 by default, the same `canbus_frequency` as in the Klipper config). In
+step 2 pick the adapter itself (the gs_usb device), not the board behind it.
+
 **4 — Confirm.** A warning shows the file, device and mode, and, for experimental
 modes, a second warning that you proceed at your own risk. **Cancel/Back**
 changes nothing; **Confirm** starts.
@@ -144,15 +153,36 @@ The tab follows the app theme and language (English, Português, 简体中文, �
 
 | Message | What to do |
 |---|---|
-| No supported bootloader appeared | The board did not enter RP2040 BOOTSEL, STM32 DFU or AVR109 after the 1200 bps request. Put it in the bootloader by hand (BOOTSEL / BOOT0) and use *RP2040* or *DFU* mode. |
+| No supported bootloader appeared | The board did not enter RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA or AVR109 after the 1200 bps request. Put it in the bootloader by hand (BOOTSEL / BOOT0 / the bootloader button) and use the mode of that bootloader. |
 | The chosen device does not match the mode | Pick the right device for the mode (*DFU* needs `0483:df11`, *RP2040* needs `2e8a:0003`). Nothing was written. |
 | The bootloader did not answer | UART: check BOOT0 and reset (STM32) or the reset line (AVR), the wiring and the baud rate. Nothing was written. |
 | The device is not a USB-serial adapter | UART mode needs a CDC / CH34x / CP210x / FTDI adapter. |
-| This file type does not fit the chosen mode | RP2040: `.uf2` or `.bin`; STM32 / AVR: `.bin` or `.hex`. |
+| This file type does not fit the chosen mode | RP2040: `.uf2` or `.bin`; STM32 / AVR: `.bin` or `.hex`; Katapult, HID-Flash, SAM-BA and CAN: `.bin`. |
+| The CAN UUID is missing or not valid | 12 hex digits, exactly as `canbus_query.py` shows them. |
+| The device is not a CAN adapter | In CAN mode choose the gs_usb / candlelight adapter (or the Klipper USB-to-CAN bridge) in step 2. |
 | The flash start address is not valid | STM32 `.bin` files go between `0x08000000` and `0x0FFFFFFF`. |
 | USB permission was not granted | Try again and accept the Android prompt. |
 | The file is not for this chip | The RP2040 and the RP2350 each need their own firmware: build it for the chip you have (see [build-firmware.md](build-firmware.md)). |
 | The flash does not match the file | Do not unplug; run it again. An RP2040 stays in BOOTSEL and can always be re-flashed. |
+
+## How the experimental modes were tested without a board
+
+The author has only a Raspberry Pi Pico, so every other mode was checked against
+**simulated boards that are themselves checked against the real tools**:
+
+- The simulators are in [`app/src/test/python/fake_bootloaders.py`](../app/src/test/python/fake_bootloaders.py):
+  a Katapult node (USB/UART and CAN bus), an STM32 HID bootloader (1 KiB and 2 KiB
+  pages), and a SAM3X8E / SAM4E8E in its SAM-BA ROM with the EEFC flash controller.
+- `test_bootloader_fakes.py` runs Klipper's **own** tools against them: `flash_can.py`
+  (serial and CAN paths), `hid-flash` and `bossac` (compiled from the sources in the
+  tree). If the real tool finishes with a good flash, the simulator talks like the board.
+- The Kotlin tests (`OtherBootloadersTest`) then run the app's code against the
+  same simulators, including wrong answers, silence, bad writes and a failed
+  read-back. A mutation check (skipping the SAM-BA erase) makes them fail, as it should.
+- What this **cannot** prove: USB timing, the electrical side, a bootloader version
+  that differs from the reference one, and the `gs_usb` framing of a real CAN
+  adapter (it follows the Linux `gs_usb` driver but has not seen one). That is why
+  these modes stay marked **experimental**.
 
 A Pico always keeps its BOOTSEL loader, so a bad flash can be fixed by holding
 BOOTSEL and flashing again.
