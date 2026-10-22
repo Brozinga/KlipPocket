@@ -60,8 +60,8 @@ dentro dele são extraídos).
 
 ### Excluir arquivos
 
-Cada arquivo tem um botão **Excluir** (também no passo 1 do assistente), e
-**Excluir todos** remove todos os firmwares guardados. Os dois pedem confirmação.
+Toque num arquivo da lista para selecioná-lo: um **ícone de lixeira** aparece ao lado de
+*Arquivos de firmware* e exclui esse arquivo. **Excluir todos** remove todos os firmwares guardados. Os dois pedem confirmação.
 
 ![Botões de excluir](../images/firmware-tab/delete-files.png)
 

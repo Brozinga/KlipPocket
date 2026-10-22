@@ -58,6 +58,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
@@ -119,6 +120,8 @@ private fun FirmwareHome(onInstall: () -> Unit) {
     var showDownload by remember { mutableStateOf(false) }
     var files by remember { mutableStateOf(FirmwareStore.list()) }
     var deleting by remember { mutableStateOf<DeleteRequest?>(null) }
+    var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedEntry = files.firstOrNull { it.name == selected }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -145,26 +148,17 @@ private fun FirmwareHome(onInstall: () -> Unit) {
         }
 
         Spacer(Modifier.height(28.dp))
-        SectionLabel(stringResource(R.string.FirmwareFiles))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { SectionLabel(stringResource(R.string.FirmwareFiles)) }
+            if (selectedEntry != null) Icon(
+                painter = painterResource(R.drawable.ic_delete_outline_24), contentDescription = stringResource(R.string.FirmwareDelete), tint = Danger,
+                modifier = Modifier.padding(bottom = 4.dp).clip(KlipShape).clickable { deleting = DeleteRequest.One(selectedEntry) }.padding(8.dp).size(24.dp)
+            )
+        }
         if (files.isEmpty()) {
             Text(stringResource(R.string.FirmwareNoFiles), style = MaterialTheme.typography.bodyMedium, color = InkMuted, modifier = Modifier.padding(start = 4.dp))
         }
-        files.forEach { f ->
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(KlipShape).background(PaperAlt, KlipShape)
-                    .border(2.dp, Line, KlipShape).padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(f.name, style = MaterialTheme.typography.titleSmall, color = Ink)
-                    Text("${f.kind} · ${formatSize(f.size)}", style = MaterialTheme.typography.bodySmall, color = InkMuted)
-                }
-                Text(
-                    stringResource(R.string.FirmwareDelete), style = MaterialTheme.typography.labelLarge, color = Danger,
-                    modifier = Modifier.clip(KlipShape).clickable { deleting = DeleteRequest.One(f) }.padding(8.dp)
-                )
-            }
-        }
+        files.forEach { f -> FirmwareFileRow(f, f.name == selected) { selected = if (f.name == selected) null else f.name } }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             KlipTextButton(text = stringResource(R.string.FirmwareImport), onClick = { picker.launch(arrayOf("*/*")) })
@@ -184,8 +178,34 @@ private fun FirmwareHome(onInstall: () -> Unit) {
                 DeleteRequest.All -> FirmwareStore.deleteAll()
             }
             files = FirmwareStore.list()
+            selected = null
             deleting = null
         }
+    }
+}
+
+@Composable
+private fun FirmwareFileRow(f: FirmwareStore.Entry, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(KlipShape).background(PaperAlt, KlipShape)
+            .border(2.dp, if (selected) Accent else Line, KlipShape).clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_mcu_firmware_outline_28), contentDescription = null,
+            tint = if (selected) Accent else InkMuted, modifier = Modifier.size(28.dp)
+        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(f.name, style = MaterialTheme.typography.titleSmall, color = Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(formatSize(f.size), style = MaterialTheme.typography.bodySmall, color = InkMuted)
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(
+            f.kind.toString(), style = MaterialTheme.typography.labelMedium, color = if (selected) Accent else InkMuted,
+            modifier = Modifier.border(1.dp, if (selected) Accent else Line, KlipShapePill).padding(horizontal = 10.dp, vertical = 4.dp)
+        )
     }
 }
 
@@ -348,7 +368,6 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     var canUuidText by rememberSaveable { mutableStateOf("") }
     var canBitrateText by rememberSaveable { mutableStateOf(FlashOptions.DEFAULT_CAN_BITRATE.toString()) }
     var files by remember { mutableStateOf(FirmwareStore.list()) }
-    var deleting by remember { mutableStateOf<DeleteRequest?>(null) }
     val usb = remember { context.getSystemService(Context.USB_SERVICE) as UsbManager }
     var devices by remember { mutableStateOf(usb.deviceList.values.sortedBy { it.deviceName }) }
     val running = flashState is FlashState.Running
@@ -394,13 +413,6 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 style = MaterialTheme.typography.headlineSmall, color = if (step == 3) Danger else Ink, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
             )
         }
-        WizardDeleteHost(deleting, files.size) { cleared ->
-            if (cleared) {
-                files = FirmwareStore.list()
-                if (files.none { it.name == fileName }) fileName = null
-            }
-            deleting = null
-        }
         val scroll = rememberScrollState()
         LaunchedEffect(step, inRun) { scroll.scrollTo(0) }
         Column(Modifier.weight(1f).verticalScroll(scroll)) {
@@ -408,13 +420,7 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 0 -> {
                     if (files.isEmpty()) Text(stringResource(R.string.FirmwareNoFiles), color = InkMuted, style = MaterialTheme.typography.bodyMedium)
                     files.forEach { f ->
-                        ChoiceRow(f.name, "${f.kind} · ${formatSize(f.size)}", f.name == fileName, onDelete = { deleting = DeleteRequest.One(f) }) { fileName = f.name }
-                    }
-                    if (files.isNotEmpty()) {
-                        KlipTextButton(
-                            text = stringResource(R.string.FirmwareDeleteAll), contentColor = Danger,
-                            onClick = { deleting = DeleteRequest.All }
-                        )
+                        ChoiceRow(f.name, "${f.kind} · ${formatSize(f.size)}", f.name == fileName) { fileName = f.name }
                     }
                 }
                 1 -> {
@@ -505,19 +511,7 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
 }
 
 @Composable
-private fun WizardDeleteHost(deleting: DeleteRequest?, count: Int, onDone: (cleared: Boolean) -> Unit) {
-    if (deleting == null) return
-    DeleteDialog(deleting, count, onDismiss = { onDone(false) }) {
-        when (deleting) {
-            is DeleteRequest.One -> FirmwareStore.delete(deleting.entry)
-            DeleteRequest.All -> FirmwareStore.deleteAll()
-        }
-        onDone(true)
-    }
-}
-
-@Composable
-private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: String? = null, onDelete: (() -> Unit)? = null, onClick: () -> Unit) {
+private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: String? = null, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(KlipShape)
             .background(PaperAlt, KlipShape).border(2.dp, if (selected) Accent else Line, KlipShape)
@@ -529,10 +523,6 @@ private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: 
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = InkMuted)
             if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = Warn, modifier = Modifier.padding(top = 2.dp))
         }
-        if (onDelete != null) Text(
-            stringResource(R.string.FirmwareDelete), style = MaterialTheme.typography.labelLarge, color = Danger,
-            modifier = Modifier.clip(KlipShape).clickable(onClick = onDelete).padding(8.dp)
-        )
         if (selected) Box(Modifier.size(12.dp).background(Accent, KlipShape))
     }
 }
