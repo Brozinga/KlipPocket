@@ -10,6 +10,7 @@
 | [simplyprint.md](simplyprint.md) | Usando o SimplyPrint para monitoramento remoto e detecção de falhas por IA — como ligar no Moonraker e vincular a impressora. |
 | [kalico.md](kalico.md) | Usando o Kalico no lugar do Klipper — trocar o motor, a mudança de configuração que ele pode exigir e o que funciona. |
 | [multi-mcu.md](multi-mcu.md) | Usando mais de um MCU — placas USB, como achar o caminho de cada placa e escrevê-lo no `printer.cfg`, e o que não funciona (CAN). |
+| [firmware-tab.md](firmware-tab.md) | A aba Firmware — baixar um firmware e gravar um Pico (modos USB / RP2040) pelo app, passo a passo. |
 | [print-recovery.md](print-recovery.md) | Recuperação de impressão — retomar após queda de energia ou desconexão. |
 | [timelapse.md](timelapse.md) | Timelapse — como ativar, configurar o fatiador, renderizar e onde fica o vídeo. |
 | [webcam.md](webcam.md) | Câmera / webcam USB — seletor de fonte, rotação, como adicionar no Fluidd e Mainsail. |

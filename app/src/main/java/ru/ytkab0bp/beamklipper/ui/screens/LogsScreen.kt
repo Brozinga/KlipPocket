@@ -65,12 +65,12 @@ import ru.ytkab0bp.beamklipper.ui.theme.PaperAlt
 import ru.ytkab0bp.beamklipper.utils.BeamLogs
 
 @Composable
-fun LogsScreen(modifier: Modifier = Modifier) {
+fun LogsScreen(modifier: Modifier = Modifier, initialSourceId: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     val sources = remember { BeamLogs.sources(context) }
-    var selectedId by remember { mutableStateOf(sources.firstOrNull()?.id ?: "app") }
+    var selectedId by remember { mutableStateOf(initialSourceId?.takeIf { id -> sources.any { it.id == id } } ?: sources.firstOrNull()?.id ?: "app") }
     var content by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(true) }
     var reloadTick by remember { mutableStateOf(0) }

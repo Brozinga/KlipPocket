@@ -193,6 +193,8 @@ with a Raspberry Pi Pico.
 
 ## Flashing the board
 
+> **Away from the PC?** The [Firmware tab](firmware-tab.md) of the app downloads a firmware (or imports the one you built here) and flashes the board straight from the phone: RP2040 / RP2350, USB, STM32 DFU, UART, Katapult, HID-Flash, SAM-BA and CAN. Only RP2040 is fully tested; the other modes are marked experimental.
+
 *Flash Firmware* (option **6**) has its own menu. The first half **lists what is
 connected** without writing anything, so you can check that the board is
 recognised before you flash; the second half flashes. Both come in four modes:

@@ -156,6 +156,8 @@ MCU 自带 USB 的主板（例如许多 STM32 和 RP2040 主板）会把通信�
 
 ## 烧录主板
 
+> **不在电脑旁？** 应用的[固件标签页](firmware-tab.md)可以下载固件（或导入你在这里生成的固件），并直接通过手机写入主板：RP2040 / RP2350、USB、STM32 DFU、UART、Katapult、HID-Flash、SAM-BA 和 CAN。只有 RP2040 经过完整测试，其余方式标为实验性。
+
 *Flash Firmware*（选项 **6**）有自己的菜单。上半部分**列出已连接的设备**，不会写入任何内容，方便你在烧录前确认主板被识别；下半部分才是烧录。两部分都有四种模式：
 
 ![烧录菜单](../images/firmware-menu/flash-menu.png)

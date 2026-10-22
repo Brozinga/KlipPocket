@@ -985,7 +985,7 @@ internal fun KlipAlertDialog(
 }
 
 @Composable
-private fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
+internal fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
     val manager = context.getSystemService(Context.USB_SERVICE) as UsbManager
     // Sorted by bus path so the numbers given to devices with the same name are stable.
     val devices = manager.deviceList.values.sortedBy { it.deviceName }
@@ -1118,7 +1118,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun KlipTextField(
+internal fun KlipTextField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     placeholder: String
