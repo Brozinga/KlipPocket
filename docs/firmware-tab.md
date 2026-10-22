@@ -58,8 +58,8 @@ Accepted files: `.bin`, `.hex`, `.uf2` and `.zip` (the firmware files inside are
 
 ### Delete files
 
-Every file has a **Delete** button (also in step 1 of the assistant), and
-**Delete all** removes every stored firmware. Both ask for confirmation first.
+Tap a file in the list to select it: a **trash icon** appears next to *Firmware
+files* and deletes that file. **Delete all** removes every stored firmware. Both ask for confirmation first.
 
 ![Delete buttons](images/firmware-tab/delete-files.png)
 
