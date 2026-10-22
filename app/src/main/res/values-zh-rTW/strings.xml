@@ -262,6 +262,14 @@
     <string name="FirmwareModeSambaDesc">處於 ROM 引導程式（03eb:6124）的 Atmel SAM3 / SAM4 / SAME70，如 Due 或 SAM4E 主機板：清除整個快閃記憶體並寫入 .bin 檔案。透過 USB 的 Klipper 主機板會先被要求進入引導程式（1200 bps）。不支援 SAMD/SAME5x。</string>
     <string name="FirmwareFailCanUuid">節點的 CAN UUID 缺失或無效：12 位十六進位數字，如 canbus_query.py 所示。</string>
     <string name="FirmwareFailCanAdapter">所選裝置不是 CAN 轉接器（gs_usb / candlelight，或 Klipper USB 轉 CAN 橋）。</string>
+    <string name="FirmwareWebTitle">韌體網頁</string>
+    <string name="FirmwareWebNotification">韌體網頁已在連接埠 %1$d 提供服務</string>
+    <string name="FirmwareWebSection">網頁</string>
+    <string name="FirmwareWebHint">在同一網路的瀏覽器中開啟此位址並輸入 PIN，即可在網頁上傳檔案並寫入韌體。</string>
+    <string name="FirmwareWebAddress">位址</string>
+    <string name="FirmwareWebPin">PIN</string>
+    <string name="FirmwareWebNewPin">新 PIN</string>
+    <string name="FirmwareWebOff">網頁未執行（連接埠 4400 被占用？）。</string>
     <string name="FirmwareCanUuid">節點的 CAN UUID（12 位十六進位）</string>
     <string name="FirmwareCanBitrate">CAN 匯流排速度（bit/s）</string>
     <string name="FirmwareCanHint">CAN：所選裝置必須是 gs_usb 轉接器（或 Klipper USB 轉 CAN 橋）；UUID 為 Klipper 回報的節點 UUID（canbus_query.py）。節點會被送入 Katapult 並在那裡寫入。</string>

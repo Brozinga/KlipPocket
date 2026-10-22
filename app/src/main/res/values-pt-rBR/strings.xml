@@ -265,6 +265,14 @@
     <string name="FirmwareModeSambaDesc">Atmel SAM3 / SAM4 / SAME70 no bootloader da ROM (03eb:6124), como Due ou placas SAM4E: apaga toda a flash e grava o arquivo .bin. Uma placa Klipper por USB é mandada antes para o bootloader (1200 bps). SAMD/SAME5x não são suportados.</string>
     <string name="FirmwareFailCanUuid">O UUID CAN do nó falta ou não é válido: 12 dígitos hexadecimais, como mostra o canbus_query.py.</string>
     <string name="FirmwareFailCanAdapter">O dispositivo escolhido não é um adaptador CAN (gs_usb / candlelight, ou uma ponte USB-CAN do Klipper).</string>
+    <string name="FirmwareWebTitle">Página web de firmware</string>
+    <string name="FirmwareWebNotification">Página de firmware disponível na porta %1$d</string>
+    <string name="FirmwareWebSection">Página web</string>
+    <string name="FirmwareWebHint">Abra este endereço num navegador da mesma rede e informe o PIN para enviar arquivos e gravar pela página.</string>
+    <string name="FirmwareWebAddress">Endereço</string>
+    <string name="FirmwareWebPin">PIN</string>
+    <string name="FirmwareWebNewPin">Novo PIN</string>
+    <string name="FirmwareWebOff">A página não está rodando (a porta 4400 está em uso?).</string>
     <string name="FirmwareCanUuid">UUID CAN do nó (12 dígitos hexadecimais)</string>
     <string name="FirmwareCanBitrate">Velocidade do barramento CAN (bit/s)</string>
     <string name="FirmwareCanHint">CAN: o dispositivo escolhido deve ser o adaptador gs_usb (ou a ponte USB-CAN do Klipper); o UUID é o que o Klipper informa para o nó (canbus_query.py). O nó é mandado para o Katapult e gravado ali.</string>

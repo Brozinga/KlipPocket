@@ -265,6 +265,14 @@
     <string name="FirmwareModeSambaDesc">Atmel SAM3 / SAM4 / SAME70 в загрузчике ROM (03eb:6124), например Due или платы SAM4E: стирает всю flash и записывает файл .bin. Плату Klipper по USB сначала просят перейти в загрузчик (1200 бод). SAMD/SAME5x не поддерживаются.</string>
     <string name="FirmwareFailCanUuid">CAN UUID узла не указан или неверен: 12 шестнадцатеричных цифр, как показывает canbus_query.py.</string>
     <string name="FirmwareFailCanAdapter">Выбранное устройство не является CAN-адаптером (gs_usb / candlelight или мост USB-CAN Klipper).</string>
+    <string name="FirmwareWebTitle">Веб-страница прошивки</string>
+    <string name="FirmwareWebNotification">Страница прошивки доступна на порту %1$d</string>
+    <string name="FirmwareWebSection">Веб-страница</string>
+    <string name="FirmwareWebHint">Откройте этот адрес в браузере в той же сети и введите PIN, чтобы загружать файлы и прошивать со страницы.</string>
+    <string name="FirmwareWebAddress">Адрес</string>
+    <string name="FirmwareWebPin">PIN</string>
+    <string name="FirmwareWebNewPin">Новый PIN</string>
+    <string name="FirmwareWebOff">Страница не запущена (порт 4400 занят?).</string>
     <string name="FirmwareCanUuid">CAN UUID узла (12 шестнадцатеричных цифр)</string>
     <string name="FirmwareCanBitrate">Скорость шины CAN (бит/с)</string>
     <string name="FirmwareCanHint">CAN: выбранное устройство должно быть адаптером gs_usb (или мостом USB-CAN Klipper); UUID — тот, что Klipper показывает для узла (canbus_query.py). Узел переводится в Katapult и прошивается там.</string>
