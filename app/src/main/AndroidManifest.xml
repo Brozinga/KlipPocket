@@ -75,6 +75,7 @@
         </activity>
         <service android:name=".service.CameraService" android:exported="false" android:process=":camera" android:foregroundServiceType="camera"/>
         <service android:name=".service.WebService" android:exported="false" android:foregroundServiceType="dataSync"/>
+        <service android:name=".firmwareweb.FirmwareWebService" android:exported="false" android:foregroundServiceType="dataSync"/>
         <service android:name=".service.OctoEverywhereService" android:exported="false" android:process=":octoeverywhere" android:foregroundServiceType="dataSync"/>
         <service android:name=".service.ObicoService" android:exported="false" android:process=":obico" android:foregroundServiceType="dataSync"/>
         <service android:name=".service.KlippyService_0" android:exported="false" android:process=":klippy_0" android:foregroundServiceType="connectedDevice"/>

@@ -142,6 +142,11 @@ object Prefs {
     val engineKey: String
         get() = engine
 
+    /** PIN of the firmware web page (port 4400); made on first use, replaced from the Firmware tab. */
+    var firmwareWebPin: String
+        get() = getSafeString("firmware_web_pin", "")
+        set(value) { mPrefs.edit().putString("firmware_web_pin", value).apply() }
+
     var appLanguage: String
         get() = getSafeString("app_language", LANGUAGE_SYSTEM)
         set(value) {

@@ -83,6 +83,10 @@ class KlipperApp : MultiDexApplication() {
             appScope.launch(Dispatchers.IO) {
                 UsbSerialManager.init(this@KlipperApp)
             }
+            appScope.launch(Dispatchers.IO) {
+                // The firmware page (port 4400) is always available once the app is open.
+                ru.ytkab0bp.beamklipper.firmwareweb.FirmwareWebHost.start(this@KlipperApp)
+            }
         }
     }
 

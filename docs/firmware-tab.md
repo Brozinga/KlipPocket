@@ -10,6 +10,8 @@ the on-device counterpart of option **6 Flash Firmware** of the
 
 ![The Firmware tab](images/firmware-tab/tab-home.png)
 
+> **From a computer?** The app also serves the [firmware web page](firmware-web.md) on port 4400: upload, paste a link and flash from a browser. Its address and PIN are at the end of this tab.
+
 ## Modes: what works and what is experimental
 
 | Mode | Board | Status |

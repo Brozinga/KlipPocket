@@ -50,6 +50,7 @@ class MainActivity : AppCompatActivity() {
 
         AppState.start()
         KlipperInstance.ensureCameraServer()
+        ru.ytkab0bp.beamklipper.firmwareweb.FirmwareWebService.start(this)
 
         processIntent(intent)
 
