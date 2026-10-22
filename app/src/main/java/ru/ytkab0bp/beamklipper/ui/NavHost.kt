@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.ui.screens.CameraPreviewScreen
 import ru.ytkab0bp.beamklipper.ui.screens.ConfigScreen
+import ru.ytkab0bp.beamklipper.ui.screens.FirmwareScreen
 import ru.ytkab0bp.beamklipper.ui.screens.HomeScreen
 import ru.ytkab0bp.beamklipper.ui.screens.LogsScreen
 import ru.ytkab0bp.beamklipper.ui.state.AppState
@@ -57,6 +58,7 @@ const val NAV_HOME = 0
 const val NAV_CONFIG = 1
 const val NAV_LOGS = 2
 const val NAV_CAMERA = 3
+const val NAV_FIRMWARE = 4
 
 @Composable
 fun NavHost(
@@ -64,6 +66,8 @@ fun NavHost(
     mainViewModel: MainViewModel
 ) {
     var nav by remember { mutableStateOf(NAV_HOME) }
+    // Log source the Logs tab opens on (set when jumping there from the firmware flow).
+    var logsSource by remember { mutableStateOf<String?>(null) }
     // The preview tab exists only while the camera server is enabled.
     val cameraEnabled by AppState.cameraEnabled.collectAsStateWithLifecycle()
     LaunchedEffect(cameraEnabled) {
@@ -92,7 +96,7 @@ fun NavHost(
             Text(
                 text = stringResource(R.string.AppName),
                 // Shrinks when the extra camera tab makes the button row wider.
-                style = MaterialTheme.typography.headlineLarge.copy(fontSize = if (cameraEnabled) 26.sp else 32.sp),
+                style = MaterialTheme.typography.headlineLarge.copy(fontSize = if (cameraEnabled) 22.sp else 26.sp),
                 color = Ink,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -114,9 +118,14 @@ fun NavHost(
                     )
                 }
                 NavTabButton(
+                    active = nav == NAV_FIRMWARE,
+                    icon = R.drawable.ic_mcu_firmware_outline_28,
+                    onClick = { nav = NAV_FIRMWARE }
+                )
+                NavTabButton(
                     active = nav == NAV_LOGS,
                     icon = R.drawable.ic_inbox_outline_28,
-                    onClick = { nav = NAV_LOGS }
+                    onClick = { logsSource = null; nav = NAV_LOGS }
                 )
                 NavTabButton(
                     active = nav == NAV_CONFIG,
@@ -135,7 +144,8 @@ fun NavHost(
         ) {
             when (nav) {
                 NAV_CONFIG -> ConfigScreen()
-                NAV_LOGS -> LogsScreen()
+                NAV_LOGS -> LogsScreen(initialSourceId = logsSource)
+                NAV_FIRMWARE -> FirmwareScreen(onOpenLogs = { logsSource = "flash"; nav = NAV_LOGS })
                 NAV_CAMERA -> CameraPreviewScreen()
                 else -> HomeScreen(
                     isCurrentLauncher = isCurrentLauncher,

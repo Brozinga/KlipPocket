@@ -9,6 +9,8 @@ import android.util.Log
 import ru.ytkab0bp.beamklipper.KlipperApp
 import ru.ytkab0bp.beamklipper.KlipperInstance
 import ru.ytkab0bp.beamklipper.LogSources
+import ru.ytkab0bp.beamklipper.R
+import ru.ytkab0bp.beamklipper.firmware.FlashLog
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -43,6 +45,10 @@ object BeamLogs {
         val list = ArrayList<Source>()
 
         list += Source("app", "App / Web") { readLogcat() }
+
+        list += Source("flash", ctx.getString(R.string.FirmwareLogSource)) {
+            FlashLog.read().ifBlank { "-" }.let { tail(it) }
+        }
 
         val crash = crashFile(ctx)
         if (crash.exists() && crash.length() > 0) {
