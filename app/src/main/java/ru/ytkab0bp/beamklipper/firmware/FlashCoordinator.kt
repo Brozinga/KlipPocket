@@ -29,18 +29,24 @@ import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import java.io.IOException
 
 /** How the board is written. Only RP2040 (and USB with an RP2040) has conclusive hardware tests. */
-enum class FlashMode { USB, UART, DFU, RP2040 }
+enum class FlashMode { USB, UART, DFU, RP2040, KATAPULT, HID, SAMBA, CAN }
 
 enum class FlashStage { PREPARE, ENTER_BOOTSEL, WAIT_BOOTSEL, PERMISSION, HANDSHAKE, ERASE, WRITE, VERIFY, REBOOT, WAIT_DEVICE }
 
 enum class FlashFailure {
     WRONG_DEVICE, FILE_INVALID, INCOMPATIBLE_FILE, WRONG_CHIP, PERMISSION_DENIED, NO_BOOTLOADER,
-    NOT_SERIAL, NO_ANSWER, BAD_ADDRESS, USB_ERROR, VERIFY_MISMATCH, CANCELLED
+    NOT_SERIAL, NO_ANSWER, BAD_ADDRESS, USB_ERROR, VERIFY_MISMATCH, CANCELLED, BAD_CAN_ID, NOT_CAN_ADAPTER
 }
 
-/** [startAddress] is only used for raw .bin files written to STM32 boards (DFU / UART / USB). */
-data class FlashOptions(val startAddress: Long = DEFAULT_STM32_START) {
-    companion object { const val DEFAULT_STM32_START = 0x08000000L }
+/**
+ * [startAddress] is only used for raw .bin files written to STM32 boards (DFU / UART / USB).
+ * [canUuid] and [canBitrate] are for CAN mode: the node to flash and the speed of the bus.
+ */
+data class FlashOptions(val startAddress: Long = DEFAULT_STM32_START, val canUuid: Long? = null, val canBitrate: Int = DEFAULT_CAN_BITRATE) {
+    companion object {
+        const val DEFAULT_STM32_START = 0x08000000L
+        const val DEFAULT_CAN_BITRATE = 1_000_000
+    }
 }
 
 sealed class FlashState {
@@ -80,6 +86,11 @@ object FlashCoordinator {
     const val NOTE_NO_RETURN = "no-return"
     private const val VENDOR_ST = 0x0483
     private const val PRODUCT_ST_DFU = 0xDF11
+    private const val VENDOR_KLIPPER = 0x1D50
+    private const val PRODUCT_KATAPULT = 0x6177
+    private const val VENDOR_ATMEL = 0x03EB
+    private const val PRODUCT_SAMBA = 0x6124
+    private const val KATAPULT_BAUD = 250000
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
     private val _state = MutableStateFlow<FlashState>(FlashState.Idle)
@@ -137,31 +148,57 @@ object FlashCoordinator {
             FlashMode.DFU -> if (!isDfu(device))
                 throw FlashAbort(FlashFailure.WRONG_DEVICE, "the device is not an STM32 in DFU mode (0483:df11)")
             FlashMode.UART -> {
-                if (Picoboot.isBootsel(device) || isDfu(device))
-                    throw FlashAbort(FlashFailure.WRONG_DEVICE, "this device is a USB bootloader, not a serial adapter: use RP2040 or DFU mode")
+                if (isBootloader(device))
+                    throw FlashAbort(FlashFailure.WRONG_DEVICE, "this device is a USB bootloader, not a serial adapter: use the mode of that bootloader")
                 if (serialDriver(device) == null)
                     throw FlashAbort(FlashFailure.NOT_SERIAL, "this device is not a USB-serial adapter or CDC serial port")
             }
-            FlashMode.USB -> if (!Picoboot.isBootsel(device) && !isDfu(device)) {
-                stage(FlashStage.ENTER_BOOTSEL)
-                touch1200(usb, device)
-                stage(FlashStage.WAIT_BOOTSEL)
-                target = waitFor(usb, 15_000) {
-                    Picoboot.isBootsel(it) || isDfu(it) ||
+            FlashMode.USB -> if (!isBootloader(device)) {
+                target = enterBootloader(usb, device, "supported bootloader (RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA or AVR109)") {
+                    isBootloader(it) ||
                             // Caterina (ATmega32U4) shows up as a different serial device
                             ((it.vendorId != device.vendorId || it.productId != device.productId) && serialDriver(it) != null)
-                } ?: throw FlashAbort(FlashFailure.NO_BOOTLOADER,
-                    "no supported bootloader appeared after the 1200 bps request (RP2040 BOOTSEL, STM32 DFU or AVR109)")
-                FlashLog.append("bootloader appeared: ${hex(target.vendorId)}:${hex(target.productId)}")
+                }
+            }
+            FlashMode.KATAPULT -> when {
+                isKatapult(device) -> {}
+                device.vendorId == VENDOR_KLIPPER -> target = enterBootloader(usb, device, "Katapult bootloader") { isKatapult(it) }
+                serialDriver(device) == null ->
+                    throw FlashAbort(FlashFailure.NOT_SERIAL, "this device is not a Katapult bootloader, a Klipper board or a USB-serial adapter")
+            }
+            FlashMode.HID -> if (!isHid(device)) {
+                if (serialDriver(device) == null) throw FlashAbort(FlashFailure.WRONG_DEVICE, "the device is not an STM32 HID bootloader (1209:beba)")
+                target = enterBootloader(usb, device, "STM32 HID bootloader (1209:beba)") { isHid(it) }
+            }
+            FlashMode.CAN -> if (opts.canUuid == null)
+                throw FlashAbort(FlashFailure.BAD_CAN_ID, "the CAN UUID of the node is missing")
+            FlashMode.SAMBA -> if (!isSamba(device)) {
+                if (serialDriver(device) == null) throw FlashAbort(FlashFailure.WRONG_DEVICE, "the device is not a SAM-BA ROM bootloader (03eb:6124)")
+                target = enterBootloader(usb, device, "SAM-BA ROM bootloader (03eb:6124)") { isSamba(it) }
             }
         }
 
         return when {
+            mode == FlashMode.CAN -> flashCan(ctx, usb, target, entry, opts)
             Picoboot.isBootsel(target) -> flashPico(ctx, usb, target, entry)
             isDfu(target) -> flashDfu(ctx, usb, target, entry, opts)
+            mode == FlashMode.HID || (mode == FlashMode.USB && isHid(target)) -> flashHid(ctx, usb, target, entry)
+            mode == FlashMode.SAMBA || (mode == FlashMode.USB && isSamba(target)) -> flashSamba(ctx, usb, target, entry)
+            mode == FlashMode.KATAPULT || (mode == FlashMode.USB && isKatapult(target)) -> flashKatapult(ctx, usb, target, entry)
             mode == FlashMode.UART -> flashUart(ctx, usb, target, entry, opts)
             else -> flashCaterina(ctx, usb, target, entry, opts)
         }
+    }
+
+    /** Asks a running Klipper board for its bootloader (1200 bps) and waits for the one accepted by [accept]. */
+    private suspend fun enterBootloader(usb: UsbManager, device: UsbDevice, what: String, accept: (UsbDevice) -> Boolean): UsbDevice {
+        stage(FlashStage.ENTER_BOOTSEL)
+        touch1200(usb, device)
+        stage(FlashStage.WAIT_BOOTSEL)
+        val found = waitFor(usb, 15_000, accept)
+            ?: throw FlashAbort(FlashFailure.NO_BOOTLOADER, "no $what appeared after the 1200 bps request")
+        FlashLog.append("bootloader appeared: ${hex(found.vendorId)}:${hex(found.productId)}")
+        return found
     }
 
     // --- RP2040 -----------------------------------------------------------------
@@ -340,6 +377,86 @@ object FlashCoordinator {
         return waitForBoard(usb)
     }
 
+    // --- Katapult (USB CDC or a USB-serial adapter wired to its UART) ----------
+
+    private suspend fun flashKatapult(ctx: Context, usb: UsbManager, target: UsbDevice, entry: FirmwareStore.Entry): Boolean {
+        val data = binFile(entry, "Katapult")
+        UsbSerialManager.close(UsbSerialManager.getUID(target))
+        ensurePermission(ctx, usb, target)
+        val drv = serialDriver(target) ?: throw FlashAbort(FlashFailure.NOT_SERIAL, "this device is not a USB serial port")
+        val port = drv.ports[0]
+        try {
+            port.open(usb.openDevice(target) ?: throw FlashAbort(FlashFailure.USB_ERROR, "could not open the USB device"))
+            port.setParameters(KATAPULT_BAUD, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+            KatapultFlasher(UsbSerialLink(port)).flash(data, this::progress, { FlashLog.append(it) })
+        } finally {
+            try { port.close() } catch (_: Throwable) {}
+        }
+        stage(FlashStage.WAIT_DEVICE)
+        return waitForBoard(usb)
+    }
+
+    // --- STM32 HID bootloader (1209:beba) --------------------------------------
+
+    private suspend fun flashHid(ctx: Context, usb: UsbManager, target: UsbDevice, entry: FirmwareStore.Entry): Boolean {
+        val data = binFile(entry, "HID")
+        ensurePermission(ctx, usb, target)
+        val conn = usb.openDevice(target) ?: throw FlashAbort(FlashFailure.USB_ERROR, "could not open the USB device")
+        try {
+            HidFlasher(UsbHidLink.open(target, conn)).flash(data, this::progress) { FlashLog.append(it) }
+        } finally {
+            conn.close()
+        }
+        stage(FlashStage.WAIT_DEVICE)
+        return waitForBoard(usb)
+    }
+
+    // --- Atmel SAM-BA (SAM3 / SAM4 / SAME70 ROM, USB) --------------------------
+
+    private suspend fun flashSamba(ctx: Context, usb: UsbManager, target: UsbDevice, entry: FirmwareStore.Entry): Boolean {
+        val data = binFile(entry, "SAM-BA")
+        UsbSerialManager.close(UsbSerialManager.getUID(target))
+        ensurePermission(ctx, usb, target)
+        val drv = serialDriver(target) ?: throw FlashAbort(FlashFailure.NOT_SERIAL, "the SAM-BA bootloader is not a serial device")
+        val port = drv.ports[0]
+        try {
+            port.open(usb.openDevice(target) ?: throw FlashAbort(FlashFailure.USB_ERROR, "could not open the USB device"))
+            port.setParameters(115200, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+            SamBaFlasher(SamBaMonitor(UsbSerialLink(port))).flash(data, this::progress) { FlashLog.append(it) }
+        } finally {
+            try { port.close() } catch (_: Throwable) {}
+        }
+        stage(FlashStage.WAIT_DEVICE)
+        return waitForBoard(usb)
+    }
+
+    // --- Katapult over CAN, through a gs_usb adapter (also Klipper's USB-to-CAN bridge) ---------
+
+    private suspend fun flashCan(ctx: Context, usb: UsbManager, target: UsbDevice, entry: FirmwareStore.Entry, opts: FlashOptions): Boolean {
+        val data = binFile(entry, "Katapult")
+        val uuid = opts.canUuid ?: throw FlashAbort(FlashFailure.BAD_CAN_ID, "the CAN UUID of the node is missing")
+        ensurePermission(ctx, usb, target)
+        val conn = usb.openDevice(target) ?: throw FlashAbort(FlashFailure.USB_ERROR, "could not open the USB device")
+        var bus: GsUsbBus? = null
+        try {
+            bus = try { GsUsbBus.open(target, conn) } catch (e: IOException) { throw FlashAbort(FlashFailure.NOT_CAN_ADAPTER, e.message.orEmpty()) }
+            FlashLog.append("CAN bus at ${opts.canBitrate} bit/s, node ${"%012x".format(uuid)}")
+            bus.start(opts.canBitrate) { FlashLog.append(it) }
+            CanKatapult(bus).flash(uuid, data, this::progress, { FlashLog.append(it) })
+        } finally {
+            bus?.stop()
+            conn.close()
+        }
+        // the board is on the CAN bus, not on USB: there is nothing to wait for
+        return false
+    }
+
+    /** These bootloaders take the raw application: only a .bin file makes sense. */
+    private fun binFile(entry: FirmwareStore.Entry, what: String): ByteArray {
+        if (entry.kind != FirmwareKind.BIN) throw FlashAbort(FlashFailure.INCOMPATIBLE_FILE, "the $what bootloader needs a .bin file")
+        return entry.file.readBytes().also { if (it.isEmpty()) throw FlashAbort(FlashFailure.FILE_INVALID, "the file is empty") }
+    }
+
     // --- helpers ----------------------------------------------------------------
 
     private const val STM32_FLASH_MIN = 0x08000000L
@@ -361,6 +478,10 @@ object FlashCoordinator {
     }
 
     private fun isDfu(d: UsbDevice) = d.vendorId == VENDOR_ST && d.productId == PRODUCT_ST_DFU
+    private fun isKatapult(d: UsbDevice) = d.vendorId == VENDOR_KLIPPER && d.productId == PRODUCT_KATAPULT
+    private fun isHid(d: UsbDevice) = d.vendorId == HidFlasher.VENDOR && d.productId == HidFlasher.PRODUCT
+    private fun isSamba(d: UsbDevice) = d.vendorId == VENDOR_ATMEL && d.productId == PRODUCT_SAMBA
+    private fun isBootloader(d: UsbDevice) = Picoboot.isBootsel(d) || isDfu(d) || isKatapult(d) || isHid(d) || isSamba(d)
 
     private fun serialDriver(d: UsbDevice) = UsbSerialProber(KlipperProbeTable.getInstance()).probeDevice(d)
 
@@ -387,7 +508,7 @@ object FlashCoordinator {
 
     private suspend fun waitForBoard(usb: UsbManager, announce: Boolean = true): Boolean {
         if (announce) stage(FlashStage.WAIT_DEVICE)
-        val back = waitFor(usb, 20_000) { !Picoboot.isBootsel(it) && !isDfu(it) && (it.vendorId == 0x1D50 || it.vendorId == Picoboot.VENDOR_RASPBERRY_PI) }
+        val back = waitFor(usb, 20_000) { !isBootloader(it) && (it.vendorId == VENDOR_KLIPPER || it.vendorId == Picoboot.VENDOR_RASPBERRY_PI) }
         if (back != null) { FlashLog.append("board is back: ${hex(back.vendorId)}:${hex(back.productId)}"); return false }
         FlashLog.append("board did not come back as a USB device within 20 s")
         return true

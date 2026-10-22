@@ -66,6 +66,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.ytkab0bp.beamklipper.R
+import ru.ytkab0bp.beamklipper.firmware.CanKatapult
 import ru.ytkab0bp.beamklipper.firmware.FirmwareDownloader
 import ru.ytkab0bp.beamklipper.firmware.FirmwareException
 import ru.ytkab0bp.beamklipper.firmware.FirmwareKind
@@ -307,16 +308,24 @@ private fun parseAddress(text: String): Long? {
 private fun modeLabel(m: FlashMode): Int = when (m) {
     FlashMode.USB -> R.string.FirmwareModeUsb; FlashMode.UART -> R.string.FirmwareModeUart
     FlashMode.DFU -> R.string.FirmwareModeDfu; FlashMode.RP2040 -> R.string.FirmwareModeRp2040
+    FlashMode.KATAPULT -> R.string.FirmwareModeKatapult; FlashMode.HID -> R.string.FirmwareModeHid
+    FlashMode.SAMBA -> R.string.FirmwareModeSamba; FlashMode.CAN -> R.string.FirmwareModeCan
 }
 
 private fun modeDesc(m: FlashMode): Int = when (m) {
     FlashMode.USB -> R.string.FirmwareModeUsbDesc; FlashMode.UART -> R.string.FirmwareModeUartDesc
     FlashMode.DFU -> R.string.FirmwareModeDfuDesc; FlashMode.RP2040 -> R.string.FirmwareModeRp2040Desc
+    FlashMode.KATAPULT -> R.string.FirmwareModeKatapultDesc; FlashMode.HID -> R.string.FirmwareModeHidDesc
+    FlashMode.SAMBA -> R.string.FirmwareModeSambaDesc; FlashMode.CAN -> R.string.FirmwareModeCanDesc
 }
 
 private fun suggestMode(d: UsbDevice): FlashMode = when {
     Picoboot.isBootsel(d) -> FlashMode.RP2040
     d.vendorId == 0x0483 && d.productId == 0xDF11 -> FlashMode.DFU
+    d.vendorId == 0x1D50 && d.productId == 0x606F -> FlashMode.CAN      // gs_usb: candlelight and Klipper's USB-to-CAN bridge
+    d.vendorId == 0x1D50 && d.productId == 0x6177 -> FlashMode.KATAPULT
+    d.vendorId == 0x1209 && d.productId == 0xBEBA -> FlashMode.HID
+    d.vendorId == 0x03EB && d.productId == 0x6124 -> FlashMode.SAMBA
     d.vendorId == 0x1D50 || d.vendorId == 0x2E8A -> FlashMode.USB
     KlipperProbeTable.getInstance().findDriver(d) != null -> FlashMode.USB
     else -> FlashMode.UART
@@ -336,6 +345,8 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     var deviceName by rememberSaveable { mutableStateOf<String?>(null) }
     var modeName by rememberSaveable { mutableStateOf<String?>(null) }
     var startText by rememberSaveable { mutableStateOf("0x08000000") }
+    var canUuidText by rememberSaveable { mutableStateOf("") }
+    var canBitrateText by rememberSaveable { mutableStateOf(FlashOptions.DEFAULT_CAN_BITRATE.toString()) }
     var files by remember { mutableStateOf(FirmwareStore.list()) }
     var deleting by remember { mutableStateOf<DeleteRequest?>(null) }
     val usb = remember { context.getSystemService(Context.USB_SERVICE) as UsbManager }
@@ -363,9 +374,12 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     val device = devices.firstOrNull { it.deviceName == deviceName }
     val mode = modeName?.let { runCatching { FlashMode.valueOf(it) }.getOrNull() }
     // The start address only matters for raw .bin files written to STM32 boards.
-    val needsAddress = mode != null && mode != FlashMode.RP2040 && file?.kind == FirmwareKind.BIN
+    val needsAddress = mode != null && mode in listOf(FlashMode.USB, FlashMode.UART, FlashMode.DFU) && file?.kind == FirmwareKind.BIN
     val startAddress = parseAddress(startText)
     val addressOk = !needsAddress || startAddress != null
+    val canUuid = CanKatapult.parseUuid(canUuidText)
+    val canBitrate = canBitrateText.trim().toIntOrNull()?.takeIf { it in 10_000..1_000_000 }
+    val canOk = mode != FlashMode.CAN || (canUuid != null && canBitrate != null)
     val chip = device?.let { Picoboot.chipHint(it) }
     val experimental = mode != null && file != null && isExperimental(mode, file.kind, chip)
 
@@ -427,6 +441,17 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                             note = if (exp) stringResource(R.string.FirmwareExperimentalNote) else null
                         ) { modeName = m.name }
                     }
+                    if (mode == FlashMode.CAN) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.FirmwareCanUuid), style = MaterialTheme.typography.labelMedium, color = InkMuted, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                        KlipTextField(TextFieldValue(canUuidText), { canUuidText = it.text.trim() }, "0123456789ab")
+                        Text(stringResource(R.string.FirmwareCanBitrate), style = MaterialTheme.typography.labelMedium, color = InkMuted, modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 6.dp))
+                        KlipTextField(TextFieldValue(canBitrateText), { canBitrateText = it.text.trim() }, "1000000")
+                        Text(
+                            stringResource(R.string.FirmwareCanHint), style = MaterialTheme.typography.bodySmall,
+                            color = if (canOk || canUuidText.isEmpty()) InkMuted else Danger, modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+                        )
+                    }
                     if (needsAddress) {
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.FirmwareStartAddress), style = MaterialTheme.typography.labelMedium, color = InkMuted, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
@@ -466,11 +491,11 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 else -> {
                     KlipTextButton(stringResource(if (step == 0) R.string.FirmwareCancel else R.string.FirmwareBack), { if (step == 0) onClose() else step-- })
                     if (step < 3) {
-                        val ok = when (step) { 0 -> file != null; 1 -> device != null; else -> mode != null && addressOk }
+                        val ok = when (step) { 0 -> file != null; 1 -> device != null; else -> mode != null && addressOk && canOk }
                         KlipButton(stringResource(R.string.FirmwareNext), { step++ }, enabled = ok)
                     } else {
                         KlipButton(stringResource(R.string.FirmwareConfirm), {
-                            if (file != null && device != null && mode != null) FlashCoordinator.start(context, file, device, mode, FlashOptions(startAddress ?: FlashOptions.DEFAULT_STM32_START))
+                            if (file != null && device != null && mode != null) FlashCoordinator.start(context, file, device, mode, FlashOptions(startAddress ?: FlashOptions.DEFAULT_STM32_START, canUuid, canBitrate ?: FlashOptions.DEFAULT_CAN_BITRATE))
                         }, background = Danger, contentColor = ru.ytkab0bp.beamklipper.ui.theme.InkOnAccent)
                     }
                 }
@@ -604,5 +629,7 @@ private fun failureText(f: FlashFailure?): String = stringResource(when (f) {
     FlashFailure.NO_BOOTLOADER -> R.string.FirmwareFailBootsel
     FlashFailure.VERIFY_MISMATCH -> R.string.FirmwareFailVerify
     FlashFailure.CANCELLED -> R.string.FirmwareFailCancelled
+    FlashFailure.BAD_CAN_ID -> R.string.FirmwareFailCanUuid
+    FlashFailure.NOT_CAN_ADAPTER -> R.string.FirmwareFailCanAdapter
     else -> R.string.FirmwareFailUsb
 })
