@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * PICOBOOT, the USB protocol of the RP2040 boot ROM (BOOTSEL mode, 2e8a:0003).
+ * PICOBOOT, the USB protocol of the RP2040 / RP2350 boot ROM (BOOTSEL mode, 2e8a:0003 / 2e8a:000f).
  * Port of the commands used by Klipper's lib/rp2040_flash/picoboot_connection.c.
  */
 class Picoboot private constructor(
@@ -45,11 +45,11 @@ class Picoboot private constructor(
 
     fun reboot(pc: Int, sp: Int, delayMs: Int) = command(CMD_REBOOT, 12, 0, le(pc, sp, delayMs))
 
+    /** RP2350 reboot (the RP2040 command is not available there): flags 0 = normal boot from flash. */
+    fun reboot2(flags: Int, delayMs: Int, param0: Int, param1: Int) = command(CMD_REBOOT2, 16, 0, reboot2Args(flags, delayMs, param0, param1))
+
     private fun command(id: Int, argSize: Int, transfer: Int, args: ByteArray, data: ByteArray? = null) {
-        val cmd = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN)
-        cmd.putInt(MAGIC).putInt(token++).put(id.toByte()).put(argSize.toByte()).putShort(0).putInt(transfer)
-        cmd.put(args)
-        bulk(out, cmd.array(), 32, TIMEOUT_MS, "send command")
+        bulk(out, buildCommand(token++, id, argSize, transfer, args), 32, TIMEOUT_MS, "send command")
         val isIn = (id and 0x80) != 0
         if (transfer > 0 && data != null) {
             if (isIn) bulk(inp, data, transfer, TIMEOUT_MS, "receive data")
@@ -89,6 +89,7 @@ class Picoboot private constructor(
         private const val IF_RESET = 0x41
         private const val CMD_EXCLUSIVE_ACCESS = 0x01
         private const val CMD_REBOOT = 0x02
+        private const val CMD_REBOOT2 = 0x0A
         private const val CMD_FLASH_ERASE = 0x03
         private const val CMD_READ = 0x84
         private const val CMD_WRITE = 0x05
@@ -96,7 +97,28 @@ class Picoboot private constructor(
         private const val TIMEOUT_MS = 10_000
         private const val ERASE_TIMEOUT_MS = 20_000
 
-        fun isBootsel(dev: UsbDevice) = dev.vendorId == VENDOR_RASPBERRY_PI && dev.productId == PID_RP2040_BOOT
+        /** Which chip a boot ROM device (BOOTSEL) belongs to, or null when [dev] is not one. */
+        fun chipOf(dev: UsbDevice): PicoChip? =
+            if (dev.vendorId == VENDOR_RASPBERRY_PI) PicoChip.values().firstOrNull { it.bootPid == dev.productId } else null
+
+        fun isBootsel(dev: UsbDevice) = chipOf(dev) != null
+
+        /** [chipOf], or for a board running Klipper over USB the chip named in its product string ("rp2350"). */
+        fun chipHint(dev: UsbDevice): PicoChip? = chipOf(dev)
+            ?: if ((try { dev.productName } catch (_: SecurityException) { null })?.contains("rp2350", ignoreCase = true) == true) PicoChip.RP2350 else null
+
+        internal const val CMD_REBOOT2_ID = 0x0A // same value as CMD_REBOOT2, visible to the tests
+
+        /** picoboot_reboot2_cmd: dFlags, dDelayMS, dParam0, dParam1 (little endian). */
+        internal fun reboot2Args(flags: Int, delayMs: Int, p0: Int, p1: Int) = le(flags, delayMs, p0, p1)
+
+        /** The 32-byte PICOBOOT command packet. */
+        internal fun buildCommand(token: Int, id: Int, argSize: Int, transfer: Int, args: ByteArray): ByteArray {
+            val cmd = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN)
+            cmd.putInt(MAGIC).putInt(token).put(id.toByte()).put(argSize.toByte()).putShort(0).putInt(transfer)
+            cmd.put(args)
+            return cmd.array()
+        }
 
         /** Claims the vendor interface of a BOOTSEL device. [conn] comes from UsbManager.openDevice. */
         fun open(dev: UsbDevice, conn: UsbDeviceConnection): Picoboot {

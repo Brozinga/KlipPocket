@@ -117,7 +117,7 @@ private fun FirmwareHome(onInstall: () -> Unit) {
     var showUsb by remember { mutableStateOf(false) }
     var showDownload by remember { mutableStateOf(false) }
     var files by remember { mutableStateOf(FirmwareStore.list()) }
-    var deleting by remember { mutableStateOf<FirmwareStore.Entry?>(null) }
+    var deleting by remember { mutableStateOf<DeleteRequest?>(null) }
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) scope.launch {
@@ -160,30 +160,64 @@ private fun FirmwareHome(onInstall: () -> Unit) {
                 }
                 Text(
                     stringResource(R.string.FirmwareDelete), style = MaterialTheme.typography.labelLarge, color = Danger,
-                    modifier = Modifier.clip(KlipShape).clickable { deleting = f }.padding(8.dp)
+                    modifier = Modifier.clip(KlipShape).clickable { deleting = DeleteRequest.One(f) }.padding(8.dp)
                 )
             }
         }
         Spacer(Modifier.height(4.dp))
-        KlipTextButton(text = stringResource(R.string.FirmwareImport), onClick = { picker.launch(arrayOf("*/*")) })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            KlipTextButton(text = stringResource(R.string.FirmwareImport), onClick = { picker.launch(arrayOf("*/*")) })
+            if (files.isNotEmpty()) KlipTextButton(
+                text = stringResource(R.string.FirmwareDeleteAll), contentColor = Danger,
+                onClick = { deleting = DeleteRequest.All }
+            )
+        }
     }
 
     if (showUsb) ListUsbDialog(context, onDismiss = { showUsb = false })
     if (showDownload) DownloadDialog(onDismiss = { showDownload = false; files = FirmwareStore.list() })
-    deleting?.let { f ->
-        KlipAlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(f.name, style = MaterialTheme.typography.titleLarge, color = Ink) },
-            text = { Text(stringResource(R.string.FirmwareDelete) + "?", color = Ink) },
-            confirmButton = { KlipButton(text = stringResource(R.string.FirmwareDelete), background = Danger, onClick = { FirmwareStore.delete(f); files = FirmwareStore.list(); deleting = null }) },
-            dismissButton = { KlipTextButton(text = stringResource(R.string.FirmwareCancel), onClick = { deleting = null }) }
-        )
+    deleting?.let { req ->
+        DeleteDialog(req, files.size, onDismiss = { deleting = null }) {
+            when (req) {
+                is DeleteRequest.One -> FirmwareStore.delete(req.entry)
+                DeleteRequest.All -> FirmwareStore.deleteAll()
+            }
+            files = FirmwareStore.list()
+            deleting = null
+        }
     }
 }
 
 @Composable
 private fun SectionLabel(text: String) {
     Text(text.uppercase(), style = MaterialTheme.typography.labelMedium, color = InkMuted, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp))
+}
+
+/** What the user asked to delete: one stored firmware, or all of them. */
+private sealed class DeleteRequest {
+    class One(val entry: FirmwareStore.Entry) : DeleteRequest()
+    object All : DeleteRequest()
+}
+
+@Composable
+private fun DeleteDialog(request: DeleteRequest, count: Int, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    KlipAlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                if (request is DeleteRequest.One) request.entry.name else stringResource(R.string.FirmwareDeleteAll),
+                style = MaterialTheme.typography.titleLarge, color = Ink
+            )
+        },
+        text = {
+            Text(
+                if (request is DeleteRequest.One) stringResource(R.string.FirmwareDeleteOneConfirm) else stringResource(R.string.FirmwareDeleteAllConfirm, count),
+                color = Ink
+            )
+        },
+        confirmButton = { KlipButton(text = stringResource(R.string.FirmwareDelete), background = Danger, onClick = onConfirm) },
+        dismissButton = { KlipTextButton(text = stringResource(R.string.FirmwareCancel), onClick = onDismiss) }
+    )
 }
 
 @Composable
@@ -303,6 +337,7 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     var modeName by rememberSaveable { mutableStateOf<String?>(null) }
     var startText by rememberSaveable { mutableStateOf("0x08000000") }
     var files by remember { mutableStateOf(FirmwareStore.list()) }
+    var deleting by remember { mutableStateOf<DeleteRequest?>(null) }
     val usb = remember { context.getSystemService(Context.USB_SERVICE) as UsbManager }
     var devices by remember { mutableStateOf(usb.deviceList.values.sortedBy { it.deviceName }) }
     val running = flashState is FlashState.Running
@@ -331,7 +366,8 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     val needsAddress = mode != null && mode != FlashMode.RP2040 && file?.kind == FirmwareKind.BIN
     val startAddress = parseAddress(startText)
     val addressOk = !needsAddress || startAddress != null
-    val experimental = mode != null && file != null && isExperimental(mode, file.kind)
+    val chip = device?.let { Picoboot.chipHint(it) }
+    val experimental = mode != null && file != null && isExperimental(mode, file.kind, chip)
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 16.dp)) {
         if (!inRun) {
@@ -344,6 +380,13 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 style = MaterialTheme.typography.headlineSmall, color = if (step == 3) Danger else Ink, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
             )
         }
+        WizardDeleteHost(deleting, files.size) { cleared ->
+            if (cleared) {
+                files = FirmwareStore.list()
+                if (files.none { it.name == fileName }) fileName = null
+            }
+            deleting = null
+        }
         val scroll = rememberScrollState()
         LaunchedEffect(step, inRun) { scroll.scrollTo(0) }
         Column(Modifier.weight(1f).verticalScroll(scroll)) {
@@ -351,7 +394,13 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 0 -> {
                     if (files.isEmpty()) Text(stringResource(R.string.FirmwareNoFiles), color = InkMuted, style = MaterialTheme.typography.bodyMedium)
                     files.forEach { f ->
-                        ChoiceRow(f.name, "${f.kind} · ${formatSize(f.size)}", f.name == fileName) { fileName = f.name }
+                        ChoiceRow(f.name, "${f.kind} · ${formatSize(f.size)}", f.name == fileName, onDelete = { deleting = DeleteRequest.One(f) }) { fileName = f.name }
+                    }
+                    if (files.isNotEmpty()) {
+                        KlipTextButton(
+                            text = stringResource(R.string.FirmwareDeleteAll), contentColor = Danger,
+                            onClick = { deleting = DeleteRequest.All }
+                        )
                     }
                 }
                 1 -> {
@@ -370,7 +419,7 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 }
                 2 -> {
                     FlashMode.values().forEach { m ->
-                        val exp = file != null && isExperimental(m, file.kind)
+                        val exp = file != null && isExperimental(m, file.kind, chip)
                         ChoiceRow(
                             stringResource(modeLabel(m)),
                             stringResource(modeDesc(m)),
@@ -431,7 +480,19 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
 }
 
 @Composable
-private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: String? = null, onClick: () -> Unit) {
+private fun WizardDeleteHost(deleting: DeleteRequest?, count: Int, onDone: (cleared: Boolean) -> Unit) {
+    if (deleting == null) return
+    DeleteDialog(deleting, count, onDismiss = { onDone(false) }) {
+        when (deleting) {
+            is DeleteRequest.One -> FirmwareStore.delete(deleting.entry)
+            DeleteRequest.All -> FirmwareStore.deleteAll()
+        }
+        onDone(true)
+    }
+}
+
+@Composable
+private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: String? = null, onDelete: (() -> Unit)? = null, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(KlipShape)
             .background(PaperAlt, KlipShape).border(2.dp, if (selected) Accent else Line, KlipShape)
@@ -443,6 +504,10 @@ private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: 
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = InkMuted)
             if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = Warn, modifier = Modifier.padding(top = 2.dp))
         }
+        if (onDelete != null) Text(
+            stringResource(R.string.FirmwareDelete), style = MaterialTheme.typography.labelLarge, color = Danger,
+            modifier = Modifier.clip(KlipShape).clickable(onClick = onDelete).padding(8.dp)
+        )
         if (selected) Box(Modifier.size(12.dp).background(Accent, KlipShape))
     }
 }
@@ -534,8 +599,7 @@ private fun failureText(f: FlashFailure?): String = stringResource(when (f) {
     FlashFailure.BAD_ADDRESS -> R.string.FirmwareFailAddress
     FlashFailure.WRONG_DEVICE -> R.string.FirmwareFailWrongDevice
     FlashFailure.FILE_INVALID -> R.string.FirmwareFailFileInvalid
-    FlashFailure.NEEDS_RP2040_UF2 -> R.string.FirmwareFailNeedsRp2040
-    FlashFailure.RP2350 -> R.string.FirmwareFailRp2350
+    FlashFailure.WRONG_CHIP -> R.string.FirmwareFailNeedsRp2040
     FlashFailure.PERMISSION_DENIED -> R.string.FirmwareFailPermission
     FlashFailure.NO_BOOTLOADER -> R.string.FirmwareFailBootsel
     FlashFailure.VERIFY_MISMATCH -> R.string.FirmwareFailVerify

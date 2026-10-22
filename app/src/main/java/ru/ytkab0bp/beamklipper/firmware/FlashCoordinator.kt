@@ -34,7 +34,7 @@ enum class FlashMode { USB, UART, DFU, RP2040 }
 enum class FlashStage { PREPARE, ENTER_BOOTSEL, WAIT_BOOTSEL, PERMISSION, HANDSHAKE, ERASE, WRITE, VERIFY, REBOOT, WAIT_DEVICE }
 
 enum class FlashFailure {
-    WRONG_DEVICE, FILE_INVALID, INCOMPATIBLE_FILE, NEEDS_RP2040_UF2, RP2350, PERMISSION_DENIED, NO_BOOTLOADER,
+    WRONG_DEVICE, FILE_INVALID, INCOMPATIBLE_FILE, WRONG_CHIP, PERMISSION_DENIED, NO_BOOTLOADER,
     NOT_SERIAL, NO_ANSWER, BAD_ADDRESS, USB_ERROR, VERIFY_MISMATCH, CANCELLED
 }
 
@@ -67,9 +67,9 @@ internal object FlashProgress {
     }
 }
 
-/** Whether a mode lacks conclusive hardware tests: everything except RP2040 (and UF2 files through USB mode). */
-fun isExperimental(mode: FlashMode, kind: FirmwareKind): Boolean =
-    !(mode == FlashMode.RP2040 || (mode == FlashMode.USB && kind == FirmwareKind.UF2))
+/** Whether a mode lacks conclusive hardware tests: everything except RP2040 (and UF2 files through USB mode); the RP2350 is always experimental. */
+fun isExperimental(mode: FlashMode, kind: FirmwareKind, chip: PicoChip? = null): Boolean =
+    chip == PicoChip.RP2350 || !(mode == FlashMode.RP2040 || (mode == FlashMode.USB && kind == FirmwareKind.UF2))
 
 /**
  * Runs one firmware write at a time and logs everything in [FlashLog].
@@ -98,7 +98,7 @@ object FlashCoordinator {
             FlashLog.append("=== Firmware flash started ===")
             FlashLog.append("file=${entry.name} (${entry.size} bytes, ${entry.kind}) sha256=${FirmwareStore.sha256(entry.file)}")
             FlashLog.append("device=$label (${runCatching { device.productName }.getOrNull() ?: "?"}) mode=$mode" +
-                    (if (isExperimental(mode, entry.kind)) " [experimental]" else "") +
+                    (if (isExperimental(mode, entry.kind, Picoboot.chipHint(device))) " [experimental]" else "") +
                     " start=0x${options.startAddress.toString(16)}")
             try {
                 val missing = run(app, entry, device, mode, options)
@@ -129,13 +129,11 @@ object FlashCoordinator {
     private suspend fun run(ctx: Context, entry: FirmwareStore.Entry, device: UsbDevice, mode: FlashMode, opts: FlashOptions): Boolean {
         val usb = ctx.getSystemService(Context.USB_SERVICE) as UsbManager
         stage(FlashStage.PREPARE)
-        if (device.vendorId == Picoboot.VENDOR_RASPBERRY_PI && device.productId == Picoboot.PID_RP2350_BOOT)
-            throw FlashAbort(FlashFailure.RP2350, "RP2350 (Pico 2) is not supported yet")
 
         var target = device
         when (mode) {
             FlashMode.RP2040 -> if (!Picoboot.isBootsel(device))
-                throw FlashAbort(FlashFailure.WRONG_DEVICE, "the device is not an RP2040 in BOOTSEL mode (2e8a:0003)")
+                throw FlashAbort(FlashFailure.WRONG_DEVICE, "the device is not an RP2040 / RP2350 in BOOTSEL mode (2e8a:0003 / 2e8a:000f)")
             FlashMode.DFU -> if (!isDfu(device))
                 throw FlashAbort(FlashFailure.WRONG_DEVICE, "the device is not an STM32 in DFU mode (0483:df11)")
             FlashMode.UART -> {
@@ -169,7 +167,9 @@ object FlashCoordinator {
     // --- RP2040 -----------------------------------------------------------------
 
     private suspend fun flashPico(ctx: Context, usb: UsbManager, target: UsbDevice, entry: FirmwareStore.Entry): Boolean {
-        val image = picoImage(entry)
+        val chip = Picoboot.chipOf(target) ?: throw FlashAbort(FlashFailure.WRONG_DEVICE, "not a Raspberry Pi boot ROM device")
+        val image = picoImage(entry, chip)
+        if (chip == PicoChip.RP2350) FlashLog.append("RP2350 (experimental): PICOBOOT with REBOOT2")
         ensurePermission(ctx, usb, target)
         val conn = usb.openDevice(target) ?: throw FlashAbort(FlashFailure.USB_ERROR, "could not open the USB device")
         Picoboot.open(target, conn).use { pb ->
@@ -196,21 +196,23 @@ object FlashCoordinator {
             }
             FlashLog.append("verify OK")
             stage(FlashStage.REBOOT)
-            pb.reboot(0, 0, 500)
+            if (chip == PicoChip.RP2350) pb.reboot2(0, 500, 0, 0) else pb.reboot(0, 0, 500)
         }
         return waitForBoard(usb)
     }
 
-    private fun picoImage(entry: FirmwareStore.Entry): FlashImage {
+    private fun picoImage(entry: FirmwareStore.Entry, chip: PicoChip): FlashImage {
         val bytes = entry.file.readBytes()
         return try {
             when (entry.kind) {
-                FirmwareKind.UF2 -> FirmwareImage.fromUf2(bytes)
-                FirmwareKind.BIN -> FirmwareImage.fromBin(bytes)
-                else -> throw FlashAbort(FlashFailure.INCOMPATIBLE_FILE, "the RP2040 needs a .uf2 or .bin file")
+                FirmwareKind.UF2 -> FirmwareImage.fromUf2(bytes, chip)
+                FirmwareKind.BIN -> FirmwareImage.fromBin(bytes, chip)
+                else -> throw FlashAbort(FlashFailure.INCOMPATIBLE_FILE, "the $chip needs a .uf2 or .bin file")
             }
+        } catch (e: WrongChipException) {
+            throw FlashAbort(FlashFailure.WRONG_CHIP, e.message!!)
         } catch (e: FirmwareException) {
-            throw FlashAbort(if (e.message!!.contains("not for the RP2040")) FlashFailure.NEEDS_RP2040_UF2 else FlashFailure.FILE_INVALID, e.message!!)
+            throw FlashAbort(FlashFailure.FILE_INVALID, e.message!!)
         }
     }
 

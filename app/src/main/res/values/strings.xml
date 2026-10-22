@@ -224,8 +224,6 @@
     <string name="FirmwareModeUart">UART</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">STM32 board in DFU mode (0483:df11).</string>
-    <string name="FirmwareModeRp2040">RP2040</string>
-    <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico in BOOTSEL mode (2e8a:0003).</string>
     <string name="FirmwareWarnTitle">Risk of damaging the device</string>
     <string name="FirmwareWarnText">Writing firmware can leave the board unusable if the file is wrong for it or the connection drops. Do not unplug the cable or leave the app. Klipper loses its connection to this board during the process.</string>
     <string name="FirmwareSummary">File: %1$s\nDevice: %2$s\nMode: %3$s</string>
@@ -243,8 +241,6 @@
     <string name="FirmwareFailed">Firmware writing failed</string>
     <string name="FirmwareFailWrongDevice">The chosen device does not match the mode.</string>
     <string name="FirmwareFailFileInvalid">The firmware file is invalid.</string>
-    <string name="FirmwareFailNeedsRp2040">The RP2040 needs a .uf2 built for it (or a raw .bin).</string>
-    <string name="FirmwareFailRp2350">RP2350 (Pico 2) is not supported yet.</string>
     <string name="FirmwareFailPermission">USB permission was not granted.</string>
     <string name="FirmwareFailUsb">USB communication error.</string>
     <string name="FirmwareFailVerify">The flash does not match the file after writing.</string>
@@ -268,4 +264,10 @@
     <string name="FirmwareFailNoAnswer">The bootloader did not answer. Check the mode (BOOT0 / reset for STM32, reset line for AVR), the wiring and the baud rate.</string>
     <string name="FirmwareFailIncompat">This file type does not fit the chosen mode (STM32 and AVR: .bin or .hex; RP2040: .uf2 or .bin).</string>
     <string name="FirmwareFailAddress">The flash start address is not valid (STM32: 0x08000000 to 0x0FFFFFFF).</string>
+    <string name="FirmwareDeleteAll">Delete all</string>
+    <string name="FirmwareDeleteOneConfirm">Delete this firmware file?</string>
+    <string name="FirmwareDeleteAllConfirm">Delete all firmware files (%1$d)? This cannot be undone.</string>
+    <string name="FirmwareModeRp2040">RP2040 / RP2350</string>
+    <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico / Pico 2 in BOOTSEL mode (2e8a:0003 or 2e8a:000f). The RP2350 is experimental.</string>
+    <string name="FirmwareFailNeedsRp2040">The file is not for this chip: the RP2040 and the RP2350 each need their own .uf2 (or a raw .bin).</string>
 </resources>

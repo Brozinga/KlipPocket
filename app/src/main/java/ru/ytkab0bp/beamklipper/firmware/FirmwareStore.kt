@@ -44,6 +44,15 @@ object FirmwareStore {
 
     fun delete(e: Entry) = e.file.delete()
 
+    /** Deletes every stored firmware (and a half-finished download); returns how many files were removed. */
+    fun deleteAll(): Int = deleteAllIn(dir())
+
+    internal fun deleteAllIn(dir: File): Int {
+        File(dir, ".download.tmp").delete()
+        val files = (dir.listFiles() ?: emptyArray()).filter { it.isFile && it.extension.lowercase() in allowed }
+        return files.count { it.delete() }
+    }
+
     /** Copies a file the user picked with the system picker. Returns the stored entry. */
     fun import(ctx: Context, uri: Uri): Entry {
         var name = "firmware.bin"

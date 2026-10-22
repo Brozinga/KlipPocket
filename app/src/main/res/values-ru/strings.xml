@@ -212,8 +212,6 @@
     <string name="FirmwareModeUart">UART</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">Плата STM32 в режиме DFU (0483:df11).</string>
-    <string name="FirmwareModeRp2040">RP2040</string>
-    <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico в режиме BOOTSEL (2e8a:0003).</string>
     <string name="FirmwareWarnTitle">Риск повреждения устройства</string>
     <string name="FirmwareWarnText">Запись прошивки может сделать плату неработоспособной, если файл не подходит или соединение прервётся. Не отключайте кабель и не выходите из приложения. Во время процесса Klipper теряет связь с платой.</string>
     <string name="FirmwareSummary">Файл: %1$s\nУстройство: %2$s\nРежим: %3$s</string>
@@ -231,8 +229,6 @@
     <string name="FirmwareFailed">Не удалось записать прошивку</string>
     <string name="FirmwareFailWrongDevice">Выбранное устройство не подходит для режима.</string>
     <string name="FirmwareFailFileInvalid">Файл прошивки недопустим.</string>
-    <string name="FirmwareFailNeedsRp2040">Для RP2040 нужен .uf2, собранный для него (или чистый .bin).</string>
-    <string name="FirmwareFailRp2350">RP2350 (Pico 2) пока не поддерживается.</string>
     <string name="FirmwareFailPermission">Разрешение USB не предоставлено.</string>
     <string name="FirmwareFailUsb">Ошибка связи по USB.</string>
     <string name="FirmwareFailVerify">После записи flash не совпадает с файлом.</string>
@@ -256,4 +252,10 @@
     <string name="FirmwareFailNoAnswer">Загрузчик не отвечает. Проверьте режим (BOOT0 / сброс у STM32, линия сброса у AVR), проводку и скорость.</string>
     <string name="FirmwareFailIncompat">Этот тип файла не подходит для выбранного режима (STM32 и AVR: .bin или .hex; RP2040: .uf2 или .bin).</string>
     <string name="FirmwareFailAddress">Начальный адрес flash недопустим (STM32: от 0x08000000 до 0x0FFFFFFF).</string>
+    <string name="FirmwareDeleteAll">Удалить все</string>
+    <string name="FirmwareDeleteOneConfirm">Удалить этот файл прошивки?</string>
+    <string name="FirmwareDeleteAllConfirm">Удалить все файлы прошивки (%1$d)? Это нельзя отменить.</string>
+    <string name="FirmwareModeRp2040">RP2040 / RP2350</string>
+    <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico / Pico 2 в режиме BOOTSEL (2e8a:0003 или 2e8a:000f). RP2350 — экспериментально.</string>
+    <string name="FirmwareFailNeedsRp2040">Файл не для этого чипа: RP2040 и RP2350 требуют каждый свой .uf2 (или чистый .bin).</string>
 </resources>

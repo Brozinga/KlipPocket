@@ -209,8 +209,6 @@
     <string name="FirmwareModeUart">UART</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">处于 DFU 模式的 STM32 主板 (0483:df11)。</string>
-    <string name="FirmwareModeRp2040">RP2040</string>
-    <string name="FirmwareModeRp2040Desc">处于 BOOTSEL 模式的树莓派 Pico (2e8a:0003)。</string>
     <string name="FirmwareWarnTitle">可能损坏设备</string>
     <string name="FirmwareWarnText">如果文件不适用于该主板或连接中断，写入固件可能使主板无法使用。请勿拔出线缆或离开应用。过程中 Klipper 会失去与该主板的连接。</string>
     <string name="FirmwareSummary">文件：%1$s\n设备：%2$s\n方式：%3$s</string>
@@ -228,8 +226,6 @@
     <string name="FirmwareFailed">固件写入失败</string>
     <string name="FirmwareFailWrongDevice">所选设备与方式不匹配。</string>
     <string name="FirmwareFailFileInvalid">固件文件无效。</string>
-    <string name="FirmwareFailNeedsRp2040">RP2040 需要为其构建的 .uf2（或原始 .bin）。</string>
-    <string name="FirmwareFailRp2350">暂不支持 RP2350 (Pico 2)。</string>
     <string name="FirmwareFailPermission">未授予 USB 权限。</string>
     <string name="FirmwareFailUsb">USB 通信错误。</string>
     <string name="FirmwareFailVerify">写入后闪存内容与文件不一致。</string>
@@ -253,4 +249,10 @@
     <string name="FirmwareFailNoAnswer">引导程序没有响应。请检查模式（STM32 的 BOOT0 / 复位，AVR 的复位线）、接线和波特率。</string>
     <string name="FirmwareFailIncompat">此文件类型不适用于所选方式（STM32 和 AVR：.bin 或 .hex；RP2040：.uf2 或 .bin）。</string>
     <string name="FirmwareFailAddress">闪存起始地址无效（STM32：0x08000000 至 0x0FFFFFFF）。</string>
+    <string name="FirmwareDeleteAll">全部删除</string>
+    <string name="FirmwareDeleteOneConfirm">删除此固件文件？</string>
+    <string name="FirmwareDeleteAllConfirm">删除全部固件文件（%1$d）？此操作无法撤销。</string>
+    <string name="FirmwareModeRp2040">RP2040 / RP2350</string>
+    <string name="FirmwareModeRp2040Desc">处于 BOOTSEL 模式的树莓派 Pico / Pico 2（2e8a:0003 或 2e8a:000f）。RP2350 为实验性。</string>
+    <string name="FirmwareFailNeedsRp2040">该文件不适用于此芯片：RP2040 和 RP2350 各自需要自己的 .uf2（或原始 .bin）。</string>
 </resources>
