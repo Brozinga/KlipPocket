@@ -98,5 +98,5 @@ pre.log { background: var(--paper-alt); border: 2px solid var(--line); border-ra
 
 .center .actions { justify-content: center; }
 
-.actions { align-items: center; }
+.actions { align-items: center; margin-bottom: 12px; }
 .actions .grow { flex: 1 1 auto; }
