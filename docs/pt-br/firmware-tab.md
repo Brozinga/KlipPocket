@@ -10,19 +10,27 @@ equivalente, no aparelho, da opção **6 Flash Firmware** do
 
 ![A aba Firmware](../images/firmware-tab/tab-home.png)
 
-## O que funciona e o que não funciona
+## Modos: o que funciona e o que é experimental
 
 | Modo | Placa | Situação |
 |---|---|---|
-| **RP2040** | Raspberry Pi Pico / RP2040 já em BOOTSEL (`2e8a:0003`) | **Funciona** (testado num Pico) |
-| **USB** | Raspberry Pi Pico / RP2040 rodando Klipper por USB: o app a coloca em BOOTSEL sozinho (pedido de 1200 bps) e grava | **Funciona** (testado num Pico) |
-| **DFU** | STM32 em modo DFU (`0483:df11`) | Ainda indisponível: executa e informa uma falha, **nada é gravado** |
-| **UART** | Adaptador USB-serial ligado a um bootloader serial | Ainda indisponível: igual ao DFU |
+| **RP2040** | Raspberry Pi Pico / RP2040 já em BOOTSEL (`2e8a:0003`) | **Testado** num Pico |
+| **USB** | Placa rodando Klipper por USB. O app envia o pedido de bootloader a 1200 bps (como o `make flash` do Klipper) e grava pelo bootloader que aparecer: RP2040 BOOTSEL, STM32 DFU ou AVR109 (ATmega32U4 / Caterina) | **Testado** com o RP2040 e um `.uf2`; os outros bootloaders são **experimentais** |
+| **DFU** | STM32 em modo DFU (`0483:df11`), protocolo DfuSe: apaga setores, grava, lê de volta, sai | **Experimental** |
+| **UART** | Adaptador USB-serial ligado ao bootloader serial da placa: STM32 (ST AN3155, toda a flash é apagada) ou AVR (STK500v1 "arduino", STK500v2 "wiring") | **Experimental** |
+
+> Os **modos experimentais** estão totalmente implementados, mas **não têm testes
+> conclusivos em placas reais** (só testes unitários com bootloaders simulados).
+> O app os marca na lista de modos e avisa de novo antes de gravar. **O uso é por
+> sua conta e risco.**
 
 **Não** cobre também: Pico 2 / RP2350, placas que carregam o firmware por
-cartão SD (por exemplo a Neptune 3 Pro: copie o `.bin` para o cartão) e placas
-CAN. O arquivo deve ser um `.uf2` feito para o RP2040 (o mais seguro) ou um
-`.bin` puro; o app recusa um `.uf2` de outro chip.
+cartão SD (por exemplo a Neptune 3 Pro: copie o `.bin` para o cartão), placas
+CAN e bootloaders diferentes dos acima (Katapult, HID-Flash, SAM-BA). O app
+recusa arquivo ou dispositivo que não combina com o modo: um `.uf2` deve ser
+feito para o RP2040, um `.bin` de RP2040 deve começar com um bloco boot2 válido
+(assim um `.bin` de STM32 nunca é gravado num Pico), e DFU / UART precisam de
+um `.bin` ou `.hex`.
 
 > **Gravar firmware pode deixar a placa inutilizável.** Grave só um arquivo
 > feito para aquela placa, mantenha o cabo conectado e a tela aberta, e lembre
@@ -70,29 +78,43 @@ como *rp2040 · 1d50:614e*. O Android pede a permissão USB quando necessário.
 ![Passo 2](../images/firmware-tab/step2-device.png)
 
 **3 — Escolha o modo de gravação.** O app sugere um conforme o dispositivo
-(*USB* para uma placa com Klipper, *RP2040* para BOOTSEL).
+(*USB* para uma placa com Klipper, *RP2040* para BOOTSEL, *DFU* para
+`0483:df11`). Modos sem testes conclusivos mostram o aviso **Experimental**.
 
 ![Passo 3](../images/firmware-tab/step3-mode.png)
 
-**4 — Confirme.** Um alerta mostra arquivo, dispositivo e modo. **Cancelar/Voltar**
-não altera nada; **Confirmar** inicia.
+Para um **`.bin`** puro gravado num **STM32** (modo DFU, UART ou USB) aparece o
+campo **Endereço inicial da flash**: onde o arquivo vai (`0x08000000`, a menos
+que haja um bootloader seu abaixo; o *Bootloader offset* do Klipper é esse
+tamanho). Arquivos `.hex` e `.uf2` já trazem os endereços.
+
+![Endereço inicial](../images/firmware-tab/start-address.png)
+
+**4 — Confirme.** Um alerta mostra arquivo, dispositivo e modo e, nos modos
+experimentais, um segundo aviso de que você segue por sua conta e risco.
+**Cancelar/Voltar** não altera nada; **Confirmar** inicia.
 
 ![Passo 4](../images/firmware-tab/step4-warning.png)
 
-**Progresso.** A tela fica acesa e mostra a etapa: preparando, colocando a
-placa em BOOTSEL, aguardando, permissão USB, apagando, gravando, verificando
-(lê de volta e compara), reiniciando e aguardando a placa.
+**Progresso.** A tela fica acesa. Uma barra cobre a gravação inteira (etapa por
+etapa, nunca para trás) e enche suavemente, com um brilho percorrendo-a
+enquanto o app trabalha; abaixo dela, a etapa atual e a porcentagem total:
+preparando, colocando a placa em BOOTSEL, aguardando, permissão USB, conversando
+com o bootloader, apagando, gravando, verificando (lê de volta e compara),
+reiniciando e aguardando a placa. Se algo falhar, a barra some e o erro é
+mostrado.
 
 ![Progresso](../images/firmware-tab/progress.png)
 
-**Resultado.** Em caso de sucesso a placa foi gravada, verificada e (quando usa
+**Resultado.** Em caso de sucesso (a barra fica cheia) a placa foi gravada, verificada e (quando usa
 USB) voltou ao barramento como dispositivo Klipper. Se os dados foram
 verificados mas a placa não reapareceu no USB, o app avisa. Em caso de falha,
 ele explica o motivo no seu idioma.
 
 | | |
 |---|---|
-| ![Sucesso](../images/firmware-tab/success.png) | ![Falha](../images/firmware-tab/failure.png) |
+| ![Sucesso](../images/firmware-tab/success.png) | ![Falha: o bootloader não respondeu](../images/firmware-tab/failure.png) |
+| ![Dispositivo errado para o modo](../images/firmware-tab/failure-wrong-device.png) | |
 
 **Ver log** abre a aba Logs na nova fonte **Gravação de firmware**.
 
@@ -115,11 +137,15 @@ A aba segue o tema e o idioma do app (English, Português, 简体中文, 繁體�
 
 | Mensagem | O que fazer |
 |---|---|
-| A placa não entrou em modo BOOTSEL | Segure **BOOTSEL** ao ligar a placa e use o modo *RP2040*. |
+| Nenhum bootloader suportado apareceu | A placa não entrou em RP2040 BOOTSEL, STM32 DFU nem AVR109 após o pedido de 1200 bps. Coloque-a no bootloader à mão (BOOTSEL / BOOT0) e use o modo *RP2040* ou *DFU*. |
+| O dispositivo escolhido não corresponde ao modo | Escolha o dispositivo certo para o modo (*DFU* exige `0483:df11`, *RP2040* exige `2e8a:0003`). Nada foi gravado. |
+| O bootloader não respondeu | UART: confira BOOT0 e reset (STM32) ou a linha de reset (AVR), a fiação e o baud rate. Nada foi gravado. |
+| O dispositivo não é um adaptador USB-serial | O modo UART exige um adaptador CDC / CH34x / CP210x / FTDI. |
+| Este tipo de arquivo não serve para o modo escolhido | RP2040: `.uf2` ou `.bin`; STM32 / AVR: `.bin` ou `.hex`. |
+| O endereço inicial da flash não é válido | Arquivos `.bin` de STM32 vão entre `0x08000000` e `0x0FFFFFFF`. |
 | A permissão USB não foi concedida | Tente de novo e aceite o pedido do Android. |
 | Este UF2 não é para o RP2040 | Compile o firmware para o RP2040 (veja [build-firmware.md](build-firmware.md)). |
-| A flash não confere com o arquivo | Não desconecte; execute de novo. A placa fica em BOOTSEL e sempre pode ser regravada. |
-| Este modo de gravação ainda não está disponível | DFU e UART não estão implementados; nada foi gravado. |
+| A flash não confere com o arquivo | Não desconecte; execute de novo. Um RP2040 fica em BOOTSEL e sempre pode ser regravado. |
 
 O Pico mantém sempre o seu carregador BOOTSEL, então uma gravação ruim se
 corrige segurando BOOTSEL e gravando de novo.
