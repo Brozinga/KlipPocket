@@ -7,6 +7,15 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,6 +51,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
@@ -55,10 +68,13 @@ import kotlinx.coroutines.withContext
 import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.firmware.FirmwareDownloader
 import ru.ytkab0bp.beamklipper.firmware.FirmwareException
+import ru.ytkab0bp.beamklipper.firmware.FirmwareKind
 import ru.ytkab0bp.beamklipper.firmware.FirmwareStore
 import ru.ytkab0bp.beamklipper.firmware.FlashCoordinator
 import ru.ytkab0bp.beamklipper.firmware.FlashFailure
 import ru.ytkab0bp.beamklipper.firmware.FlashMode
+import ru.ytkab0bp.beamklipper.firmware.FlashOptions
+import ru.ytkab0bp.beamklipper.firmware.isExperimental
 import ru.ytkab0bp.beamklipper.firmware.FlashStage
 import ru.ytkab0bp.beamklipper.firmware.FlashState
 import ru.ytkab0bp.beamklipper.firmware.Picoboot
@@ -72,6 +88,8 @@ import ru.ytkab0bp.beamklipper.ui.theme.Danger
 import ru.ytkab0bp.beamklipper.ui.theme.Ink
 import ru.ytkab0bp.beamklipper.ui.theme.InkMuted
 import ru.ytkab0bp.beamklipper.ui.theme.KlipShape
+import ru.ytkab0bp.beamklipper.ui.theme.KlipShapePill
+import ru.ytkab0bp.beamklipper.ui.theme.Warn
 import ru.ytkab0bp.beamklipper.ui.theme.Line
 import ru.ytkab0bp.beamklipper.ui.theme.PaperAlt
 
@@ -246,6 +264,12 @@ private fun DownloadDialog(onDismiss: () -> Unit) {
 
 // --- install wizard -----------------------------------------------------------
 
+/** "0x08008000" or "08008000" -> value, only for the STM32 flash window. */
+private fun parseAddress(text: String): Long? {
+    val v = text.trim().removePrefix("0x").removePrefix("0X").toLongOrNull(16) ?: return null
+    return if (v in 0x08000000L until 0x10000000L) v else null
+}
+
 private fun modeLabel(m: FlashMode): Int = when (m) {
     FlashMode.USB -> R.string.FirmwareModeUsb; FlashMode.UART -> R.string.FirmwareModeUart
     FlashMode.DFU -> R.string.FirmwareModeDfu; FlashMode.RP2040 -> R.string.FirmwareModeRp2040
@@ -277,6 +301,7 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     var fileName by rememberSaveable { mutableStateOf<String?>(null) }
     var deviceName by rememberSaveable { mutableStateOf<String?>(null) }
     var modeName by rememberSaveable { mutableStateOf<String?>(null) }
+    var startText by rememberSaveable { mutableStateOf("0x08000000") }
     var files by remember { mutableStateOf(FirmwareStore.list()) }
     val usb = remember { context.getSystemService(Context.USB_SERVICE) as UsbManager }
     var devices by remember { mutableStateOf(usb.deviceList.values.sortedBy { it.deviceName }) }
@@ -302,6 +327,11 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
     val file = files.firstOrNull { it.name == fileName }
     val device = devices.firstOrNull { it.deviceName == deviceName }
     val mode = modeName?.let { runCatching { FlashMode.valueOf(it) }.getOrNull() }
+    // The start address only matters for raw .bin files written to STM32 boards.
+    val needsAddress = mode != null && mode != FlashMode.RP2040 && file?.kind == FirmwareKind.BIN
+    val startAddress = parseAddress(startText)
+    val addressOk = !needsAddress || startAddress != null
+    val experimental = mode != null && file != null && isExperimental(mode, file.kind)
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 16.dp)) {
         if (!inRun) {
@@ -314,7 +344,9 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 style = MaterialTheme.typography.headlineSmall, color = if (step == 3) Danger else Ink, modifier = Modifier.padding(start = 4.dp, bottom = 12.dp)
             )
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+        val scroll = rememberScrollState()
+        LaunchedEffect(step, inRun) { scroll.scrollTo(0) }
+        Column(Modifier.weight(1f).verticalScroll(scroll)) {
             if (inRun) RunPanel(flashState) else when (step) {
                 0 -> {
                     if (files.isEmpty()) Text(stringResource(R.string.FirmwareNoFiles), color = InkMuted, style = MaterialTheme.typography.bodyMedium)
@@ -336,15 +368,35 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                         }
                     }
                 }
-                2 -> FlashMode.values().forEach { m ->
-                    ChoiceRow(
-                        stringResource(modeLabel(m)),
-                        stringResource(modeDesc(m)) + if (!m.supported) "\n" + stringResource(R.string.FirmwareModeSoon) else "",
-                        m == mode
-                    ) { modeName = m.name }
+                2 -> {
+                    FlashMode.values().forEach { m ->
+                        val exp = file != null && isExperimental(m, file.kind)
+                        ChoiceRow(
+                            stringResource(modeLabel(m)),
+                            stringResource(modeDesc(m)),
+                            m == mode,
+                            note = if (exp) stringResource(R.string.FirmwareExperimentalNote) else null
+                        ) { modeName = m.name }
+                    }
+                    if (needsAddress) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.FirmwareStartAddress), style = MaterialTheme.typography.labelMedium, color = InkMuted, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
+                        KlipTextField(TextFieldValue(startText), { startText = it.text.trim() }, "0x08000000")
+                        Text(
+                            stringResource(R.string.FirmwareStartAddressHint), style = MaterialTheme.typography.bodySmall,
+                            color = if (startAddress == null) Danger else InkMuted, modifier = Modifier.padding(start = 4.dp, top = 6.dp)
+                        )
+                    }
                 }
                 else -> {
                     Text(stringResource(R.string.FirmwareWarnText), style = MaterialTheme.typography.bodyLarge, color = Ink)
+                    if (experimental) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            stringResource(R.string.FirmwareExperimentalWarn), style = MaterialTheme.typography.bodyMedium, color = Warn,
+                            modifier = Modifier.fillMaxWidth().clip(KlipShape).border(2.dp, Warn, KlipShape).padding(12.dp)
+                        )
+                    }
                     Spacer(Modifier.height(16.dp))
                     Text(
                         stringResource(R.string.FirmwareSummary, file?.name ?: "", device?.let { deviceTitle(it) } ?: "", mode?.let { stringResource(modeLabel(it)) } ?: ""),
@@ -365,11 +417,11 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
                 else -> {
                     KlipTextButton(stringResource(if (step == 0) R.string.FirmwareCancel else R.string.FirmwareBack), { if (step == 0) onClose() else step-- })
                     if (step < 3) {
-                        val ok = when (step) { 0 -> file != null; 1 -> device != null; else -> mode != null }
+                        val ok = when (step) { 0 -> file != null; 1 -> device != null; else -> mode != null && addressOk }
                         KlipButton(stringResource(R.string.FirmwareNext), { step++ }, enabled = ok)
                     } else {
                         KlipButton(stringResource(R.string.FirmwareConfirm), {
-                            if (file != null && device != null && mode != null) FlashCoordinator.start(context, file, device, mode)
+                            if (file != null && device != null && mode != null) FlashCoordinator.start(context, file, device, mode, FlashOptions(startAddress ?: FlashOptions.DEFAULT_STM32_START))
                         }, background = Danger, contentColor = ru.ytkab0bp.beamklipper.ui.theme.InkOnAccent)
                     }
                 }
@@ -379,7 +431,7 @@ private fun FirmwareWizard(onClose: () -> Unit, onOpenLogs: () -> Unit) {
 }
 
 @Composable
-private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
+private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, note: String? = null, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(KlipShape)
             .background(PaperAlt, KlipShape).border(2.dp, if (selected) Accent else Line, KlipShape)
@@ -389,6 +441,7 @@ private fun ChoiceRow(title: String, subtitle: String, selected: Boolean, onClic
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleSmall, color = Ink)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = InkMuted)
+            if (note != null) Text(note, style = MaterialTheme.typography.bodySmall, color = Warn, modifier = Modifier.padding(top = 2.dp))
         }
         if (selected) Box(Modifier.size(12.dp).background(Accent, KlipShape))
     }
@@ -401,11 +454,9 @@ private fun RunPanel(state: FlashState) {
             is FlashState.Running -> {
                 Text(stringResource(R.string.FirmwareFlashing), style = MaterialTheme.typography.headlineSmall, color = Ink)
                 Spacer(Modifier.height(16.dp))
-                LinearProgressIndicator(
-                    progress = { state.percent / 100f }, color = Accent, trackColor = Line, modifier = Modifier.fillMaxWidth().height(8.dp)
-                )
+                FlashProgressBar(state.overall)
                 Spacer(Modifier.height(8.dp))
-                Text(stageText(state.stage) + if (state.percent > 0) " · ${state.percent}%" else "", style = MaterialTheme.typography.bodyMedium, color = Ink)
+                Text(stageText(state.stage) + " · ${state.overall}%", style = MaterialTheme.typography.bodyMedium, color = Ink)
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.FirmwareKeepOpen), style = MaterialTheme.typography.bodySmall, color = InkMuted)
             }
@@ -414,6 +465,11 @@ private fun RunPanel(state: FlashState) {
                     stringResource(if (state.success) R.string.FirmwareSuccess else R.string.FirmwareFailed),
                     style = MaterialTheme.typography.headlineSmall, color = if (state.success) ru.ytkab0bp.beamklipper.ui.theme.Ok else Danger
                 )
+                if (state.success) {
+                    // A write can be over in a second: the full bar fills here so the result is still visible.
+                    Spacer(Modifier.height(16.dp))
+                    FlashProgressBar(100)
+                }
                 if (state.success && state.detail == FlashCoordinator.NOTE_NO_RETURN) {
                     Spacer(Modifier.height(12.dp))
                     Text(stringResource(R.string.FirmwareNoReturn), style = MaterialTheme.typography.bodyMedium, color = InkMuted)
@@ -421,7 +477,7 @@ private fun RunPanel(state: FlashState) {
                 if (!state.success) {
                     Spacer(Modifier.height(12.dp))
                     Text(failureText(state.failure), style = MaterialTheme.typography.bodyLarge, color = Ink)
-                    if (state.detail.isNotBlank() && state.failure != FlashFailure.NOT_SUPPORTED) {
+                    if (state.detail.isNotBlank()) {
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.FirmwareDetail, state.detail), style = MaterialTheme.typography.bodySmall, color = InkMuted)
                     }
@@ -432,12 +488,37 @@ private fun RunPanel(state: FlashState) {
     }
 }
 
+/** Fills as the write advances (smoothly, never backwards) and keeps a light sweeping over the filled part. */
+@Composable
+private fun FlashProgressBar(overall: Int) {
+    var best by remember { mutableIntStateOf(0) }
+    if (overall > best) best = overall
+    // A spring keeps its velocity when the target changes many times per second (a tween would restart and lag behind).
+    val shown by animateFloatAsState(best / 100f, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = 90f), label = "flash-progress")
+    val sweep = rememberInfiniteTransition(label = "flash-sweep")
+    val x by sweep.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = LinearEasing), RepeatMode.Restart), label = "flash-sweep-x")
+    Box(Modifier.fillMaxWidth().height(14.dp).clip(KlipShapePill).background(Line)) {
+        Box(
+            Modifier.fillMaxWidth(shown.coerceIn(0.02f, 1f)).fillMaxHeight().clip(KlipShapePill).background(Accent)
+                .drawWithContent {
+                    drawContent()
+                    val band = size.height * 8
+                    val cx = -band + (size.width + band * 2) * x
+                    drawRect(Brush.horizontalGradient(
+                        listOf(Color.Transparent, Color.White.copy(alpha = 0.5f), Color.Transparent),
+                        startX = cx - band / 2, endX = cx + band / 2))
+                }
+        )
+    }
+}
+
 @Composable
 private fun stageText(s: FlashStage): String = stringResource(when (s) {
     FlashStage.PREPARE -> R.string.FirmwareStagePrepare
     FlashStage.ENTER_BOOTSEL -> R.string.FirmwareStageEnterBootsel
     FlashStage.WAIT_BOOTSEL -> R.string.FirmwareStageWaitBootsel
     FlashStage.PERMISSION -> R.string.FirmwareStagePermission
+    FlashStage.HANDSHAKE -> R.string.FirmwareStageHandshake
     FlashStage.ERASE -> R.string.FirmwareStageErase
     FlashStage.WRITE -> R.string.FirmwareStageWrite
     FlashStage.VERIFY -> R.string.FirmwareStageVerify
@@ -447,13 +528,16 @@ private fun stageText(s: FlashStage): String = stringResource(when (s) {
 
 @Composable
 private fun failureText(f: FlashFailure?): String = stringResource(when (f) {
-    FlashFailure.NOT_SUPPORTED -> R.string.FirmwareFailNotSupported
+    FlashFailure.INCOMPATIBLE_FILE -> R.string.FirmwareFailIncompat
+    FlashFailure.NOT_SERIAL -> R.string.FirmwareFailNotSerial
+    FlashFailure.NO_ANSWER -> R.string.FirmwareFailNoAnswer
+    FlashFailure.BAD_ADDRESS -> R.string.FirmwareFailAddress
     FlashFailure.WRONG_DEVICE -> R.string.FirmwareFailWrongDevice
     FlashFailure.FILE_INVALID -> R.string.FirmwareFailFileInvalid
     FlashFailure.NEEDS_RP2040_UF2 -> R.string.FirmwareFailNeedsRp2040
     FlashFailure.RP2350 -> R.string.FirmwareFailRp2350
     FlashFailure.PERMISSION_DENIED -> R.string.FirmwareFailPermission
-    FlashFailure.BOOTSEL_TIMEOUT -> R.string.FirmwareFailBootsel
+    FlashFailure.NO_BOOTLOADER -> R.string.FirmwareFailBootsel
     FlashFailure.VERIFY_MISMATCH -> R.string.FirmwareFailVerify
     FlashFailure.CANCELLED -> R.string.FirmwareFailCancelled
     else -> R.string.FirmwareFailUsb

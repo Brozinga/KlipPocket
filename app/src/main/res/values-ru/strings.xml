@@ -209,14 +209,11 @@
     <string name="FirmwareConfirm">Подтвердить</string>
     <string name="FirmwareRefresh">Обновить</string>
     <string name="FirmwareModeUsb">USB</string>
-    <string name="FirmwareModeUsbDesc">Плата с Klipper по USB. Приложение само переводит её в BOOTSEL (RP2040).</string>
     <string name="FirmwareModeUart">UART</string>
-    <string name="FirmwareModeUartDesc">USB-UART адаптер, подключённый к загрузчику платы.</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">Плата STM32 в режиме DFU (0483:df11).</string>
     <string name="FirmwareModeRp2040">RP2040</string>
     <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico в режиме BOOTSEL (2e8a:0003).</string>
-    <string name="FirmwareModeSoon">Пока недоступно: можно запустить, но будет ошибка, ничего не записывается.</string>
     <string name="FirmwareWarnTitle">Риск повреждения устройства</string>
     <string name="FirmwareWarnText">Запись прошивки может сделать плату неработоспособной, если файл не подходит или соединение прервётся. Не отключайте кабель и не выходите из приложения. Во время процесса Klipper теряет связь с платой.</string>
     <string name="FirmwareSummary">Файл: %1$s\nУстройство: %2$s\nРежим: %3$s</string>
@@ -232,13 +229,11 @@
     <string name="FirmwareStageWaitDevice">Ожидание платы</string>
     <string name="FirmwareSuccess">Прошивка успешно записана</string>
     <string name="FirmwareFailed">Не удалось записать прошивку</string>
-    <string name="FirmwareFailNotSupported">Этот режим пока недоступен. Ничего не записано.</string>
     <string name="FirmwareFailWrongDevice">Выбранное устройство не подходит для режима.</string>
     <string name="FirmwareFailFileInvalid">Файл прошивки недопустим.</string>
     <string name="FirmwareFailNeedsRp2040">Для RP2040 нужен .uf2, собранный для него (или чистый .bin).</string>
     <string name="FirmwareFailRp2350">RP2350 (Pico 2) пока не поддерживается.</string>
     <string name="FirmwareFailPermission">Разрешение USB не предоставлено.</string>
-    <string name="FirmwareFailBootsel">Плата не перешла в режим BOOTSEL.</string>
     <string name="FirmwareFailUsb">Ошибка связи по USB.</string>
     <string name="FirmwareFailVerify">После записи flash не совпадает с файлом.</string>
     <string name="FirmwareFailCancelled">Отменено.</string>
@@ -249,4 +244,16 @@
     <string name="FirmwareKeepOpen">Не отключайте кабель и не закрывайте этот экран.</string>
     <string name="FirmwareSelectDevice">Нажмите на устройство, чтобы выбрать.</string>
     <string name="FirmwareNoReturn">Прошивка записана и проверена, но плата не появилась снова на USB (возможно, она не использует USB).</string>
+    <string name="FirmwareModeUsbDesc">Плата с Klipper по USB: приложение просит её войти в загрузчик (1200 бод) и прошивает через RP2040 BOOTSEL, STM32 DFU или AVR109. Проверено на RP2040.</string>
+    <string name="FirmwareModeUartDesc">USB-UART адаптер, подключённый к последовательному загрузчику платы: STM32 (BOOT0 вверх; стирается вся flash) или загрузчики AVR Arduino/Mega.</string>
+    <string name="FirmwareFailBootsel">Поддерживаемый загрузчик не появился (RP2040 BOOTSEL, STM32 DFU или AVR109).</string>
+    <string name="FirmwareExperimentalNote">Экспериментально: для этого режима нет убедительных тестов. Используйте на свой риск.</string>
+    <string name="FirmwareExperimentalWarn">Этот режим экспериментальный, убедительных тестов нет. Используйте на свой риск: плата может остаться неработоспособной.</string>
+    <string name="FirmwareStartAddress">Начальный адрес flash (hex)</string>
+    <string name="FirmwareStartAddressHint">Только для .bin на платах STM32: куда записывается файл (обычно 0x08000000 или после вашего загрузчика). В .hex адреса уже есть.</string>
+    <string name="FirmwareStageHandshake">Связь с загрузчиком</string>
+    <string name="FirmwareFailNotSerial">Устройство не является USB-UART адаптером или последовательным портом.</string>
+    <string name="FirmwareFailNoAnswer">Загрузчик не отвечает. Проверьте режим (BOOT0 / сброс у STM32, линия сброса у AVR), проводку и скорость.</string>
+    <string name="FirmwareFailIncompat">Этот тип файла не подходит для выбранного режима (STM32 и AVR: .bin или .hex; RP2040: .uf2 или .bin).</string>
+    <string name="FirmwareFailAddress">Начальный адрес flash недопустим (STM32: от 0x08000000 до 0x0FFFFFFF).</string>
 </resources>

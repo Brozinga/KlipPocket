@@ -221,14 +221,11 @@
     <string name="FirmwareConfirm">Confirm</string>
     <string name="FirmwareRefresh">Refresh</string>
     <string name="FirmwareModeUsb">USB</string>
-    <string name="FirmwareModeUsbDesc">Board running Klipper over USB. The app puts it in BOOTSEL by itself (RP2040).</string>
     <string name="FirmwareModeUart">UART</string>
-    <string name="FirmwareModeUartDesc">USB-serial adapter wired to the board bootloader.</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">STM32 board in DFU mode (0483:df11).</string>
     <string name="FirmwareModeRp2040">RP2040</string>
     <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico in BOOTSEL mode (2e8a:0003).</string>
-    <string name="FirmwareModeSoon">Not available yet: it can be run, but it reports a failure and writes nothing.</string>
     <string name="FirmwareWarnTitle">Risk of damaging the device</string>
     <string name="FirmwareWarnText">Writing firmware can leave the board unusable if the file is wrong for it or the connection drops. Do not unplug the cable or leave the app. Klipper loses its connection to this board during the process.</string>
     <string name="FirmwareSummary">File: %1$s\nDevice: %2$s\nMode: %3$s</string>
@@ -244,13 +241,11 @@
     <string name="FirmwareStageWaitDevice">Waiting for the board</string>
     <string name="FirmwareSuccess">Firmware written successfully</string>
     <string name="FirmwareFailed">Firmware writing failed</string>
-    <string name="FirmwareFailNotSupported">This write mode is not available yet. Nothing was written.</string>
     <string name="FirmwareFailWrongDevice">The chosen device does not match the mode.</string>
     <string name="FirmwareFailFileInvalid">The firmware file is invalid.</string>
     <string name="FirmwareFailNeedsRp2040">The RP2040 needs a .uf2 built for it (or a raw .bin).</string>
     <string name="FirmwareFailRp2350">RP2350 (Pico 2) is not supported yet.</string>
     <string name="FirmwareFailPermission">USB permission was not granted.</string>
-    <string name="FirmwareFailBootsel">The board did not enter BOOTSEL mode.</string>
     <string name="FirmwareFailUsb">USB communication error.</string>
     <string name="FirmwareFailVerify">The flash does not match the file after writing.</string>
     <string name="FirmwareFailCancelled">Cancelled.</string>
@@ -261,4 +256,16 @@
     <string name="FirmwareKeepOpen">Keep the cable connected and this screen open.</string>
     <string name="FirmwareSelectDevice">Tap the device to select it.</string>
     <string name="FirmwareNoReturn">The firmware was written and verified, but the board did not reappear on USB (it may not use USB).</string>
+    <string name="FirmwareModeUsbDesc">Board running Klipper over USB: the app asks it to enter its bootloader (1200 bps) and flashes it through RP2040 BOOTSEL, STM32 DFU or AVR109. Tested with the RP2040.</string>
+    <string name="FirmwareModeUartDesc">USB-serial adapter wired to the board\'s serial bootloader: STM32 (BOOT0 high; the whole flash is erased) or AVR Arduino/Mega bootloaders.</string>
+    <string name="FirmwareFailBootsel">No supported bootloader appeared (RP2040 BOOTSEL, STM32 DFU or AVR109).</string>
+    <string name="FirmwareExperimentalNote">Experimental: no conclusive tests with this mode. Use at your own risk.</string>
+    <string name="FirmwareExperimentalWarn">This mode is experimental and has no conclusive tests. Using it is at your own risk: the board may be left unusable.</string>
+    <string name="FirmwareStartAddress">Flash start address (hex)</string>
+    <string name="FirmwareStartAddressHint">Only for raw .bin files on STM32 boards: where the file is written (usually 0x08000000, or after your bootloader). .hex files carry their own addresses.</string>
+    <string name="FirmwareStageHandshake">Talking to the bootloader</string>
+    <string name="FirmwareFailNotSerial">The device is not a USB-serial adapter or serial port.</string>
+    <string name="FirmwareFailNoAnswer">The bootloader did not answer. Check the mode (BOOT0 / reset for STM32, reset line for AVR), the wiring and the baud rate.</string>
+    <string name="FirmwareFailIncompat">This file type does not fit the chosen mode (STM32 and AVR: .bin or .hex; RP2040: .uf2 or .bin).</string>
+    <string name="FirmwareFailAddress">The flash start address is not valid (STM32: 0x08000000 to 0x0FFFFFFF).</string>
 </resources>

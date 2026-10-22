@@ -209,14 +209,11 @@
     <string name="FirmwareConfirm">Confirmar</string>
     <string name="FirmwareRefresh">Atualizar</string>
     <string name="FirmwareModeUsb">USB</string>
-    <string name="FirmwareModeUsbDesc">Placa rodando Klipper por USB. O app a coloca em BOOTSEL sozinho (RP2040).</string>
     <string name="FirmwareModeUart">UART</string>
-    <string name="FirmwareModeUartDesc">Adaptador USB-serial ligado ao bootloader da placa.</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">Placa STM32 em modo DFU (0483:df11).</string>
     <string name="FirmwareModeRp2040">RP2040</string>
     <string name="FirmwareModeRp2040Desc">Raspberry Pi Pico em modo BOOTSEL (2e8a:0003).</string>
-    <string name="FirmwareModeSoon">Ainda indisponível: pode ser executado, mas informa uma falha e não grava nada.</string>
     <string name="FirmwareWarnTitle">Risco de danificar o dispositivo</string>
     <string name="FirmwareWarnText">Gravar firmware pode deixar a placa inutilizável se o arquivo não for o dela ou se a conexão cair. Não desconecte o cabo nem saia do app. O Klipper perde a conexão com esta placa durante o processo.</string>
     <string name="FirmwareSummary">Arquivo: %1$s\nDispositivo: %2$s\nModo: %3$s</string>
@@ -232,13 +229,11 @@
     <string name="FirmwareStageWaitDevice">Aguardando a placa</string>
     <string name="FirmwareSuccess">Firmware gravado com sucesso</string>
     <string name="FirmwareFailed">Falha ao gravar o firmware</string>
-    <string name="FirmwareFailNotSupported">Este modo de gravação ainda não está disponível. Nada foi gravado.</string>
     <string name="FirmwareFailWrongDevice">O dispositivo escolhido não corresponde ao modo.</string>
     <string name="FirmwareFailFileInvalid">O arquivo de firmware é inválido.</string>
     <string name="FirmwareFailNeedsRp2040">O RP2040 precisa de um .uf2 feito para ele (ou um .bin puro).</string>
     <string name="FirmwareFailRp2350">O RP2350 (Pico 2) ainda não é suportado.</string>
     <string name="FirmwareFailPermission">A permissão USB não foi concedida.</string>
-    <string name="FirmwareFailBootsel">A placa não entrou em modo BOOTSEL.</string>
     <string name="FirmwareFailUsb">Erro de comunicação USB.</string>
     <string name="FirmwareFailVerify">A flash não confere com o arquivo após a gravação.</string>
     <string name="FirmwareFailCancelled">Cancelado.</string>
@@ -249,4 +244,16 @@
     <string name="FirmwareKeepOpen">Mantenha o cabo conectado e esta tela aberta.</string>
     <string name="FirmwareSelectDevice">Toque no dispositivo para selecioná-lo.</string>
     <string name="FirmwareNoReturn">O firmware foi gravado e verificado, mas a placa não reapareceu no USB (ela pode não usar USB).</string>
+    <string name="FirmwareModeUsbDesc">Placa rodando Klipper por USB: o app pede que ela entre no bootloader (1200 bps) e grava por RP2040 BOOTSEL, STM32 DFU ou AVR109. Testado com o RP2040.</string>
+    <string name="FirmwareModeUartDesc">Adaptador USB-serial ligado ao bootloader serial da placa: STM32 (BOOT0 em alto; toda a flash é apagada) ou bootloaders AVR Arduino/Mega.</string>
+    <string name="FirmwareFailBootsel">Nenhum bootloader suportado apareceu (RP2040 BOOTSEL, STM32 DFU ou AVR109).</string>
+    <string name="FirmwareExperimentalNote">Experimental: sem testes conclusivos com este modo. Use por sua conta e risco.</string>
+    <string name="FirmwareExperimentalWarn">Este modo é experimental e não tem testes conclusivos. O uso é por sua conta e risco: a placa pode ficar inutilizável.</string>
+    <string name="FirmwareStartAddress">Endereço inicial da flash (hex)</string>
+    <string name="FirmwareStartAddressHint">Só para arquivos .bin em placas STM32: onde o arquivo é gravado (normalmente 0x08000000, ou depois do seu bootloader). Arquivos .hex já trazem os endereços.</string>
+    <string name="FirmwareStageHandshake">Conversando com o bootloader</string>
+    <string name="FirmwareFailNotSerial">O dispositivo não é um adaptador USB-serial nem uma porta serial.</string>
+    <string name="FirmwareFailNoAnswer">O bootloader não respondeu. Confira o modo (BOOT0 / reset no STM32, linha de reset no AVR), a fiação e o baud rate.</string>
+    <string name="FirmwareFailIncompat">Este tipo de arquivo não serve para o modo escolhido (STM32 e AVR: .bin ou .hex; RP2040: .uf2 ou .bin).</string>
+    <string name="FirmwareFailAddress">O endereço inicial da flash não é válido (STM32: 0x08000000 a 0x0FFFFFFF).</string>
 </resources>

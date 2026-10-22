@@ -206,14 +206,11 @@
     <string name="FirmwareConfirm">确认</string>
     <string name="FirmwareRefresh">刷新</string>
     <string name="FirmwareModeUsb">USB</string>
-    <string name="FirmwareModeUsbDesc">通过 USB 运行 Klipper 的主板。应用会自动使其进入 BOOTSEL（RP2040）。</string>
     <string name="FirmwareModeUart">UART</string>
-    <string name="FirmwareModeUartDesc">连接到主板引导程序的 USB 串口适配器。</string>
     <string name="FirmwareModeDfu">DFU</string>
     <string name="FirmwareModeDfuDesc">处于 DFU 模式的 STM32 主板 (0483:df11)。</string>
     <string name="FirmwareModeRp2040">RP2040</string>
     <string name="FirmwareModeRp2040Desc">处于 BOOTSEL 模式的树莓派 Pico (2e8a:0003)。</string>
-    <string name="FirmwareModeSoon">暂不可用：可以运行，但只会报告失败，不会写入任何内容。</string>
     <string name="FirmwareWarnTitle">可能损坏设备</string>
     <string name="FirmwareWarnText">如果文件不适用于该主板或连接中断，写入固件可能使主板无法使用。请勿拔出线缆或离开应用。过程中 Klipper 会失去与该主板的连接。</string>
     <string name="FirmwareSummary">文件：%1$s\n设备：%2$s\n方式：%3$s</string>
@@ -229,13 +226,11 @@
     <string name="FirmwareStageWaitDevice">等待主板</string>
     <string name="FirmwareSuccess">固件写入成功</string>
     <string name="FirmwareFailed">固件写入失败</string>
-    <string name="FirmwareFailNotSupported">该写入方式暂不可用。未写入任何内容。</string>
     <string name="FirmwareFailWrongDevice">所选设备与方式不匹配。</string>
     <string name="FirmwareFailFileInvalid">固件文件无效。</string>
     <string name="FirmwareFailNeedsRp2040">RP2040 需要为其构建的 .uf2（或原始 .bin）。</string>
     <string name="FirmwareFailRp2350">暂不支持 RP2350 (Pico 2)。</string>
     <string name="FirmwareFailPermission">未授予 USB 权限。</string>
-    <string name="FirmwareFailBootsel">主板未进入 BOOTSEL 模式。</string>
     <string name="FirmwareFailUsb">USB 通信错误。</string>
     <string name="FirmwareFailVerify">写入后闪存内容与文件不一致。</string>
     <string name="FirmwareFailCancelled">已取消。</string>
@@ -246,4 +241,16 @@
     <string name="FirmwareKeepOpen">请保持线缆连接并保持此界面打开。</string>
     <string name="FirmwareSelectDevice">点按设备以选择。</string>
     <string name="FirmwareNoReturn">固件已写入并校验，但主板没有重新出现在 USB 上（它可能不使用 USB）。</string>
+    <string name="FirmwareModeUsbDesc">通过 USB 运行 Klipper 的主板：应用请求其进入引导程序（1200 bps），并通过 RP2040 BOOTSEL、STM32 DFU 或 AVR109 写入。已用 RP2040 测试。</string>
+    <string name="FirmwareModeUartDesc">连接到主板串口引导程序的 USB 串口适配器：STM32（BOOT0 置高；会擦除整个闪存）或 AVR Arduino/Mega 引导程序。</string>
+    <string name="FirmwareFailBootsel">未出现受支持的引导程序（RP2040 BOOTSEL、STM32 DFU 或 AVR109）。</string>
+    <string name="FirmwareExperimentalNote">实验性：此方式尚无确凿的测试。使用风险自负。</string>
+    <string name="FirmwareExperimentalWarn">此方式为实验性，尚无确凿的测试。使用风险自负：主板可能无法使用。</string>
+    <string name="FirmwareStartAddress">闪存起始地址（十六进制）</string>
+    <string name="FirmwareStartAddressHint">仅用于 STM32 主板上的原始 .bin 文件：文件写入的位置（通常为 0x08000000，或在你的引导程序之后）。.hex 文件自带地址。</string>
+    <string name="FirmwareStageHandshake">正在与引导程序通信</string>
+    <string name="FirmwareFailNotSerial">该设备不是 USB 串口适配器或串口。</string>
+    <string name="FirmwareFailNoAnswer">引导程序没有响应。请检查模式（STM32 的 BOOT0 / 复位，AVR 的复位线）、接线和波特率。</string>
+    <string name="FirmwareFailIncompat">此文件类型不适用于所选方式（STM32 和 AVR：.bin 或 .hex；RP2040：.uf2 或 .bin）。</string>
+    <string name="FirmwareFailAddress">闪存起始地址无效（STM32：0x08000000 至 0x0FFFFFFF）。</string>
 </resources>

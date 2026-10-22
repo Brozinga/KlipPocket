@@ -55,12 +55,23 @@ class FirmwareImageTest {
         assertNull(FirmwareImage.uf2Family(ByteArray(600)))
     }
 
+    private fun picoBin(size: Int): ByteArray {
+        val b = ByteArray(size) { 7 }
+        val crc = FirmwareImage.boot2Crc(b, 252)
+        ByteBuffer.wrap(b).order(ByteOrder.LITTLE_ENDIAN).putInt(252, crc)
+        return b
+    }
+
     @Test fun binIsPaddedToWholeSectors() {
-        val img = FirmwareImage.fromBin(ByteArray(5000) { 7 })
+        val img = FirmwareImage.fromBin(picoBin(5000))
         assertEquals(0x10000000, img.address)
         assertEquals(8192, img.data.size)
         assertArrayEquals(byteArrayOf(7, 7), img.data.copyOfRange(4998, 5000))
         assertEquals(0xFF, img.data[5000].toInt() and 0xFF)
+    }
+
+    @Test fun binOfAnotherChipIsRefused() {
+        try { FirmwareImage.fromBin(ByteArray(5000) { 7 }); fail() } catch (e: FirmwareException) { assertTrue(e.message!!.contains("boot2")) }
     }
 
     @Test fun safeNameKeepsOnlyAFileName() {

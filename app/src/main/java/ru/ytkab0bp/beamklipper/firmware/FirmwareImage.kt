@@ -71,9 +71,21 @@ object FirmwareImage {
         return FlashImage(start, out)
     }
 
-    /** Raw .bin: written at the start of the flash (where boot2 lives). */
+    /** CRC32 (MPEG-2: poly 0x04C11DB7, init 0xFFFFFFFF, no reflection) that the RP2040 boot ROM checks in boot2. */
+    internal fun boot2Crc(b: ByteArray, len: Int): Int {
+        var crc = -1
+        for (i in 0 until len) {
+            crc = crc xor ((b[i].toInt() and 0xFF) shl 24)
+            repeat(8) { crc = if (crc < 0) (crc shl 1) xor 0x04C11DB7 else crc shl 1 }
+        }
+        return crc
+    }
+
+    /** Raw .bin: written at the start of the flash, so it must begin with a valid boot2 block (guards against other chips' files). */
     fun fromBin(bytes: ByteArray): FlashImage {
         if (bytes.isEmpty()) throw FirmwareException("the file is empty")
+        if (bytes.size < 256 || ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getInt(252) != boot2Crc(bytes, 252))
+            throw FirmwareException("this .bin does not start with a valid RP2040 boot2 block: it is not an RP2040 firmware")
         if (bytes.size > Picoboot.FLASH_MAX) throw FirmwareException("the file is bigger than the 2 MiB flash")
         val end = (bytes.size + Picoboot.SECTOR - 1) and (Picoboot.SECTOR - 1).inv()
         val out = ByteArray(end) { 0xFF.toByte() }
