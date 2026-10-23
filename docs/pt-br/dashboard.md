@@ -52,7 +52,7 @@ No topo ficam **cartões** atualizados a cada segundo, com **no máximo três po
 | **Memória (RAM)** | Memória em uso pelo aparelho e memória usada por todos os processos do KlipPocket (app, Klipper, Moonraker, câmera…). |
 | **Temperatura do processador, da GPU, da superfície e da bateria**, **Frequência do processador**, **Carga do sistema**, **Sinal do Wi-Fi** (um percentual com quatro barras de sinal, e abaixo os dBm e a velocidade do link), **Download / Upload da rede**, **Armazenamento** (usado e livre), **Bateria** (nível e carregando) e **Tensão da bateria** | Cada um está sempre na página. Um valor que o celular não deixa o app ler mostra **N/D** no lugar do número: os aparelhos diferem muito no que expõem. |
 
-Abaixo, **gráficos** mostram os **últimos 60 segundos**, um ponto por segundo: o processador numa linha inteira, e a memória ao lado da temperatura (o gráfico de temperatura some quando o celular não expõe nenhuma). Cada gráfico tem sua legenda com os valores
+Abaixo, **gráficos** mostram os **últimos 60 segundos**, um ponto por segundo: o processador numa linha inteira, e a memória ao lado da temperatura (o gráfico de temperatura some quando o celular não expõe nenhuma). **Clique numa bolinha da legenda para ocultar aquela linha do gráfico, e clique de novo para mostrá-la.** Cada gráfico tem sua legenda com os valores
 atuais. Os gráficos só andam enquanto a página está visível no navegador.
 
 > **O uso do processador do aparelho não existe em todos os celulares.** Desde o
@@ -60,13 +60,14 @@ atuais. Os gráficos só andam enquanto a página está visível no navegador.
 > celulares só a linha do **KlipPocket** é desenhada, com um aviso. Memória, bateria
 > e os números do KlipPocket estão sempre disponíveis.
 
-## Aparelho (host) e memória
+## Armazenamento e aparelho (host)
 
+Dois cartões de largura total abaixo dos gráficos:
+
+- **Armazenamento** — espaço livre e total do armazenamento interno e, quando houver, do cartão SD. Atualiza sozinho, sem reconstruir a página.
 - **Aparelho (host)** — modelo, chip, núcleos e frequência máxima, arquitetura,
   versão do Android, kernel, há quanto tempo está ligado, endereço de rede e a
   versão do KlipPocket.
-- **Memória (RAM)** — total, em uso, disponível e swap; e **Armazenamento** — espaço
-  livre e total do armazenamento interno e, quando houver, do cartão SD.
 
 ## Impressoras e MCUs
 

@@ -52,7 +52,7 @@ At the top there are **cards**, updated every second, with **at most three per r
 | **Memory (RAM)** | Memory in use by the device and the memory used by all the processes of KlipPocket (app, Klipper, Moonraker, camera…). |
 | **Processor, GPU, surface and battery temperature**, **Processor frequency**, **System load**, **Wi-Fi signal** (a percentage with four signal bars, plus the dBm and the link speed below), **Network download / upload**, **Storage** (used and free), **Battery** (level and charging) and **Battery voltage** | Each one of them is always on the page. A value the phone does not let the app read shows **N/A** instead of the number: phones differ a lot in what they expose. |
 
-Under them, **charts** show the **last 60 seconds**, one point per second: the processor on a full line, and memory next to temperature (the temperature chart is hidden when the phone exposes no temperature). Each chart has its legend with the current
+Under them, **charts** show the **last 60 seconds**, one point per second: the processor on a full line, and memory next to temperature (the temperature chart is hidden when the phone exposes no temperature). **Click a dot of the legend to hide that line from the chart, and click it again to show it back.** Each chart has its legend with the current
 values. Charts only move while the page is visible in the browser.
 
 > **The device's processor use is not available on every phone.** Since Android 8
@@ -60,13 +60,14 @@ values. Charts only move while the page is visible in the browser.
 > **KlipPocket** line is drawn, with a note saying so. The memory, battery and
 > KlipPocket numbers are always available.
 
-## Host device and memory
+## Storage and host device
 
+Two full-width cards under the charts:
+
+- **Storage** — free and total space of the internal storage and, when there is one, the SD card. It updates by itself, without rebuilding the page.
 - **Host device** — model, chip, CPU cores and top frequency, architecture,
   Android version, kernel, how long the phone has been on, its network address
   and the KlipPocket version.
-- **Memory (RAM)** — total, in use, available and swap; and **Storage** — free
-  and total space of the internal storage and, when there is one, the SD card.
 
 ## Printers and MCUs
 
