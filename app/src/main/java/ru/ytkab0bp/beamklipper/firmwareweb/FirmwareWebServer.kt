@@ -18,13 +18,14 @@ interface PinStore {
 }
 
 /**
- * The firmware web page: static files plus a small JSON API, on port 4400. Everything under /api needs the PIN
+ * The KlipPocket Dashboard (device, MCUs, logs and the firmware page): static files plus a small JSON API, on port 4400. Everything under /api needs the PIN
  * (a session cookie after /api/login) and every request that changes something carries the guard header.
  * All the real work is done by the [FirmwareBackend], which is the app's own Firmware tab code.
  */
 class FirmwareWebServer(
     port: Int,
     private val backend: FirmwareBackend,
+    private val control: ControlBackend,
     private val pins: PinStore,
     private val assets: (String) -> InputStream?,
     private val limiter: LoginLimiter = LoginLimiter(),
@@ -129,10 +130,66 @@ class FirmwareWebServer(
             }
             path == "/api/flash" && s.method == Method.GET -> ok(JSONObject().put("flash", flash()))
             path == "/api/flash/reset" && s.method == Method.POST -> { backend.resetFlash(); ok(JSONObject().put("flash", flash())) }
+            path == "/api/dashboard" && s.method == Method.GET -> ok(backend.dashboard())
+            path == "/api/metrics" && s.method == Method.GET -> ok(backend.metrics())
+            path == "/api/logs" && s.method == Method.GET -> ok(JSONObject().put("sources", logSources()))
+            path == "/api/logs/read" && s.method == Method.GET -> {
+                val text = backend.readLog(q["id"]?.firstOrNull().orEmpty()) ?: return error(Status.NOT_FOUND, "log")
+                ok(JSONObject().put("text", text))
+            }
+            path == "/api/logs/clear" && s.method == Method.POST -> {
+                val cleared = backend.clearLogs()
+                ok(JSONObject().put("cleared", cleared).put("sources", logSources()))
+            }
+            path == "/api/settings" && s.method == Method.GET -> ok(control.settings())
+            path == "/api/settings" && s.method == Method.POST -> {
+                val b = json ?: return error(Status.BAD_REQUEST, "json")
+                when (val problem = control.applySetting(b.optString("key"), b)) {
+                    null -> ok(control.settings())
+                    "permission" -> error(Status.CONFLICT, problem)
+                    "network" -> error(Status.SERVICE_UNAVAILABLE, problem)
+                    else -> error(Status.BAD_REQUEST, problem)
+                }
+            }
+            path == "/api/control" && s.method == Method.POST -> {
+                val b = json ?: return error(Status.BAD_REQUEST, "json")
+                val id = if (b.has("id") && !b.isNull("id")) b.optString("id") else null
+                when (val problem = control.control(id, b.optString("action"))) {
+                    null -> ok(backend.dashboard())
+                    "slots" -> error(Status.CONFLICT, problem)
+                    else -> error(Status.BAD_REQUEST, problem)
+                }
+            }
+            path == "/api/printers/new" && s.method == Method.GET -> ok(control.newPrinterInfo())
+            path == "/api/printers" && s.method == Method.POST -> {
+                val b = json ?: return error(Status.BAD_REQUEST, "json")
+                when (val problem = control.addPrinter(b.optString("name").trim().take(60), b.optString("config"), b.optBoolean("autostart", false))) {
+                    null -> ok(backend.dashboard())
+                    "slots" -> error(Status.CONFLICT, problem)
+                    "server" -> error(Status.INTERNAL_ERROR, problem)
+                    else -> error(Status.BAD_REQUEST, problem)
+                }
+            }
+            path == "/api/camera" && s.method == Method.GET -> ok(control.camera())
+            path == "/api/camera/stream" && s.method == Method.GET -> {
+                val feed = control.openCameraStream() ?: return error(Status.SERVICE_UNAVAILABLE, "camera")
+                Response.newChunkedResponse(Status.OK, feed.contentType, feed.input).also { common(it) }
+            }
+            path == "/api/camera/focus" && s.method == Method.POST -> {
+                val b = json ?: return error(Status.BAD_REQUEST, "json")
+                val x = b.optDouble("x", -1.0).toFloat()
+                val y = b.optDouble("y", -1.0).toFloat()
+                if (x !in 0f..1f || y !in 0f..1f) return error(Status.BAD_REQUEST, "value")
+                control.focusAt(x, y)
+                ok()
+            }
+            path == "/api/camera/focus/reset" && s.method == Method.POST -> { control.resetFocus(); ok() }
             path == "/api/log" && s.method == Method.GET -> ok(JSONObject().put("log", backend.log()))
             else -> error(Status.NOT_FOUND, "route")
         }
     }
+
+    private fun logSources() = JSONArray().also { a -> backend.logSources().forEach { a.put(JSONObject().put("id", it.id).put("label", it.label)) } }
 
     private fun parseAddress(text: String): Long? = text.trim().removePrefix("0x").removePrefix("0X").toLongOrNull(16)
 
