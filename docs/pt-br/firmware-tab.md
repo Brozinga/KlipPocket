@@ -10,7 +10,7 @@ equivalente, no aparelho, da opção **6 Flash Firmware** do
 
 ![A aba Firmware](../images/firmware-tab/tab-home.png)
 
-> **Pelo computador?** O app também serve a [página web de firmware](firmware-web.md) na porta 4400: enviar, colar link e gravar pelo navegador. O endereço e o PIN ficam no fim desta aba.
+> **Pelo computador?** O app também serve a [página web de firmware](firmware-web.md) na porta 4400: enviar, colar link e gravar pelo navegador. O endereço e o PIN ficam no fim da tela inicial.
 
 ## Modos: o que funciona e o que é experimental
 

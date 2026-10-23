@@ -10,6 +10,7 @@
 | [simplyprint.md](simplyprint.md) | 使用 SimplyPrint 进行远程监控和 AI 故障检测——在 Moonraker 中开启并关联打印机。 |
 | [kalico.md](kalico.md) | 用 Kalico 代替 Klipper——切换引擎、可能需要的配置修改，以及哪些功能可用。 |
 | [multi-mcu.md](multi-mcu.md) | 使用多个 MCU——USB 板、如何找到每块板的路径并写入 `printer.cfg`，以及不支持的情况（CAN）。 |
+| [dashboard.md](dashboard.md) | KlipPocket Dashboard（端口 4400）——设备使用图表、MCU、可清除的日志和固件页面，需要 PIN。 |
 | [firmware-web.md](firmware-web.md) | 固件网页（端口 4400）——在浏览器中上传文件、粘贴链接并写入主板，需要 PIN。 |
 | [firmware-tab.md](firmware-tab.md) | 固件标签页——在应用内下载固件并写入 Pico（USB / RP2040 方式），分步说明。 |
 | [print-recovery.md](print-recovery.md) | 断电续打 —— 断电或断线后恢复打印。 |
