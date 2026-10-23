@@ -57,9 +57,50 @@ private class FakeBackend : FirmwareBackend {
     override fun flash() = flashState
     override fun resetFlash() { flashState = WebFlash("idle", "", 0, 0, false, null, "", false, "", "", "") }
     override fun log() = "line 1\nline 2"
+
+    var logsCleared = false
+    override fun dashboard() = JSONObject("{\"host\":{\"model\":\"Pixel\"},\"storage\":[],\"instances\":[],\"usb\":[]}")
+    override fun metrics() = JSONObject("{\"cpu\":12.5,\"memTotal\":100,\"memAvailable\":40}")
+    override fun logSources() = listOf(WebLogSource("app", "App / Web"), WebLogSource("flash", "Firmware"))
+    override fun readLog(id: String) = if (id == "flash" && !logsCleared) "[ts] flashed" else if (id == "app") "app line" else if (id == "flash") "" else null
+    override fun clearLogs(): Boolean { logsCleared = true; return true }
+}
+
+private class FakeControl : ControlBackend {
+    val applied = ArrayList<Pair<String, JSONObject>>()
+    val controls = ArrayList<Pair<String?, String>>()
+    var focus: Pair<Float, Float>? = null
+    var focusReset = false
+    var cameraOn = true
+    override fun settings() = JSONObject("{\"engine\":{\"value\":\"klipper\",\"options\":[]}}")
+    override fun applySetting(key: String, body: JSONObject): String? {
+        if (key == "cameraEnabled" && body.optBoolean("value")) return "permission"
+        if (key == "nope") return "key"
+        applied += key to body
+        return null
+    }
+    override fun control(id: String?, action: String): String? {
+        if (id == "full") return "slots"
+        controls += id to action
+        return null
+    }
+    val added = ArrayList<List<Any>>()
+    override fun newPrinterInfo() = JSONObject("{\"templates\":[\"a.cfg\",\"b.cfg\"],\"default\":\"a.cfg\",\"defaultName\":\"Printer 1\",\"canCreate\":true}")
+    override fun addPrinter(name: String, config: String, autostart: Boolean): String? {
+        if (config == "full") return "slots"
+        if (config != "a.cfg" && config != "b.cfg") return "config"
+        added += listOf(name, config, autostart)
+        return null
+    }
+    override fun camera() = JSONObject("{\"enabled\":$cameraOn,\"permission\":true,\"focusSupported\":true}")
+    override fun openCameraStream() = if (cameraOn) CameraFeed("multipart/x-mixed-replace; boundary=camera-frame",
+        ByteArrayInputStream("--camera-frame\r\nframe".toByteArray())) else null
+    override fun focusAt(x: Float, y: Float) { focus = x to y }
+    override fun resetFocus() { focusReset = true }
 }
 
 class FirmwareWebServerTest {
+    private lateinit var control: FakeControl
     private val pin = "123456"
     private lateinit var backend: FakeBackend
     private lateinit var server: FirmwareWebServer
@@ -74,7 +115,8 @@ class FirmwareWebServerTest {
 
     @Before fun start() {
         backend = FakeBackend()
-        server = FirmwareWebServer(0, backend, pinStore, { path ->
+        control = FakeControl()
+        server = FirmwareWebServer(0, backend, control, pinStore, { path ->
             if (path.startsWith("firmware_web/")) ByteArrayInputStream("<html>$path</html>".toByteArray()) else null
         })
         server.start()
@@ -125,7 +167,7 @@ class FirmwareWebServerTest {
     }
 
     @Test fun everyApiRouteNeedsTheLogin() {
-        for ((m, p) in listOf("GET" to "/api/state", "GET" to "/api/files", "GET" to "/api/devices", "GET" to "/api/flash", "GET" to "/api/log", "POST" to "/api/flash")) {
+        for ((m, p) in listOf("GET" to "/api/state", "GET" to "/api/files", "GET" to "/api/devices", "GET" to "/api/flash", "GET" to "/api/log", "GET" to "/api/dashboard", "GET" to "/api/metrics", "GET" to "/api/logs", "GET" to "/api/logs/read?id=app", "POST" to "/api/logs/clear", "GET" to "/api/settings", "POST" to "/api/settings", "POST" to "/api/control", "GET" to "/api/printers/new", "POST" to "/api/printers", "GET" to "/api/camera", "GET" to "/api/camera/stream", "POST" to "/api/camera/focus", "POST" to "/api/flash")) {
             assertEquals("$m $p", 401, call(m, p, withCookie = false).code)
         }
         assertEquals(false, call("GET", "/api/session", withCookie = false).json().getBoolean("authenticated"))
@@ -299,6 +341,70 @@ class FirmwareWebServerTest {
         assertTrue(call("GET", "/api/experimental?file=a.bin&device=d&mode=UART").json().getBoolean("experimental"))
         assertFalse(call("GET", "/api/experimental?file=a.uf2&device=d&mode=RP2040").json().getBoolean("experimental"))
         assertEquals("line 1\nline 2", call("GET", "/api/log").json().getString("log"))
+    }
+
+    @Test fun theDashboardServesTheHostAndTheLiveNumbers() {
+        login()
+        assertEquals("Pixel", call("GET", "/api/dashboard").json().getJSONObject("host").getString("model"))
+        val m = call("GET", "/api/metrics").json()
+        assertEquals(12.5, m.getDouble("cpu"), 0.001)
+        assertEquals(40, m.getLong("memAvailable"))
+    }
+
+    @Test fun logsAreListedReadAndClearedLikeInTheApp() {
+        login()
+        val sources = call("GET", "/api/logs").json().getJSONArray("sources")
+        assertEquals(listOf("app", "flash"), (0 until sources.length()).map { sources.getJSONObject(it).getString("id") })
+        assertEquals("[ts] flashed", call("GET", "/api/logs/read?id=flash").json().getString("text"))
+        assertEquals(404, call("GET", "/api/logs/read?id=nope").code)
+        assertEquals(403, call("POST", "/api/logs/clear", guard = false).code)
+        assertTrue(call("POST", "/api/logs/clear").json().getBoolean("cleared"))
+        assertEquals("", call("GET", "/api/logs/read?id=flash").json().getString("text"))
+    }
+
+    @Test fun settingsAreReadAndChangedLikeInTheApp() {
+        login()
+        assertEquals("klipper", call("GET", "/api/settings").json().getJSONObject("engine").getString("value"))
+        assertEquals(200, call("POST", "/api/settings", json = JSONObject().put("key", "cameraRotation").put("value", 90)).code)
+        assertEquals("cameraRotation", control.applied.last().first)
+        assertEquals(90, control.applied.last().second.getInt("value"))
+        assertEquals("the camera permission is asked on the phone", 409, call("POST", "/api/settings", json = JSONObject().put("key", "cameraEnabled").put("value", true)).code)
+        assertEquals(400, call("POST", "/api/settings", json = JSONObject().put("key", "nope")).code)
+        assertEquals(403, call("POST", "/api/settings", json = JSONObject().put("key", "engine").put("value", "kalico"), guard = false).code)
+    }
+
+    @Test fun printersCanBeStartedAndStopped() {
+        login()
+        assertEquals(200, call("POST", "/api/control", json = JSONObject().put("id", "abc").put("action", "start")).code)
+        assertEquals(200, call("POST", "/api/control", json = JSONObject().put("action", "stop")).code)
+        assertEquals(listOf<Pair<String?, String>>("abc" to "start", null to "stop"), control.controls)
+        assertEquals("no free slot", 409, call("POST", "/api/control", json = JSONObject().put("id", "full").put("action", "start")).code)
+    }
+
+    @Test fun aPrinterCanBeAddedWithTheAppsOwnOptions() {
+        login()
+        val info = call("GET", "/api/printers/new").json()
+        assertEquals("a.cfg", info.getString("default"))
+        assertEquals(200, call("POST", "/api/printers", json = JSONObject().put("name", " Voron ").put("config", "b.cfg").put("autostart", true)).code)
+        assertEquals(listOf<Any>("Voron", "b.cfg", true), control.added.single())
+        assertEquals(400, call("POST", "/api/printers", json = JSONObject().put("config", "../../etc/passwd")).code)
+        assertEquals(409, call("POST", "/api/printers", json = JSONObject().put("config", "full")).code)
+    }
+
+    @Test fun theCameraStreamAndTapToFocusGoThroughTheApp() {
+        login()
+        assertTrue(call("GET", "/api/camera").json().getBoolean("focusSupported"))
+        val stream = call("GET", "/api/camera/stream")
+        assertEquals(200, stream.code)
+        assertTrue(stream.headers["Content-Type"]!!.first().startsWith("multipart/x-mixed-replace"))
+        assertTrue(stream.body.contains("--camera-frame"))
+        assertEquals(200, call("POST", "/api/camera/focus", json = JSONObject().put("x", 0.25).put("y", 0.75)).code)
+        assertEquals(0.25f to 0.75f, control.focus)
+        assertEquals("a point outside the frame", 400, call("POST", "/api/camera/focus", json = JSONObject().put("x", 1.5).put("y", 0.5)).code)
+        assertEquals(200, call("POST", "/api/camera/focus/reset", json = JSONObject()).code)
+        assertTrue(control.focusReset)
+        control.cameraOn = false
+        assertEquals(503, call("GET", "/api/camera/stream").code)
     }
 
     @Test fun unknownRoutesAndMethodsAreRefused() {

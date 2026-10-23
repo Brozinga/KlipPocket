@@ -23,5 +23,18 @@ object FlashLog {
         }
     }
 
+    /** Empties the log in place; false if the file couldn't be truncated. */
+    @Synchronized
+    fun clear(): Boolean {
+        val f = file()
+        if (!f.exists()) return true
+        return try {
+            java.io.RandomAccessFile(f, "rw").use { it.setLength(0) }
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     fun read(): String = file().takeIf { it.exists() }?.readText().orEmpty()
 }

@@ -2,7 +2,7 @@
 
 **Languages: [English](firmware-web.md) · [Português (BR)](pt-br/firmware-web.md) · [简体中文](zh-Hans/firmware-web.md)**
 
-The app serves a small web page on **port 4400** that does what the
+The **Firmware** tab of the [KlipPocket Dashboard](dashboard.md) — the web page the app serves on **port 4400** — does what the
 [Firmware tab](firmware-tab.md) does, but from the browser of a PC or another
 phone on the same network: send a firmware file, paste a download link, see the
 USB devices connected to the phone and flash a board. The page only talks to the
@@ -15,7 +15,7 @@ background.
 
 ## Open the page
 
-In the app, open the **Firmware** tab and scroll to **Web page**: it shows the
+In the app, scroll the **home screen** to the end, to **Dashboard**: it shows the
 address (`http://<phone IP>:4400`) and a six-digit **PIN**.
 
 ![Address and PIN in the app](images/firmware-web/app-card.png)
@@ -108,7 +108,7 @@ by the browser.
 
 | What you see | What to do |
 |---|---|
-| The page does not open | Phone and computer must be on the same Wi-Fi without *client isolation*; use the address shown in the app. If port 4400 is used by another app, the card in the Firmware tab says the page is not running. |
+| The page does not open | Phone and computer must be on the same Wi-Fi without *client isolation*; use the address shown in the app. If port 4400 is used by another app, the card on the home screen says the page is not running. |
 | *Too many attempts* | Wait the shown seconds, or use **New PIN** in the app. |
 | *Connection to the app lost* | The app was closed or the phone went to sleep: open the app again. A write in progress is not lost while the app is alive. |
 | A write failure | The messages are the ones of the [tab](firmware-tab.md#if-something-goes-wrong). |

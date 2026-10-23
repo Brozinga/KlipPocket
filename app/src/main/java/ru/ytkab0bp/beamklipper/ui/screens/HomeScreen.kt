@@ -310,6 +310,10 @@ fun HomeScreen(
                     }
                 }
             }
+
+            item(key = "dashboard-card", contentType = "dashboard") {
+                DashboardCard()
+            }
         }
         }
 

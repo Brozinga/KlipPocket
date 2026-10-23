@@ -32,6 +32,7 @@ Many "classic" printers still run slow, closed Marlin boards. KlipPocket brings 
 - **Print Recovery** — resume a print after a power loss
 - **Camera monitoring** — use the device camera or a USB webcam, with live preview, zoom and timelapse
 - **Web interfaces** — Fluidd, Mainsail and Voyager UI, served by the device itself
+- **[KlipPocket Dashboard](docs/dashboard.md)** — a PIN-protected page on port 4400: live CPU, memory, temperature and network cards and charts, MCU information, logs, settings, start/stop and add printers, the camera with tap to focus, and firmware flashing, from any browser (phone-friendly)
 
 ## Choosing the Right Package
 
@@ -76,6 +77,7 @@ All guides live in [`docs/`](docs/index.md) (also available in Português and �
 - [Multi-MCU](docs/multi-mcu.md) — use extra USB boards (toolhead, sensors, extra ports) with `printer.cfg` examples
 - [Klipper add-ons](docs/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper without an accelerometer](docs/mods/input-shaper-manual.md) — ringing-tower method and macros
+- [KlipPocket Dashboard](docs/dashboard.md) — a PIN-protected web page (port 4400): live CPU/memory charts, host and MCU info, logs with clear, and firmware flashing
 - [Building the APK](docs/build-app.md) — compile the app yourself
 
 ## Which ports do the web interfaces and the camera use?
@@ -87,6 +89,7 @@ The address is shown on the main screen whenever an instance is running (`IP` is
 | Fluidd | `http://IP:4408/` |
 | Mainsail | `http://IP:4409/` |
 | Voyager UI | `http://IP:4410/` |
+| [KlipPocket Dashboard](docs/dashboard.md) (device, MCUs, logs, firmware) | `http://IP:4400/` |
 | Camera stream | `http://IP:8889/` |
 | Camera snapshot (single JPEG) | `http://IP:8889/snapshot` |
 | Camera stream (webcam style) | `http://IP:8889/webcam/?action=stream` |

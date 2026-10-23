@@ -1,5 +1,6 @@
 package ru.ytkab0bp.beamklipper.firmwareweb
 
+import org.json.JSONObject
 import java.io.File
 
 data class WebFile(val name: String, val kind: String, val size: Long)
@@ -17,6 +18,8 @@ data class WebFlash(
     val state: String, val stage: String, val percent: Int, val overall: Int, val success: Boolean,
     val failure: String?, val detail: String, val noReturn: Boolean, val file: String, val device: String, val mode: String,
 )
+
+data class WebLogSource(val id: String, val label: String)
 
 /** What the page needs from the app: the web server only talks to this, so it can be tested with a fake. */
 interface FirmwareBackend {
@@ -37,4 +40,15 @@ interface FirmwareBackend {
     fun flash(): WebFlash
     fun resetFlash()
     fun log(): String
+
+    /** Device, storage, printers and MCUs: changes slowly. */
+    fun dashboard(): JSONObject
+    /** Live processor / memory / battery values; the page asks about once a second. */
+    fun metrics(): JSONObject
+    /** The same sources as the app's Logs screen. */
+    fun logSources(): List<WebLogSource>
+    /** The text of a log source, or null when [id] is not one of [logSources]. */
+    fun readLog(id: String): String?
+    /** The app's "clear logs": false when something could not be cleared. */
+    fun clearLogs(): Boolean
 }

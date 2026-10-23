@@ -2,7 +2,7 @@
 
 **Languages: [English](../firmware-web.md) · [Português (BR)](firmware-web.md) · [简体中文](../zh-Hans/firmware-web.md)**
 
-O app serve uma pequena página web na **porta 4400** que faz o que a
+A aba **Firmware** do [KlipPocket Dashboard](dashboard.md) — a página web que o app serve na **porta 4400** — faz o que a
 [aba Firmware](firmware-tab.md) faz, mas pelo navegador de um PC ou de outro
 celular na mesma rede: enviar um arquivo de firmware, colar um link de download,
 ver os dispositivos USB ligados ao celular e gravar uma placa. A página só conversa
@@ -14,7 +14,7 @@ rodando) e uma notificação discreta a mantém acessível com o app em segundo 
 
 ## Abrir a página
 
-No app, abra a aba **Firmware** e role até **Página web**: ela mostra o endereço
+No app, role a **tela inicial** até o fim, em **Dashboard**: ela mostra o endereço
 (`http://<IP do celular>:4400`) e um **PIN** de seis dígitos.
 
 ![Endereço e PIN no app](../images/firmware-web/app-card.png)
@@ -106,7 +106,7 @@ claro/escuro do app; a escolha feita na página fica guardada no navegador.
 
 | O que aparece | O que fazer |
 |---|---|
-| A página não abre | Celular e computador devem estar no mesmo Wi-Fi, sem *isolamento de clientes*; use o endereço mostrado no app. Se a porta 4400 estiver em uso por outro app, o cartão na aba Firmware avisa que a página não está rodando. |
+| A página não abre | Celular e computador devem estar no mesmo Wi-Fi, sem *isolamento de clientes*; use o endereço mostrado no app. Se a porta 4400 estiver em uso por outro app, o cartão na tela inicial avisa que a página não está rodando. |
 | *Muitas tentativas* | Espere os segundos indicados ou use **Novo PIN** no app. |
 | *Conexão com o app perdida* | O app foi fechado ou o celular dormiu: abra o app de novo. Uma gravação em andamento não se perde enquanto o app estiver vivo. |
 | Uma falha de gravação | As mensagens são as da [aba](firmware-tab.md#se-algo-der-errado). |

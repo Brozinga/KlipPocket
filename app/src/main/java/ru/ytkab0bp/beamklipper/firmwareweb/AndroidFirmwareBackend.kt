@@ -19,6 +19,9 @@ import ru.ytkab0bp.beamklipper.firmware.isExperimental
 import ru.ytkab0bp.beamklipper.serial.KlipperProbeTable
 import ru.ytkab0bp.beamklipper.serial.UsbDeviceLabel
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
+import org.json.JSONArray
+import org.json.JSONObject
+import ru.ytkab0bp.beamklipper.utils.BeamLogs
 import ru.ytkab0bp.beamklipper.utils.Prefs
 import java.io.File
 import java.util.concurrent.atomic.AtomicReference
@@ -115,4 +118,24 @@ class AndroidFirmwareBackend(private val ctx: Context) : FirmwareBackend {
     override fun resetFlash() { FlashCoordinator.reset() }
 
     override fun log() = FlashLog.read().lines().takeLast(60).joinToString("\n")
+
+    private val collector = DashboardCollector(ctx)
+
+    override fun dashboard(): JSONObject {
+        val usb = JSONArray()
+        devices().forEach {
+            usb.put(JSONObject().put("label", it.label).put("vendor", it.vendor).put("product", it.product)
+                .put("path", it.path).put("driver", it.driver ?: JSONObject.NULL).put("serialPath", it.serialPath ?: JSONObject.NULL))
+        }
+        return collector.info(usb)
+    }
+
+    override fun metrics(): JSONObject = collector.metrics()
+
+    // BeamLogs lists the sources at the moment of the call (instances come and go), so each call asks again
+    override fun logSources() = BeamLogs.sources(ctx).map { WebLogSource(it.id, it.label) }
+
+    override fun readLog(id: String): String? = BeamLogs.sources(ctx).firstOrNull { it.id == id }?.let { runCatching(it.load).getOrElse { e -> "<${e.message}>" } }
+
+    override fun clearLogs(): Boolean = BeamLogs.clear(ctx)
 }

@@ -52,7 +52,7 @@ object BeamLogs {
 
         val crash = crashFile(ctx)
         if (crash.exists() && crash.length() > 0) {
-            list += Source("crash", "Última falha") { tail(readTextOrEmpty(crash)) }
+            list += Source("crash", "Última falha") { if (crash.exists()) tail(readTextOrEmpty(crash)) else "-" }
         }
 
         for (inst in KlipperInstance.getInstances()) {
@@ -121,7 +121,7 @@ object BeamLogs {
     /**
      * Wipes what the Logs screen shows, so a later error is known to be new.
      * Instance log files are truncated in place (Klipper/Moonraker keep them
-     * open), the last-crash report is deleted, and since an app can't empty
+     * open), the last-crash report is deleted, the firmware flash log is emptied, and since an app can't empty
      * the system logcat buffer, the time of the clear is remembered and older
      * logcat lines are hidden. Returns false if any file couldn't be cleared.
      */
@@ -138,6 +138,8 @@ object BeamLogs {
 
         val crash = crashFile(ctx)
         if (crash.exists() && !crash.delete()) ok = false
+
+        if (!FlashLog.clear()) ok = false
 
         for (inst in KlipperInstance.getInstances()) {
             val files = File(inst.publicDirectory, "logs").listFiles() ?: continue
