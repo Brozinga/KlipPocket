@@ -170,8 +170,6 @@ private fun FirmwareHome(onInstall: () -> Unit) {
             )
         }
 
-        Spacer(Modifier.height(28.dp))
-        FirmwareWebCard()
     }
 
     if (showUsb) ListUsbDialog(context, onDismiss = { showUsb = false })
@@ -185,39 +183,6 @@ private fun FirmwareHome(onInstall: () -> Unit) {
             files = FirmwareStore.list()
             selected = null
             deleting = null
-        }
-    }
-}
-
-/** Where the firmware web page is and the PIN it asks for. */
-@Composable
-private fun FirmwareWebCard() {
-    val context = LocalContext.current
-    var pin by remember { mutableStateOf(FirmwareWebHost.pin()) }
-    val ip = remember {
-        val wm = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
-        @Suppress("DEPRECATION") val i = wm.connectionInfo.ipAddress
-        if (i == 0) "127.0.0.1" else android.text.format.Formatter.formatIpAddress(i)
-    }
-    SectionLabel(stringResource(R.string.FirmwareWebSection))
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(KlipShape).background(PaperAlt, KlipShape).border(2.dp, Line, KlipShape).padding(14.dp)
-    ) {
-        Text(stringResource(R.string.FirmwareWebHint), style = MaterialTheme.typography.bodySmall, color = InkMuted)
-        Spacer(Modifier.height(10.dp))
-        Text(stringResource(R.string.FirmwareWebAddress), style = MaterialTheme.typography.labelMedium, color = InkMuted)
-        Text("http://$ip:${FirmwareWebServer.PORT}", style = MaterialTheme.typography.titleMedium, color = Accent)
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.FirmwareWebPin), style = MaterialTheme.typography.labelMedium, color = InkMuted)
-                Text(pin, style = MaterialTheme.typography.headlineSmall, color = Ink)
-            }
-            KlipTextButton(stringResource(R.string.FirmwareWebNewPin), { pin = FirmwareWebHost.renewPin() })
-        }
-        if (!FirmwareWebHost.running) {
-            Spacer(Modifier.height(6.dp))
-            Text(stringResource(R.string.FirmwareWebOff), style = MaterialTheme.typography.bodySmall, color = Warn)
         }
     }
 }
