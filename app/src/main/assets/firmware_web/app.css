@@ -191,3 +191,10 @@ h4.subhead { margin: 0 0 4px; font-size: .95rem; color: var(--ink-muted); text-t
 .bars i { width: 6px; border-radius: 2px; background: var(--line); display: block; }
 .bars i.b1 { height: 8px; } .bars i.b2 { height: 14px; } .bars i.b3 { height: 20px; } .bars i.b4 { height: 26px; }
 .bars i.on { background: var(--accent); }
+
+/* ---- host and storage: one full-width card each ---- */
+.hostgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); column-gap: 28px; }
+.storages { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); column-gap: 28px; }
+.lg { cursor: pointer; user-select: none; }
+.lg.off { opacity: .45; text-decoration: line-through; }
+.lg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }

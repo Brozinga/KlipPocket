@@ -185,7 +185,7 @@
     return h('header', { class: 'top' }, h('h1', { text: t('pageTitle') }), tools);
   }
 
-  async function logout() { try { await api('POST', '/api/logout', {}); } catch (e) { /* ignore */ } authed = false; st = null; dash = null; live = null; hist = []; cfg = null; cam = null; stopStream(); logs = { sources: [], id: null, text: '', loading: false, live: false, tried: false }; render(true); }
+  async function logout() { try { await api('POST', '/api/logout', {}); } catch (e) { /* ignore */ } authed = false; st = null; dash = null; dashKey = ''; live = null; hist = []; cfg = null; cam = null; stopStream(); logs = { sources: [], id: null, text: '', loading: false, live: false, tried: false }; render(true); }
 
   function loginView() {
     let input;
@@ -543,15 +543,11 @@
       h('div', { class: 'charts one' }, chartCard('c-cpu', t('cpuTitle'))),
       h('div', { class: 'charts' }, chartCard('c-mem', t('memTitle')), chartCard('c-temp', t('tempTitle'))),
       h('p', { class: 'muted small', id: 'cpu-note', text: '' }),
-      h('div', { class: 'cols' },
-        h('div', { class: 'card' }, h('h3', { text: t('hostTitle') }), hostRows),
-        h('div', { class: 'card' }, h('h3', { text: t('memTitle') }),
-          kv(t('memTotal'), '–', 'm-total'), kv(t('memUsed'), '–', 'm-used'), kv(t('memAvailable'), '–', 'm-avail'), meter('m-bar'),
-          kv(t('swapTitle'), '–', 'm-swap'),
-          h('h3', { class: 'gap', text: t('storageTitle') }),
-          dash.storage.map((v, n) => h('div', {},
-            kv(v.id === 'internal' ? t('storageInternal') : t('storageCard') + (n > 1 ? ' ' + n : ''), t('storageFree', formatBytes(v.free), formatBytes(v.total))),
-            h('div', { class: 'bar thin' }, h('span', { 'data-w': String(Math.round((v.total - v.free) * 100 / Math.max(1, v.total))) })))))),
+      h('div', { class: 'card' }, h('h3', { text: t('storageTitle') }),
+        h('div', { class: 'storages' }, dash.storage.map((v) => h('div', { class: 'storage' },
+          kv(v.id === 'internal' ? t('storageInternal') : t('storageCard') + (v.id.length > 2 ? ' ' + v.id.slice(2) : ''), '–', 'st-' + v.id),
+          meter('stb-' + v.id))))),
+      h('div', { class: 'card' }, h('h3', { text: t('hostTitle') }), h('div', { class: 'hostgrid' }, hostRows)),
       h('div', { class: 'secthead' }, h('h2', { class: 'section', text: t('printersTitle') }),
         h('div', { class: 'tools' },
           dash.instances.length ? (dash.instances.some((i) => i.state === 'RUNNING' || i.state === 'STARTING')
@@ -634,6 +630,15 @@
     if (card) card.parentNode.classList.toggle('hidden', !anyTemp);
   }
 
+  // the free space changes all the time: it is updated in place, the page is not rebuilt for it
+  function updateStorage() {
+    if (!dash) return;
+    dash.storage.forEach((v) => {
+      setText('st-' + v.id, t('storageFree', formatBytes(v.free), formatBytes(v.total)));
+      setBar('stb-' + v.id, (v.total - v.free) * 100 / Math.max(1, v.total));
+    });
+  }
+
   // updates the numbers and charts in place: the page is not rebuilt every second
   function updateLive() {
     if (tab !== 'dashboard' || !live || !document.getElementById('stats')) return;
@@ -642,11 +647,7 @@
     const usedPct = m.memTotal ? used * 100 / m.memTotal : 0;
     updateCards(m);
     setText('v-uptime', formatUptime(m.uptimeMs));
-    setText('m-total', formatBytes(m.memTotal));
-    setText('m-used', formatBytes(used) + ' (' + pct(usedPct) + ')');
-    setText('m-avail', formatBytes(m.memAvailable));
-    setBar('m-bar', usedPct);
-    setText('m-swap', m.swapTotal ? formatBytes(m.swapTotal - m.swapFree) + ' / ' + formatBytes(m.swapTotal) : '–');
+    updateStorage();
     setText('cpu-note', m.cpu === undefined ? t('cpuHidden') : '');
     drawCharts();
   }
@@ -662,6 +663,9 @@
     if (hist.length > HIST) hist.shift();
   }
 
+  const hiddenSeries = new Set();
+  function toggleSeries(key) { if (hiddenSeries.has(key)) hiddenSeries.delete(key); else hiddenSeries.add(key); drawCharts(); }
+
   function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
   // series: [{key, label, color}]; the values are percentages unless max is given
@@ -670,9 +674,12 @@
     const leg = document.getElementById(id + '-leg');
     if (!cv) return;
     const last = hist[hist.length - 1] || {};
-    const active = series.filter((s) => hist.some((p) => p[s.key] !== null && p[s.key] !== undefined));
+    const present = series.filter((s) => hist.some((p) => p[s.key] !== null && p[s.key] !== undefined));
+    const active = present.filter((s) => !hiddenSeries.has(s.key));
     if (leg) {
-      leg.replaceChildren(...active.map((s) => h('span', { class: 'lg' }, h('i', { class: 'sw ' + s.cls }), s.label + ' ' + (last[s.key] === null || last[s.key] === undefined ? '–' : Math.round(last[s.key] * 10) / 10 + unit))));
+      leg.replaceChildren(...present.map((s) => h('span', { class: 'lg' + (hiddenSeries.has(s.key) ? ' off' : ''), role: 'button', tabindex: '0', 'aria-pressed': String(!hiddenSeries.has(s.key)), title: s.label,
+        onclick: () => toggleSeries(s.key), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSeries(s.key); } } },
+        h('i', { class: 'sw ' + s.cls }), s.label + ' ' + (last[s.key] === null || last[s.key] === undefined ? '–' : Math.round(last[s.key] * 10) / 10 + unit))));
     }
     const dpr = window.devicePixelRatio || 1;
     const w = Math.max(120, cv.clientWidth), hgt = 140;
@@ -730,11 +737,16 @@
     metricsBusy = false;
   }
 
+  // what makes the dashboard worth rebuilding: everything except the numbers that are updated in place
+  let dashKey = '';
+  function dashStable(d) { return JSON.stringify(Object.assign({}, d, { storage: d.storage.map((v) => [v.id, v.total]) })); }
+  function setDash(d) { dash = d; const key = dashStable(d); const changed = key !== dashKey; dashKey = key; return changed; }
+
   let dashBusy = false;
   async function pollDashboard() {
     if (!authed || tab !== 'dashboard' || document.hidden || dashBusy) return;
     dashBusy = true;
-    try { const d = await api('GET', '/api/dashboard'); const changed = JSON.stringify(d) !== JSON.stringify(dash); dash = d; if (changed) render(true); } catch (e) { /* ignore */ }
+    try { const d = await api('GET', '/api/dashboard'); if (setDash(d)) render(true); else updateLive(); } catch (e) { /* ignore */ }
     dashBusy = false;
   }
 
@@ -936,14 +948,14 @@
   // ---- start / stop -------------------------------------------------------------------------------------------
   async function control(id, action) {
     try {
-      dash = await api('POST', '/api/control', id === null ? { action } : { id, action });
+      setDash(await api('POST', '/api/control', id === null ? { action } : { id, action }));
       render(true);
     } catch (e) { toast(e && e.data && e.data.error === 'slots' ? t('ctlNoSlots') : t('serverError'), true); }
   }
 
   // ---- add a printer -------------------------------------------------------------------------------------------
   async function openAddPrinter() {
-    modal = { type: 'addPrinter', info: null, name: '', config: null, autostart: false, busy: false };
+    modal = { type: 'addPrinter', info: null, pname: '', config: null, autostart: false, busy: false };
     render(true);
     try {
       const info = await api('GET', '/api/printers/new');
@@ -958,8 +970,8 @@
     else body = h('div', {},
       info.canCreate ? null : h('p', { class: 'error', text: t('ctlNoSlots') }),
       h('label', { class: 'frow' }, h('span', { class: 'flabel', text: t('InstanceName') }),
-        h('input', { type: 'text', id: 'pname', placeholder: info.defaultName || t('InstanceDefaultNameHint'), value: modal.name, maxlength: '60', 'aria-label': t('InstanceName'),
-          oninput: (e) => { modal.name = e.target.value; } })),
+        h('input', { type: 'text', id: 'pname', placeholder: info.defaultName || t('InstanceDefaultNameHint'), value: modal.pname, maxlength: '60', 'aria-label': t('InstanceName'),
+          oninput: (e) => { modal.pname = e.target.value; } })),
       h('label', { class: 'frow' }, h('span', { class: 'flabel', text: t('InstanceConfig') }),
         h('select', { id: 'pconfig', onchange: (e) => { modal.config = e.target.value; } },
           info.templates.map((f) => h('option', { value: f, selected: f === modal.config }, f)))),
@@ -975,7 +987,7 @@
     m.busy = true;
     render(true);
     try {
-      dash = await api('POST', '/api/printers', { name: m.name, config: m.config, autostart: m.autostart });
+      setDash(await api('POST', '/api/printers', { name: m.pname, config: m.config, autostart: m.autostart }));
       modal = null;
       toast(t('saved'));
     } catch (e) {
@@ -1051,7 +1063,7 @@
 
   // ---- render -------------------------------------------------------------------------------------------------
   function signature() {
-    return JSON.stringify([authed, view, Object.assign({}, wiz, { start: null }), modal && modal.type, modal && modal.name, modal && modal.info, modal && modal.busy, upload && upload.name, offline, lang, theme, showLog, tab, cfg, form.obicoCloud, cam, camState, dash, logs.sources, logs.id, logs.live, st && [st.files, st.devices, st.download, st.flash],
+    return JSON.stringify([authed, view, Object.assign({}, wiz, { start: null }), modal && modal.type, modal && modal.name, modal && modal.info, modal && modal.busy, upload && upload.name, offline, lang, theme, showLog, tab, cfg, form.obicoCloud, cam, camState, dashKey, logs.sources, logs.id, logs.live, st && [st.files, st.devices, st.download, st.flash],
       st && Object.keys(experimentalCache).length]);
   }
 
@@ -1071,11 +1083,13 @@
       const m = upload ? uploadOverlay() : modalView();
       if (m) root.appendChild(m);
     }
-    const focused = document.activeElement && document.activeElement.id;
+    const ae = document.activeElement;
+    const focused = ae && ae.id;
+    const caret = ae && ae.id && typeof ae.selectionStart === 'number' ? [ae.selectionStart, ae.selectionEnd] : null;
     const oldPre = document.getElementById('logpre');
     const keepScroll = oldPre ? oldPre.scrollTop : null;
     $app.replaceChildren(root);
-    if (focused) { const again = document.getElementById(focused); if (again) again.focus(); }
+    if (focused) { const again = document.getElementById(focused); if (again) { again.focus(); if (caret && typeof again.setSelectionRange === 'function') { try { again.setSelectionRange(caret[0], caret[1]); } catch (e) { /* not a text field */ } } } }
     const pre = document.getElementById('logpre');
     if (pre) pre.scrollTop = keepScroll !== null ? keepScroll : pre.scrollHeight;
     updateLive();
