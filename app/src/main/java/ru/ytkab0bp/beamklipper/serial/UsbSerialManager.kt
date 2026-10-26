@@ -28,9 +28,15 @@ object UsbSerialManager {
     private const val DEBUG = false
     private const val TAG = "beam_usb_serial"
 
-    private val portMap = HashMap<String, UsbSerialPort>()
-    private val nativePortMap = HashMap<String, NativeSerialPort>()
-    private val readThreadMap = HashMap<String, ReadThread>()
+    // A connected board: its USB port, the virtual serial port Klipper opens, and the reader.
+    private class Entry(val uid: String, val port: UsbSerialPort, val nativePort: NativeSerialPort) {
+        lateinit var thread: ReadThread
+    }
+
+    private val entries = PortSlots<Entry>()
+    // Virtual serial ports kept open while their board is gone, so Klipper keeps the same
+    // file and finds the board again after a firmware or Klipper restart
+    private val parked = PortSlots<NativeSerialPort>()
     private var mUsbManager: UsbManager? = null
 
     private val receiver: BroadcastReceiver = object : BroadcastReceiver() {
@@ -39,10 +45,18 @@ object UsbSerialManager {
                 val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
                 if (device != null) {
                     if (mUsbManager?.hasPermission(device) == true) {
-                        val prober = UsbSerialProber(KlipperProbeTable.getInstance())
-                        val drv = prober.probeDevice(device)
-                        if (drv != null && drv.ports.isNotEmpty()) {
-                            connect(drv)
+                        val open = Runnable {
+                            val prober = UsbSerialProber(KlipperProbeTable.getInstance())
+                            val drv = prober.probeDevice(device)
+                            if (drv != null && drv.ports.isNotEmpty()) {
+                                connect(drv)
+                            }
+                        }
+                        // A board that just came up (printer powered on) is not ready right away
+                        if (intent.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
+                            ViewUtils.postOnMainThread(open, UsbReconnect.ATTACH_SETTLE_MS)
+                        } else {
+                            open.run()
                         }
                     } else {
                         if (intent.action == ACTION_ON_DEVICE_CONNECTED && !intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
@@ -59,7 +73,12 @@ object UsbSerialManager {
             } else if (intent.action == UsbManager.ACTION_USB_DEVICE_DETACHED) {
                 val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
                 if (device != null) {
-                    close(getUID(device))
+                    val uid = getUID(device)
+                    // Ignore a late event about an older connection of the same board
+                    val entry = entries.get(uid)
+                    if (entry?.port?.device?.deviceName == device.deviceName && entries.removeIfCurrent(uid, entry)) {
+                        release(entry, true)
+                    }
                 }
             }
         }
@@ -101,8 +120,8 @@ object UsbSerialManager {
     }
 
     fun disconnectAll() {
-        // close() removes the port from portMap: iterate over a copy
-        for (uid in portMap.keys.toList()) {
+        // close() removes the port from the slots: iterate over a copy
+        for (uid in entries.keys() + parked.keys()) {
             close(uid)
         }
     }
@@ -112,7 +131,9 @@ object UsbSerialManager {
 
     fun connect(drv: UsbSerialDriver) = connect(drv, 0)
 
-    fun connect(drv: UsbSerialDriver, flags: Int) {
+    fun connect(drv: UsbSerialDriver, flags: Int) = connect(drv, flags, 0)
+
+    private fun connect(drv: UsbSerialDriver, flags: Int, attempt: Int) {
         if (mUsbManager?.hasPermission(drv.device) != true) {
             mUsbManager?.requestPermission(
                 drv.device,
@@ -129,6 +150,10 @@ object UsbSerialManager {
         val resetArduino = (flags and FLAG_RESET_ARDUINO) != 0
         val currentBaudRate = AtomicInteger(250000)
         val port = drv.ports[0]
+        val uid = getUID(drv.device)
+
+        // Drop a stale connection first, otherwise its release would delete the new port file
+        entries.remove(uid)?.let { release(it, true) }
 
         try {
             val usbManager = mUsbManager ?: return
@@ -140,11 +165,16 @@ object UsbSerialManager {
             port.setParameters(currentBaudRate.get(), UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open device ${drv.device}", e)
+            try {
+                port.close()
+            } catch (ignored: Exception) {
+            }
+            retryConnect(drv.device, flags, attempt + 1)
             return
         }
 
-        val uid = getUID(drv.device)
-        val nativePort = NativeSerialPort(uid)
+        val nativePort = parked.remove(uid) ?: NativeSerialPort(uid)
+        val entry = Entry(uid, port, nativePort)
         nativePort.setProxy { data ->
             try {
                 port.write(data, 0)
@@ -153,36 +183,65 @@ object UsbSerialManager {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to write to USB serial", e)
-                close(uid)
+                // This runs on the native port's own thread, which can't release itself
+                ViewUtils.postOnMainThread { onPortFailed(uid, port) }
             }
         }
         val thread = ReadThread(uid, port, nativePort)
+        entry.thread = thread
         ViewUtils.postOnMainThread { thread.start() }
 
-        nativePortMap[uid] = nativePort
-        portMap[uid] = port
-        readThreadMap[uid] = thread
+        entries.put(uid, entry)
         if (DEBUG) {
             Log.d(TAG, "Connected ${nativePort.file}")
         }
     }
 
-    fun getDevice(uid: String): UsbDevice? {
-        val port = portMap[uid] ?: return null
-        return port.device
+    // Opening can fail while the board is still starting up: try again a few times
+    private fun retryConnect(device: UsbDevice, flags: Int, attempt: Int) {
+        val delay = UsbReconnect.retryDelay(attempt - 1) ?: return
+        ViewUtils.postOnMainThread({
+            val manager = mUsbManager ?: return@postOnMainThread
+            val current = manager.deviceList.values.firstOrNull { it.deviceName == device.deviceName }
+                ?: return@postOnMainThread
+            if (entries.get(getUID(current)) != null) return@postOnMainThread
+            val drv = UsbSerialProber(KlipperProbeTable.getInstance()).probeDevice(current)
+            if (drv != null && drv.ports.isNotEmpty()) {
+                connect(drv, flags, attempt)
+            }
+        }, delay)
     }
 
+    // The USB port broke under a reader or writer. Drop it and reconnect if the board is still there.
+    private fun onPortFailed(uid: String, port: UsbSerialPort) {
+        val entry = entries.get(uid)?.takeIf { it.port === port } ?: return
+        if (!entries.removeIfCurrent(uid, entry)) return
+        release(entry, true)
+        retryConnect(port.device, 0, 1)
+    }
+
+    fun getDevice(uid: String): UsbDevice? = entries.get(uid)?.port?.device
+
     fun close(uid: String) {
-        val nativePort = nativePortMap.remove(uid)
-        val port = portMap.remove(uid)
-        val thread = readThreadMap.remove(uid)
-        nativePort?.release()
+        entries.remove(uid)?.let { release(it, false) }
+        parked.remove(uid)?.release()
+    }
+
+    // [keepSerial] leaves the virtual serial port open for the board to come back to, when it comes back with the same name
+    private fun release(entry: Entry, keepSerial: Boolean) {
+        // Close USB first: a write still in flight on the serial port thread then fails fast
         try {
-            port?.close()
+            entry.port.close()
         } catch (e: IOException) {
             Log.e(TAG, "Failed to close USB serial port", e)
         }
-        thread?.interrupt()
+        if (keepSerial && UsbDeviceId.keepsNameOnReconnect(Prefs.usbDeviceNaming)) {
+            entry.nativePort.setProxy { }
+            parked.put(entry.uid, entry.nativePort)?.release()
+        } else {
+            entry.nativePort.release()
+        }
+        entry.thread.interrupt()
     }
 
     private class ReadThread(
@@ -208,9 +267,9 @@ object UsbSerialManager {
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error reading serial", e)
-                    if (e is IOException) {
-                        close(uid)
-                    }
+                    // Leave the loop: retrying a broken port only spins the CPU
+                    onPortFailed(uid, port)
+                    return
                 }
             }
         }
