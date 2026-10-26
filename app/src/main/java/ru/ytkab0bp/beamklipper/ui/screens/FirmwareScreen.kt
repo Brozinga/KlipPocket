@@ -620,6 +620,7 @@ private fun failureText(f: FlashFailure?): String = stringResource(when (f) {
     FlashFailure.WRONG_CHIP -> R.string.FirmwareFailNeedsRp2040
     FlashFailure.PERMISSION_DENIED -> R.string.FirmwareFailPermission
     FlashFailure.NO_BOOTLOADER -> R.string.FirmwareFailBootsel
+    FlashFailure.NO_BOOTLOADER_ADAPTER -> R.string.FirmwareFailBootselAdapter
     FlashFailure.VERIFY_MISMATCH -> R.string.FirmwareFailVerify
     FlashFailure.CANCELLED -> R.string.FirmwareFailCancelled
     FlashFailure.BAD_CAN_ID -> R.string.FirmwareFailCanUuid

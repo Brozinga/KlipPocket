@@ -7,7 +7,7 @@
   const FAILURES = {
     INCOMPATIBLE_FILE: 'FirmwareFailIncompat', NOT_SERIAL: 'FirmwareFailNotSerial', NO_ANSWER: 'FirmwareFailNoAnswer',
     BAD_ADDRESS: 'FirmwareFailAddress', WRONG_DEVICE: 'FirmwareFailWrongDevice', FILE_INVALID: 'FirmwareFailFileInvalid',
-    WRONG_CHIP: 'FirmwareFailNeedsRp2040', PERMISSION_DENIED: 'FirmwareFailPermission', NO_BOOTLOADER: 'FirmwareFailBootsel',
+    WRONG_CHIP: 'FirmwareFailNeedsRp2040', PERMISSION_DENIED: 'FirmwareFailPermission', NO_BOOTLOADER: 'FirmwareFailBootsel', NO_BOOTLOADER_ADAPTER: 'FirmwareFailBootselAdapter',
     VERIFY_MISMATCH: 'FirmwareFailVerify', CANCELLED: 'FirmwareFailCancelled',
   };
   const STAGES = {

@@ -240,6 +240,7 @@
     <string name="FirmwareModeUsbDesc">透過 USB 執行 Klipper 的主機板：應用程式請求其進入引導程式（1200 bps），並透過 RP2040 BOOTSEL、STM32 DFU、Katapult、HID、SAM-BA 或 AVR109 寫入。已用 RP2040 測試。</string>
     <string name="FirmwareModeUartDesc">連接到主機板序列引導程式的 USB 序列轉接器：STM32（BOOT0 拉高；會清除整個快閃記憶體）或 AVR Arduino/Mega 引導程式。</string>
     <string name="FirmwareFailBootsel">未出現受支援的引導程式（RP2040 BOOTSEL、STM32 DFU、Katapult、HID、SAM-BA 或 AVR109）。</string>
+    <string name="FirmwareFailBootselAdapter">這看起來是 USB 轉序列埠轉接器：請嘗試 UART 模式。</string>
     <string name="FirmwareExperimentalNote">實驗性：此方式尚無確切的測試。使用風險自負。</string>
     <string name="FirmwareExperimentalWarn">此方式為實驗性，尚無確切的測試。使用風險自負：主機板可能無法使用。</string>
     <string name="FirmwareStartAddress">快閃記憶體起始位址（十六進位）</string>

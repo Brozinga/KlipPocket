@@ -11,6 +11,7 @@ import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbInterface
 import android.hardware.usb.UsbManager
 import android.os.Build
+import com.hoho.android.usbserial.driver.CdcAcmSerialDriver
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import kotlinx.coroutines.CompletableDeferred
@@ -34,7 +35,7 @@ enum class FlashMode { USB, UART, DFU, RP2040, KATAPULT, HID, SAMBA, CAN }
 enum class FlashStage { PREPARE, ENTER_BOOTSEL, WAIT_BOOTSEL, PERMISSION, HANDSHAKE, ERASE, WRITE, VERIFY, REBOOT, WAIT_DEVICE }
 
 enum class FlashFailure {
-    WRONG_DEVICE, FILE_INVALID, INCOMPATIBLE_FILE, WRONG_CHIP, PERMISSION_DENIED, NO_BOOTLOADER,
+    WRONG_DEVICE, FILE_INVALID, INCOMPATIBLE_FILE, WRONG_CHIP, PERMISSION_DENIED, NO_BOOTLOADER, NO_BOOTLOADER_ADAPTER,
     NOT_SERIAL, NO_ANSWER, BAD_ADDRESS, USB_ERROR, VERIFY_MISMATCH, CANCELLED, BAD_CAN_ID, NOT_CAN_ADAPTER
 }
 
@@ -154,10 +155,17 @@ object FlashCoordinator {
                     throw FlashAbort(FlashFailure.NOT_SERIAL, "this device is not a USB-serial adapter or CDC serial port")
             }
             FlashMode.USB -> if (!isBootloader(device)) {
-                target = enterBootloader(usb, device, "supported bootloader (RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA or AVR109)") {
-                    isBootloader(it) ||
-                            // Caterina (ATmega32U4) shows up as a different serial device
-                            ((it.vendorId != device.vendorId || it.productId != device.productId) && serialDriver(it) != null)
+                target = try {
+                    enterBootloader(usb, device, "supported bootloader (RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA or AVR109)") {
+                        isBootloader(it) ||
+                                // Caterina (ATmega32U4) shows up as a different serial device
+                                ((it.vendorId != device.vendorId || it.productId != device.productId) && serialDriver(it) != null)
+                    }
+                } catch (e: FlashAbort) {
+                    // A CH340 / FTDI / CP210x has no USB bootloader: the board behind it needs the UART mode
+                    if (e.failure == FlashFailure.NO_BOOTLOADER && serialDriver(device).let { it != null && it !is CdcAcmSerialDriver })
+                        throw FlashAbort(FlashFailure.NO_BOOTLOADER_ADAPTER, "this looks like a USB-serial adapter: try the UART mode")
+                    throw e
                 }
             }
             FlashMode.KATAPULT -> when {
