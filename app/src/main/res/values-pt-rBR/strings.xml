@@ -243,6 +243,7 @@
     <string name="FirmwareModeUsbDesc">Placa rodando Klipper por USB: o app pede que ela entre no bootloader (1200 bps) e grava por RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA ou AVR109. Testado com o RP2040.</string>
     <string name="FirmwareModeUartDesc">Adaptador USB-serial ligado ao bootloader serial da placa: STM32 (BOOT0 em alto; toda a flash é apagada) ou bootloaders AVR Arduino/Mega.</string>
     <string name="FirmwareFailBootsel">Nenhum bootloader suportado apareceu (RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA ou AVR109).</string>
+    <string name="FirmwareFailBootselAdapter">Este parece ser um conversor USB-serial: tente o modo UART.</string>
     <string name="FirmwareExperimentalNote">Experimental: sem testes conclusivos com este modo. Use por sua conta e risco.</string>
     <string name="FirmwareExperimentalWarn">Este modo é experimental e não tem testes conclusivos. O uso é por sua conta e risco: a placa pode ficar inutilizável.</string>
     <string name="FirmwareStartAddress">Endereço inicial da flash (hex)</string>

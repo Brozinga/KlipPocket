@@ -240,6 +240,7 @@
     <string name="FirmwareModeUsbDesc">通过 USB 运行 Klipper 的主板：应用请求其进入引导程序（1200 bps），并通过 RP2040 BOOTSEL、STM32 DFU、Katapult、HID、SAM-BA 或 AVR109 写入。已用 RP2040 测试。</string>
     <string name="FirmwareModeUartDesc">连接到主板串口引导程序的 USB 串口适配器：STM32（BOOT0 置高；会擦除整个闪存）或 AVR Arduino/Mega 引导程序。</string>
     <string name="FirmwareFailBootsel">未出现受支持的引导程序（RP2040 BOOTSEL、STM32 DFU、Katapult、HID、SAM-BA 或 AVR109）。</string>
+    <string name="FirmwareFailBootselAdapter">这看起来是 USB 转串口适配器：请尝试 UART 模式。</string>
     <string name="FirmwareExperimentalNote">实验性：此方式尚无确凿的测试。使用风险自负。</string>
     <string name="FirmwareExperimentalWarn">此方式为实验性，尚无确凿的测试。使用风险自负：主板可能无法使用。</string>
     <string name="FirmwareStartAddress">闪存起始地址（十六进制）</string>

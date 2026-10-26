@@ -243,6 +243,7 @@
     <string name="FirmwareModeUsbDesc">Плата с Klipper по USB: приложение просит её войти в загрузчик (1200 бод) и прошивает через RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA или AVR109. Проверено на RP2040.</string>
     <string name="FirmwareModeUartDesc">USB-UART адаптер, подключённый к последовательному загрузчику платы: STM32 (BOOT0 вверх; стирается вся flash) или загрузчики AVR Arduino/Mega.</string>
     <string name="FirmwareFailBootsel">Поддерживаемый загрузчик не появился (RP2040 BOOTSEL, STM32 DFU, Katapult, HID, SAM-BA или AVR109).</string>
+    <string name="FirmwareFailBootselAdapter">Похоже, это USB-serial адаптер: попробуйте режим UART.</string>
     <string name="FirmwareExperimentalNote">Экспериментально: для этого режима нет убедительных тестов. Используйте на свой риск.</string>
     <string name="FirmwareExperimentalWarn">Этот режим экспериментальный, убедительных тестов нет. Используйте на свой риск: плата может остаться неработоспособной.</string>
     <string name="FirmwareStartAddress">Начальный адрес flash (hex)</string>
