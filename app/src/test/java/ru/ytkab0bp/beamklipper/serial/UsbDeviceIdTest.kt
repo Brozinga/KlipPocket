@@ -41,4 +41,10 @@ class UsbDeviceIdTest {
     fun `an unknown naming mode behaves like by path`() {
         assertEquals("_a_b", UsbDeviceId.uid(99, 1, 2, "/a/b"))
     }
+
+    @Test
+    fun `only the vid and pid name survives a reconnect`() {
+        assertEquals(true, UsbDeviceId.keepsNameOnReconnect(Prefs.USB_DEVICE_NAMING_BY_VID_PID))
+        assertEquals(false, UsbDeviceId.keepsNameOnReconnect(Prefs.USB_DEVICE_NAMING_BY_PATH))
+    }
 }

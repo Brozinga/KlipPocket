@@ -29,6 +29,7 @@ class NativeSerialPort : SerialProxy {
     }
 
     fun write(data: ByteArray, len: Int) {
+        if (pointer == 0L) return
         SerialNative.write(pointer, data, len)
     }
 
@@ -42,7 +43,9 @@ class NativeSerialPort : SerialProxy {
     }
 
     fun release() {
-        SerialNative.release(pointer)
+        val p = pointer
+        pointer = 0
+        if (p != 0L) SerialNative.release(p)
         file?.delete()
     }
 }

@@ -12,4 +12,8 @@ object UsbDeviceId {
         // The bus path, e.g. /dev/bus/usb/001/002 -> _dev_bus_usb_001_002.
         else -> deviceName.replace("/", "_")
     }
+
+    // The bus path changes every time a board is re-enumerated (e.g. after a power cycle),
+    // so only the VID/PID name is the same when the board comes back.
+    fun keepsNameOnReconnect(naming: Int): Boolean = naming == Prefs.USB_DEVICE_NAMING_BY_VID_PID
 }
