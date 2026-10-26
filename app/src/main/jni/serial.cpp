@@ -18,6 +18,7 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct SerialPort {
     int master, slave;
+    int wake[2];
     jstring file;
     pthread_t worker_thread;
 };
@@ -26,6 +27,7 @@ struct WorkerArgs {
     char* file;
     struct termios tio;
     int master, slave;
+    int wake;
     jweak proxy;
 };
 
@@ -66,10 +68,18 @@ struct WorkerArgs {
         FD_SET(args->master, &read_fds);
         FD_ZERO(&exception_fds);
         FD_SET(args->master, &exception_fds);
+        FD_SET(args->wake, &read_fds);
 
-        code = select(args->master + 1, &read_fds, nullptr, &exception_fds, nullptr);
+        int maxfd = args->master > args->wake ? args->master : args->wake;
+        code = select(maxfd + 1, &read_fds, nullptr, &exception_fds, nullptr);
         if (code == -1) {
             __android_log_print(ANDROID_LOG_ERROR, TAG, "Failed to do select(...)");
+            pthread_exit(0);
+        }
+
+        // release() asked us to stop: leave before the descriptors are closed and reused
+        if (FD_ISSET(args->wake, &read_fds)) {
+            free(buffer);
             pthread_exit(0);
         }
 
@@ -127,6 +137,16 @@ extern "C" {
 
         symlink(name, args->file);
 
+        if (pipe(port->wake) < 0) {
+            close(args->master);
+            close(args->slave);
+            delete port;
+            return 0;
+        }
+        fcntl(port->wake[0], F_SETFD, FD_CLOEXEC);
+        fcntl(port->wake[1], F_SETFD, FD_CLOEXEC);
+        args->wake = port->wake[0];
+
         port->master = args->master;
         port->slave = args->slave;
 
@@ -150,9 +170,14 @@ extern "C" {
 
     JNIEXPORT void JNICALL Java_ru_ytkab0bp_beamklipper_serial_SerialNative_release(JNIEnv *env, jclass, jlong pointer) {
         SerialPort* port = (SerialPort*) (intptr_t) pointer;
-        pthread_kill(port->worker_thread, SIGQUIT);
+        // Wake the worker out of select() and wait for it, so it can't wake up later on
+        // a descriptor number that has been reused by a newer port
+        write(port->wake[1], "x", 1);
+        pthread_join(port->worker_thread, nullptr);
         close(port->master);
         close(port->slave);
+        close(port->wake[0]);
+        close(port->wake[1]);
         delete port;
     }
 }
