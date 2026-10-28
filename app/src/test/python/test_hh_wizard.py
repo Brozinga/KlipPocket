@@ -389,6 +389,9 @@ class Generate(Base):
         status = w.status()
         self.assertTrue(status['installed'])
         self.assertEqual(status['type'], 'MMU_TYPE_TRADRACK_1_0')
+        # the type reported is the saved one, not what is being edited now
+        w.set_value('MMU_TYPE_BOX_TURTLE_1_0', True)
+        self.assertEqual(w.status()['type'], 'MMU_TYPE_TRADRACK_1_0')
         fresh = self.wizard(load_saved=False)
         self.assertNotEqual(fresh.kc.syms['PARAM_DISPLAY_NAME'].str_value,
                             'Shop MMU')
@@ -459,6 +462,17 @@ class JsonEntryPoint(Base):
         res = self.call(op='generate')
         self.assertFalse(res['ok'])
         self.assertTrue(res['problems'])
+
+    def test_open_never_changes_the_answers_in_progress(self):
+        self.wizard(self.TRADRACK).generate()
+        self.call(op='open')
+        self.call(op='reset', load_saved=False)
+        self.call(op='set', symbol='MMU_TYPE_BOX_TURTLE_1_0', value=True)
+        opened = self.call(op='open')
+        self.assertEqual(opened['type'], 'MMU_TYPE_TRADRACK_1_0')
+        page = self.call(op='page', path='')
+        mmu = [i for i in page['items'] if i['title'] == 'MMU Type'][0]
+        self.assertEqual(mmu['value'], 'MMU_TYPE_BOX_TURTLE_1_0')
 
     def test_a_reset_forgets_the_saved_answers_when_asked(self):
         self.wizard(self.TRADRACK).generate()

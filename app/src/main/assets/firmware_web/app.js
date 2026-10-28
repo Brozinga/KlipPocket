@@ -1150,7 +1150,8 @@
     return mmuRun(async () => {
       const r = await mmuCall({ op: 'generate', include: mmu.include, keep_state: !mmu.reset });
       if (!r.ok) return mmuFail(r);
-      Object.assign(mmu, { stage: 'done', installed: true, added: r.added, includeLines: r.includes, moonrakerLines: r.moonraker });
+      const o = await mmuCall({ op: 'open' });
+      Object.assign(mmu, { stage: 'done', installed: true, added: r.added, includeLines: r.includes, moonrakerLines: r.moonraker, type: o.ok ? o.type : mmu.type });
     });
   }
 

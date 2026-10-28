@@ -194,8 +194,10 @@ class HappyHareViewModel(app: Application) : AndroidViewModel(app) {
         val s = _state.value
         val r = call(JSONObject().put("op", "generate").put("include", s.include).put("keep_state", !s.resetState))
         if (!r.optBoolean("ok")) return@run fail(r)
+        val opened = call(JSONObject().put("op", "open"))
         _state.update {
             it.copy(stage = HhStage.DONE, installed = true, added = r.optBoolean("added"),
+                currentType = opened.optString("type").ifEmpty { it.currentType },
                 includeLines = strings(r.optJSONArray("includes")), moonrakerLines = strings(r.optJSONArray("moonraker")))
         }
     }

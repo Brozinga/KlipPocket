@@ -609,6 +609,19 @@ class Wizard:
         with io.open(path, 'w', encoding='utf-8') as f:
             f.write(builder.write())
 
+    def saved_type(self):
+        """The MMU type of the saved configuration, or None."""
+        if not os.path.isfile(self.saved_config):
+            return None
+        choice = self._type_choice()
+        names = {m.name for m in choice.syms} if choice is not None else set()
+        with io.open(self.saved_config, encoding='utf-8') as f:
+            for line in f:
+                m = re.match(r'CONFIG_([A-Z0-9_]+)=y', line)
+                if m and m.group(1) in names:
+                    return m.group(1)
+        return None
+
     def status(self):
         printer = os.path.join(self.config_dir, self.printer_cfg)
         text = ''
@@ -618,7 +631,7 @@ class Wizard:
         return {'installed': os.path.isdir(self.mmu_dir)
                 and os.path.isfile(self.saved_config),
                 'in_printer': 'include mmu/base/*.cfg' in text,
-                'version': self.version, 'type': self.current_type(),
+                'version': self.version, 'type': self.saved_type(),
                 'loaded_saved': self.loaded_from is not None}
 
 
@@ -627,12 +640,16 @@ _wizards = {}
 
 
 def handle(request_json):
-    """One call: {"hh_root","config_dir","op",...} -> JSON text."""
+    """One call: {"hh_root","config_dir","op",...} -> JSON text.
+
+    The wizard of a printer lives as long as the process; `open` only reports
+    where the printer stands and never changes the answers (use `reset`).
+    """
     try:
         req = json.loads(request_json)
         key = (req['hh_root'], req['config_dir'])
         op = req['op']
-        if op == 'open' or key not in _wizards:
+        if key not in _wizards:
             _wizards[key] = Wizard(req['hh_root'], req['config_dir'],
                                    req.get('printer_cfg', 'printer.cfg'),
                                    req.get('moonraker_conf',
