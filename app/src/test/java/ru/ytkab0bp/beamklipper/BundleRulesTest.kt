@@ -165,6 +165,88 @@ class BundlePatchesTest {
     }
 
     @Test
+    fun `happy hare is vendored whole, with no leftover of the old single-file module`() {
+        // A stray extras/mmu.py (v3) next to the mmu/ package is imported instead of the
+        // package whenever the package has no __init__.py, and nothing of v4 then loads.
+        assertFalse(File("src/main/happyhare/extras/mmu.py").exists())
+        assertTrue(File("src/main/happyhare/extras/mmu/__init__.py").isFile)
+        assertTrue(File("src/main/happyhare/extras/mmu/unit/__init__.py").isFile)
+        assertTrue(File("src/main/happyhare/components/mmu_server.py").isFile)
+        assertTrue(Regex("(?m)^VERSION = \"4\\.").containsMatchIn(source("happyhare/extras/mmu/mmu_constants.py")))
+    }
+
+    @Test
+    fun `klipper and kalico save_variables still carry the line the patch builds on`() {
+        assertTrue(source("klipper/klippy/extras/save_variables.py").contains(BundlePatches.SAVE_VARIABLES_KLIPPER_ORIGINAL))
+        assertTrue(source("kalico/klippy/extras/save_variables.py").contains(BundlePatches.SAVE_VARIABLES_KALICO_ORIGINAL))
+    }
+
+    @Test
+    fun `the save_variables patch re-roots the file into the config folder`() {
+        listOf("klipper", "kalico").forEach { engine ->
+            val patched = BundlePatches.patchSaveVariables(source("$engine/klippy/extras/save_variables.py"))
+            assertTrue(engine, patched.contains(BundlePatches.SAVE_VARIABLES_MARKER))
+            assertTrue(engine, patched.contains("get_start_args()['config_file']"))
+            // applying it again changes nothing
+            assertEquals(engine, patched, BundlePatches.patchSaveVariables(patched))
+        }
+    }
+
+    @Test
+    fun `a variables file under a folder that is missing here lands next to printer_cfg`() {
+        val python = listOf("python3", "python").firstOrNull {
+            runCatching { ProcessBuilder(it, "--version").redirectErrorStream(true).start().waitFor() == 0 }.getOrDefault(false)
+        } ?: return
+        val dir = createTempDir()
+        try {
+            val harness = """
+                import importlib.util, os, sys
+                class Gcode:
+                    def register_command(self, *a, **k): pass
+                class Executor:
+                    def submit(self, fn, *a): return fn(*a)
+                class Aio:
+                    def allocate_executor(self, name): return Executor()
+                class Printer:
+                    command_error = Exception
+                    def get_start_args(self): return {'config_file': sys.argv[2]}
+                    def load_object(self, config, name): return Aio()
+                    def lookup_object(self, name): return Gcode()
+                class Config:
+                    error = Exception
+                    def __init__(self, filename): self.filename = filename
+                    def get_printer(self): return Printer()
+                    def get(self, key): return self.filename
+                spec = importlib.util.spec_from_file_location('sv', sys.argv[1])
+                mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+                for name in sys.argv[3:]:
+                    print(mod.SaveVariables(Config(name)).filename)
+            """.trimIndent()
+            val h = File(dir, "harness.py").apply { writeText(harness) }
+            val cfgDir = File(dir, "inst/config").apply { mkdirs() }
+            val printerCfg = File(cfgDir, "printer.cfg").apply { writeText("") }
+            val here = File(dir, "elsewhere").apply { mkdirs() }
+            listOf("klipper", "kalico").forEach { engine ->
+                val sv = File(dir, "$engine.py").apply { writeText(BundlePatches.patchSaveVariables(source("$engine/klippy/extras/save_variables.py"))) }
+                val p = ProcessBuilder(
+                    python, h.path, sv.path, printerCfg.path,
+                    "/no/such/printer_data/config/mmu/mmu_vars.cfg",
+                    File(here, "vars.cfg").path
+                ).redirectErrorStream(true).start()
+                val out = p.inputStream.bufferedReader().readText().lines().filter { it.isNotBlank() }
+                val code = p.waitFor()
+                assertEquals("$engine: $out", 0, code)
+                assertEquals(File(cfgDir, "mmu/mmu_vars.cfg").path, out[0])
+                assertTrue(File(cfgDir, "mmu/mmu_vars.cfg").isFile)
+                // a folder that exists is left alone
+                assertEquals(File(here, "vars.cfg").path, out[1])
+            }
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `the patched python is still valid`() {
         val python = listOf("python3", "python").firstOrNull {
             runCatching { ProcessBuilder(it, "--version").redirectErrorStream(true).start().waitFor() == 0 }.getOrDefault(false)
@@ -174,7 +256,9 @@ class BundlePatchesTest {
             listOf(
                 "utils.py" to BundlePatches.patchObicoBoardId(source("obico/moonraker_obico/utils.py")),
                 "printer_discovery.py" to BundlePatches.patchObicoLinkStatus(source("obico/moonraker_obico/printer_discovery.py")),
-                "moonraker_conn.py" to BundlePatches.patchObicoIncludeCfgs(BundlePatches.patchObicoThermalPresets(source("obico/moonraker_obico/moonraker_conn.py")))
+                "moonraker_conn.py" to BundlePatches.patchObicoIncludeCfgs(BundlePatches.patchObicoThermalPresets(source("obico/moonraker_obico/moonraker_conn.py"))),
+                "save_variables_klipper.py" to BundlePatches.patchSaveVariables(source("klipper/klippy/extras/save_variables.py")),
+                "save_variables_kalico.py" to BundlePatches.patchSaveVariables(source("kalico/klippy/extras/save_variables.py"))
             ).forEach { (name, src) ->
                 val f = File(dir, name).apply { writeText(src) }
                 val p = ProcessBuilder(python, "-m", "py_compile", f.path).redirectErrorStream(true).start()

@@ -68,6 +68,15 @@ object BundleInstaller {
                 it.replace(BundlePatches.TEMP_PATH, tempPath)
             }
 
+            // Happy Hare's mmu_vars.cfg path is the installer machine's; see
+            // BundlePatches.patchSaveVariables.
+            patchBundledFile(root, assets, "klipper", "klippy/extras/save_variables.py") {
+                BundlePatches.patchSaveVariables(it)
+            }
+            patchBundledFile(root, assets, "kalico", "klippy/extras/save_variables.py") {
+                BundlePatches.patchSaveVariables(it)
+            }
+
             val ttyPath = "'" + File(KlipperApp.INSTANCE.filesDir, "serial").absolutePath + "'"
             patchBundledFile(root, assets, "klipper", "klippy/mcu.py") {
                 it.replace(BundlePatches.TTY_PATH, ttyPath)
