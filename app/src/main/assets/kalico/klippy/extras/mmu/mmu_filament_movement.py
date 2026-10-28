@@ -40,7 +40,7 @@ from ..homing             import HomingMove
 
 # Happy Hare imports
 from .mmu_constants       import *
-from .mmu_utils           import MmuError
+from .mmu_utils           import MmuError, MmuGateHomingMiss
 from .mmu_sensor_utils    import MmuVirtualEndstopSensor, MmuCompoundEndstop
 
 
@@ -93,6 +93,18 @@ class MmuFilamentMovement:
         )
 
 
+    def _set_gate_homed_state(self, profile):
+        """Publish the physical state represented by a gate homing datum."""
+        self.set_filament_pos_state(
+            FILAMENT_POS_HOMED_ENTRY
+            if (
+                profile.endstop == SENSOR_EXTRUDER_ENTRY
+                and not self.mmu_unit().require_bowden_move
+            )
+            else FILAMENT_POS_HOMED_GATE
+        )
+
+
     def _shared_gate_path_occupied(self, endstop, gate):
         """
         True if 'endstop' is a per-UNIT resource shared by every gate on that unit (not
@@ -120,8 +132,39 @@ class MmuFilamentMovement:
             return (self.filament_pos != FILAMENT_POS_UNLOADED
                     and self.gate_selected != gate
                     and unit.owns_gate(self.gate_selected))
-        shared_name = self.sensor_manager.get_qualified_endstop_name(endstop)
-        return bool(self.sensor_manager.check_sensor(shared_name))
+        shared_name = self.sensor_manager.get_qualified_endstop_name(endstop, mmu_unit=self.mmu_unit(gate))
+        return self.sensor_manager.check_event_sensor(shared_name, gate) is True
+
+
+    def gate_occupancy(self, gate):
+        """
+        Sensor verdict on one gate, ignoring the recorded gate_status:
+
+            OCCUPANCY_PRESENT  a sensor sees filament - only a pickup can say where it is
+            OCCUPANCY_EMPTY    the entry switch says the lane is clear - no motion needed
+            OCCUPANCY_UNKNOWN  no entry switch, so a clean homing miss is the only evidence
+                               of an empty lane available
+
+        PRESENT wins over an empty entry switch: a remnant that has left the entry switch
+        still shows on the exit switch or downstream, and it must not be called empty.
+
+        Only the entry/exit switches are per-gate. mmu_shared_exit, extruder and toolhead
+        are shared by every gate on the unit, so PRESENT may be another gate's filament and
+        is NOT attributable to 'gate'. Declining to act on PRESENT is therefore always safe,
+        but a caller that acts on UNKNOWN must have ruled the shared path out first - both
+        current callers sit behind MMU_CHECK_GATE's _check_path_unloaded().
+        """
+        sensors = self.sensor_manager
+        unit = self.mmu_unit(gate)
+        if (sensors.check_gate_sensor(SENSOR_EXIT_PREFIX, gate) is True
+                or any(sensors.check_event_sensor(
+                    sensors.get_qualified_endstop_name(name, mmu_unit=unit), gate) is True
+                    for name in (SENSOR_SHARED_EXIT, SENSOR_EXTRUDER_ENTRY, SENSOR_TOOLHEAD))):
+            return OCCUPANCY_PRESENT
+        entry = sensors.check_gate_sensor(SENSOR_ENTRY_PREFIX, gate)
+        if entry is None:
+            return OCCUPANCY_UNKNOWN
+        return OCCUPANCY_PRESENT if entry else OCCUPANCY_EMPTY
 
 
     def _preload_gate(self, pending=None):
@@ -204,15 +247,20 @@ class MmuFilamentMovement:
         # NFC read) rather than have both try to assign the gate. A weak pending (bare uid only)
         # is not trusted enough to skip the gate's own reader - it's applied below only as a
         # fallback if that reader finds nothing.
-        spool_id, tag = pending if pending is not None else (-1, None)
+        spool_id, tag, _measured = pending if pending is not None else (-1, None, None)
         has_material = tag is not None and isinstance(tag[1], dict) and tag[1].get('material')
+        # A staged measurement is not identity, so it never makes a pending "strong"
         have_strong_pending = spool_id > 0 or has_material
 
         # A neighboring gate's spool could satisfy the NFC leg below and get misattributed -
         # settle field ownership first. arb_mgr stays None (inert) if we wouldn't attempt an
-        # NFC leg anyway (strong pending, or encoder homing).
+        # NFC leg anyway (strong pending, encoder homing, or a selector held at another gate by
+        # an in-place crossload, where eviction and the forward scan sweep would drive filament
+        # toward it).
+        nfc_allowed = (not have_strong_pending and profile.endstop != SENSOR_ENCODER
+                       and not self.mmu_unit().selector_held)
         arb_mgr = None
-        if not have_strong_pending and profile.endstop != SENSOR_ENCODER:
+        if nfc_allowed:
             arb_mgr = self._nfc_field_arm(gate, profile.endstop, profile.clear_distance)
 
         with self.nfc_arbiter.clear_field(
@@ -228,7 +276,7 @@ class MmuFilamentMovement:
             # the NFC leg here would just risk misattributing it again, so fall back to a plain
             # preload instead (mechanically identical, nothing written to the gate map).
             nfc = None
-            if outcome.verdict != NFC_FIELD_FOREIGN and not have_strong_pending and profile.endstop != SENSOR_ENCODER:
+            if outcome.verdict != NFC_FIELD_FOREIGN and nfc_allowed:
                 gate_es_name = self.sensor_manager.get_qualified_endstop_name(profile.endstop)
                 compound, nfc_es_name, nfc_mgr = self._build_gate_nfc_compound(
                     gate, gate_es_name, name="preload_compound")
@@ -301,7 +349,7 @@ class MmuFilamentMovement:
         run_post_preload_macro()
 
 
-    def _load_gate(self, allow_retry=True, extra_homing=0.0):
+    def _load_gate(self, allow_retry=True, extra_homing=0.0, mark_empty_on_failure=True):
         """
         Load filament into gate. This is considered the starting position for the rest of the filament loading
         process. Note that this may overshoot the home position for the "encoder" technique but subsequent
@@ -317,15 +365,35 @@ class MmuFilamentMovement:
                 back than a normal load - e.g. MMU_NFC_SCAN re-homing to the gate after
                 jogging behind it. Mirrors _unload_gate's extra_homing.
 
+            mark_empty_on_failure: If True, a failed pickup marks the gate EMPTY and sets
+                filament position to UNLOADED. If False, the gate's sensors decide: an
+                untouched lane nothing can see raises MmuGateHomingMiss and is still EMPTY,
+                anything else leaves position UNKNOWN. Either way a gate concluded EMPTY
+                has its attributes cleared.
+
         Returns:
             float: Overshoot past the gate homing point that later stages should account for.
         """
-        overshoot, _tag_read = self._home_to_gate(
-            self._gate_profile(allow_retry=allow_retry), extra_homing=extra_homing)
-        return overshoot
+        profile = self._gate_profile(allow_retry=allow_retry)
+        if not mark_empty_on_failure:
+            # Validate up front so a config error escapes as itself rather than as a
+            # failed pickup. _home_to_gate() re-checks; that is deliberate.
+            self._validate_gate_config("load", profile.endstop)
+        try:
+            overshoot, _tag_read = self._home_to_gate(
+                profile, extra_homing=extra_homing, mark_empty_on_failure=mark_empty_on_failure)
+            return overshoot
+        except MmuGateHomingMiss:
+            raise # Already recorded as empty by _home_to_gate()
+        except (MmuError, self.printer.command_error) as ee:
+            if not mark_empty_on_failure:
+                self.set_filament_pos_state(FILAMENT_POS_UNKNOWN)
+                self.gate_maps.set_gate_status(self.gate_selected, GATE_UNKNOWN)
+                raise MmuError(str(ee)) from ee
+            raise
 
 
-    def _home_to_gate(self, profile, extra_homing=0.0, nfc=None, label="load"):
+    def _home_to_gate(self, profile, extra_homing=0.0, nfc=None, label="load", mark_empty_on_failure=True):
         """
         Primitive: home filament FORWARD into the gate. Driven by 'profile', so the same
         code serves a normal load (gate_*) and a preload (gate_preload_*).
@@ -342,13 +410,15 @@ class MmuFilamentMovement:
                 or None for plain homing. The CALLER builds and tears the compound down -
                 see _preload_gate, which needs to know whether it exists before it logs.
             label: "load" / "preload" - used in configuration validation errors.
+            mark_empty_on_failure: See _load_gate().
 
         Returns:
             (overshoot, tag_read): overshoot past the gate home point - the measured
             distance for encoder homing, the distance chased forward on the NFC scan path,
             and 0.0 for a plain endstop home; tag_read True if an NFC tag was read.
         Raises:
-            MmuError: filament not detected within the homing budget (gate set EMPTY).
+            MmuError: filament not detected within the homing budget.
+            MmuGateHomingMiss: that miss looks like an empty lane - see mark_empty_on_failure.
 
         Does NOT park and does NOT run finalize/macros - callers own that.
         """
@@ -369,7 +439,16 @@ class MmuFilamentMovement:
                         if i == 0
                         else f"Retry load into encoder (retry #{i})"
                     )
-                    _, _, m, _ = self.move_filament(msg, homing_max)
+                    try:
+                        _, _, m, _ = self.move_filament(msg, homing_max)
+                    except self.printer.command_error as e:
+                        # A driver fault reads as "nothing moved", same as a completed move
+                        # that detected nothing. move_filament's own tolerance covers homing
+                        # moves only, and this branch makes a plain move.
+                        if mark_empty_on_failure:
+                            raise
+                        self.log_debug("Load into encoder did not complete: %s" % str(e))
+                        m = 0.0
                     measured += m
 
                     if m > 6.0:
@@ -393,6 +472,7 @@ class MmuFilamentMovement:
 
             tag_read = False
             overshoot = 0.0
+            measured = 0.0 # The NFC sub-branch below never assigns it
             for i in range(profile.attempts):
                 if nfc is not None:
                     homed, tag_read, overshoot = self._home_to_gate_with_nfc(
@@ -423,7 +503,10 @@ class MmuFilamentMovement:
                     # Don't reset if filament is buffered
                     self.gate_maps.set_gate_status(
                         gate, max(self.gate_status[gate], GATE_AVAILABLE))
-                    self.set_filament_pos_state(FILAMENT_POS_HOMED_GATE)
+                    # On a no-Bowden design the gate datum is the extruder-entry
+                    # sensor itself, so publish the physical location rather than
+                    # pretending that a separate gate/Bowden boundary was reached.
+                    self._set_gate_homed_state(profile)
                     self.log_trace_exit(f"_home_to_gate() => (overshoot={overshoot})")
                     return overshoot, tag_read
 
@@ -433,26 +516,42 @@ class MmuFilamentMovement:
                 if i < profile.attempts - 1:
                     self.selector().filament_release()
 
-        self.gate_maps.set_gate_status(gate, GATE_EMPTY)
-        self.set_filament_pos_state(FILAMENT_POS_UNLOADED)
+        # Did filament move at all? movement_min() is the encoder's noise floor, not the
+        # 'm > 6.0' pickup threshold above. 'measured' is a signed delta (a reverse home
+        # runs the encoder backwards) and is always 0.0 with no encoder fitted.
+        motion_floor = self.encoder(gate).movement_min() if self.has_encoder(gate) else 0.0
+        # With mark_empty_on_failure off, only an untouched lane no sensor can see counts as
+        # empty. Motor displacement is not proof that filament moved, so this trusts the
+        # homing sensor to work.
+        empty = mark_empty_on_failure or (
+            abs(measured) <= motion_floor
+            and self.gate_occupancy(gate) == OCCUPANCY_UNKNOWN)
+        if empty:
+            # Clears: the recorded spool must not outlive a lane concluded empty.
+            self.gate_maps.set_gate_status(gate, GATE_EMPTY)
+            self.set_filament_pos_state(FILAMENT_POS_UNLOADED)
 
         msg = "Couldn't pick up filament at gate"
         if profile.endstop == SENSOR_ENCODER:
             msg += " (encoder didn't report enough movement)"
         else:
             msg += " (gate endstop didn't trigger)"
-        msg += (
-            f"\nGate marked as empty. Use "
-            f"'MMU_GATE_MAP GATE={gate} AVAILABLE=1' to reset"
-        )
+        if mark_empty_on_failure:
+            msg += (f"\nGate marked as empty. Use "
+                    f"'MMU_GATE_MAP GATE={gate} AVAILABLE=1' to reset")
+        elif empty:
+            raise MmuGateHomingMiss(msg)
+        else:
+            msg += "\nFilament position is uncertain. Check the path and recover before continuing."
         raise MmuError(msg)
 
 
     def _park_at_gate(self, profile, label="unload"):
         """
-        Primitive: park the filament when it is already standing ON the gate datum, having
-        just homed forward onto it. There is nothing to search for, so this is the parking
-        move and nothing else.
+        Primitive: park the filament when it is already standing at a known gate datum.
+        This may be the trigger point after homing forward or, for a no-bowden layout, the
+        release point after homing backward from the same sensor. There is nothing to
+        search for, so this is the parking move and nothing else.
 
         Encoder "homing" has no datum - it stops an unknown distance past the point motion
         was first detected - so there is nothing to park from and that case delegates to
@@ -514,6 +613,7 @@ class MmuFilamentMovement:
                     if measured > self.encoder().movement_min(): # We expect 0, but relax the test a little (allow one pulse)
                         self.log_warning("Warning: Possible encoder malfunction (free-spinning) during final filament parking")
                     self.set_filament_pos_state(FILAMENT_POS_UNLOADED)
+                    homing_movement = -homing_movement # Match signed reverse displacement from switch endstops
                     self.log_trace_exit(f"_park_from_gate() => (homing_movement={homing_movement})")
                     return homing_movement
 
@@ -530,7 +630,7 @@ class MmuFilamentMovement:
                 endstop_name=endstop_name,
             )
             if homed:
-                self.set_filament_pos_state(FILAMENT_POS_HOMED_GATE)
+                self._set_gate_homed_state(profile)
                 self.move_filament("Final parking", profile.parking_distance)
                 self.set_filament_pos_state(FILAMENT_POS_UNLOADED)
                 self.log_trace_exit(f"_park_from_gate() => (homing_movement={homing_movement})")
@@ -1226,11 +1326,11 @@ class MmuFilamentMovement:
                 # This can easily happen when your parking distance is configured to park the filament past the
                 # gate sensor instead of behind the gate sensor and the filament position is determined to be
                 # "somewhere in the bowden tube"
-                # NOT _park_at_gate(): that one's precondition is a FORWARD home onto the
-                # datum, and this arrived at the switch RELEASE point coming backward.
-                # Direction and validation already ran at the top of this block.
+                # Keep this recovery inline because it owns the early return and preserves
+                # the measured homing movement. Direction and validation already ran at
+                # the top of this block.
                 if homed:
-                    self.set_filament_pos_state(FILAMENT_POS_HOMED_GATE)
+                    self._set_gate_homed_state(profile)
                     self.move_filament("Final parking", profile.parking_distance)
                     self.set_filament_pos_state(FILAMENT_POS_UNLOADED)
                     self.log_trace_exit(f"_unload_gate() => (homing_movement={homing_movement})")
@@ -1303,8 +1403,9 @@ class MmuFilamentMovement:
 
         full = (length == bowden_length or length is None)
 
-        # Compensate for distance already moved for gate homing endstop (e.g. overshoot after encoder based gate homing)
-        length -= start_pos
+        # Compensate for distance already moved for gate homing endstop (e.g. overshoot after encoder based gate homing).
+        # A homing overshoot can consume the entire requested move, but can never leave a negative physical move.
+        length = max(length - start_pos, 0.)
 
         try:
             # Do we need to reduce bowden move by buffer amount to ensure we don't overshoot homing sensor
@@ -1317,8 +1418,12 @@ class MmuFilamentMovement:
                 if self._must_home_to_extruder() and u.p.extruder_homing_endstop == SENSOR_EXTRUDER_ENTRY:
                     # If homing to extruder entry sensor, Further reduce to compensate for distance from sensor to extruder gear
                     # (because the bowden length is always recorded as distance to extruder gear)
-                    extruder_homing_buffer -= u.toolhead_wrapper.p.toolhead_entry_to_extruder
+                    extruder_homing_buffer += u.toolhead_wrapper.p.toolhead_entry_to_extruder
 
+                # A reserved buffer must only subtract from the remaining fast move. In
+                # particular, a large entry-to-extruder offset must not make the buffer
+                # negative and turn its subtraction into an unintended forward move.
+                extruder_homing_buffer = min(max(extruder_homing_buffer, 0.), length)
                 length -= extruder_homing_buffer # Reduce fast move distance
 
             ratio = None
@@ -1447,11 +1552,12 @@ class MmuFilamentMovement:
         if bowden_length > 0 and not self.calibrating:
             length = min(length, bowden_length) # Cannot exceed calibrated distance
 
-        # Compensate for distance already moved whilst unloading extruder
-        length -= start_pos
+        # Compensate for distance already moved whilst unloading extruder. An extruder
+        # overshoot can consume the entire requested move, but cannot leave a negative move.
+        length = max(length - start_pos, 0.)
 
         # Shorten move to provide gate unload buffer used to ensure we don't overshoot homing point
-        gate_homing_buffer = u.p.bowden_unload_homing_buffer
+        gate_homing_buffer = min(u.p.bowden_unload_homing_buffer, length)
         length -= gate_homing_buffer
 
         try:
@@ -2032,14 +2138,17 @@ class MmuFilamentMovement:
             validate: Whether encoder-based validation should be performed during unload.
 
         Returns:
-            tuple[bool, float]: Sync state, Overshoot
+            tuple[bool, float, bool]: Sync state, Overshoot, entry datum established
               Sync state: True when the unload finished in a synced state; otherwise False.
               Overshoot past the extruder reference point later stages should account for (positive value)
+              Entry datum established: True only when reverse homing physically cleared the
+              extruder-entry sensor; False when its position was assumed or not used.
         """
         u = self.mmu_unit()
         self.log_trace_entry(f"_unload_extruder(extruder_only={extruder_only}, validate={validate})")
 
         overshoot = 0.
+        entry_datum_established = False
         with self.wrap_action(ACTION_UNLOADING_EXTRUDER):
             self.log_debug("Extracting filament from extruder")
             self.set_filament_direction(DIRECTION_UNLOAD)
@@ -2098,6 +2207,7 @@ class MmuFilamentMovement:
                         homing_move=-1,
                         endstop_name=SENSOR_EXTRUDER_ENTRY,
                     )
+                    entry_datum_established = fhomed
 
                 if not fhomed:
                     raise MmuError("Failed to reach extruder entry sensor after moving %.1fmm" % actual)
@@ -2218,8 +2328,11 @@ class MmuFilamentMovement:
             self.movequeue_wait()
             self.log_debug("Filament should be out of extruder")
 
-            self.log_trace_exit(f"_unload_extruder() => (synced={synced}, overshoot={overshoot})")
-            return synced, overshoot
+            self.log_trace_exit(
+                f"_unload_extruder() => (synced={synced}, overshoot={overshoot}, "
+                f"entry_datum_established={entry_datum_established})"
+            )
+            return synced, overshoot, entry_datum_established
 
 
 # PAUL
@@ -2331,6 +2444,11 @@ class MmuFilamentMovement:
 
         self.set_filament_direction(DIRECTION_LOAD)
         self.initialize_filament_position(dwell=None) # Reset measurement to 0
+        td1_token = None
+        td1_mgr = self.mmu_unit().td1_manager if self.gate_selected >= 0 else None
+        if td1_mgr is not None and not extruder_only and full and not skip_extruder:
+            td1_token = td1_mgr.begin_load(self.gate_selected)
+        td1_success = False
 
         try:
             must_home = False
@@ -2440,7 +2558,7 @@ class MmuFilamentMovement:
                     extruder_homing_buffer = 0.
                     bowden_move_ratio = None
 
-                    if start_filament_pos < FILAMENT_POS_END_BOWDEN:
+                    if u.require_bowden_move and start_filament_pos < FILAMENT_POS_END_BOWDEN:
                         # Homing buffer is the shortfall in desired bowden move
                         bowden_move_ratio, extruder_homing_buffer = self._load_bowden(bowden_move, start_pos=start_overshoot)
                         bowden_travel = bowden_move - extruder_homing_buffer
@@ -2508,11 +2626,15 @@ class MmuFilamentMovement:
                         else:
                             self.wrap_gcode_command(self.p.post_load_macro, exception=True, wait=True)
 
+            td1_success = True
+
         except MmuError as ee:
             self._track_gate_statistics('load_failures', self.gate_selected)
             raise MmuError("Load sequence failed because:\n%s" % (str(ee)))
 
         finally:
+            if td1_mgr is not None:
+                td1_mgr.end_load(td1_token, td1_success)
             self._track_gate_statistics('loads', self.gate_selected)
 
             if not extruder_only:
@@ -2650,7 +2772,11 @@ class MmuFilamentMovement:
 
             # Note: Conditionals deliberately coded this way to match macro alternative
             start_filament_pos = self.filament_pos
-            unload_to_buffer = (start_filament_pos >= FILAMENT_POS_END_BOWDEN and not extruder_only)
+            unload_to_buffer = (
+                u.require_bowden_move
+                and start_filament_pos >= FILAMENT_POS_END_BOWDEN
+                and not extruder_only
+            )
 
             if self.p.gcode_unload_sequence and calibrated:
                 self.log_debug("Calling external user defined unloading sequence macro")
@@ -2667,7 +2793,7 @@ class MmuFilamentMovement:
 
             elif extruder_only:
                 if start_filament_pos >= FILAMENT_POS_EXTRUDER_ENTRY:
-                    synced_extruder_unload,_ = self._unload_extruder(extruder_only=True, validate=do_form_tip == FORM_TIP_STANDALONE)
+                    synced_extruder_unload,_,_ = self._unload_extruder(extruder_only=True, validate=do_form_tip == FORM_TIP_STANDALONE)
                 else:
                     raise MmuError("Cannot unload extruder because filament not detected in extruder! (state: %s)" % start_filament_pos)
 
@@ -2676,18 +2802,42 @@ class MmuFilamentMovement:
 
             else:
                 ext_unload_overshoot = 0.
+                extruder_entry_datum_established = False
                 if start_filament_pos >= FILAMENT_POS_EXTRUDER_ENTRY:
                     # Exit extruder, fast unload of bowden, then slow unload to gate
-                    synced_extruder_unload, ext_unload_overshoot = self._unload_extruder(validate=do_form_tip == FORM_TIP_STANDALONE)
+                    (
+                        synced_extruder_unload,
+                        ext_unload_overshoot,
+                        extruder_entry_datum_established,
+                    ) = self._unload_extruder(
+                        validate=do_form_tip == FORM_TIP_STANDALONE
+                    )
 
                 if (
                     (start_filament_pos >= FILAMENT_POS_END_BOWDEN and calibrated) or
                     (start_filament_pos >= FILAMENT_POS_HOMED_GATE and not full)
                 ):
-                    # Fast unload of bowden, then unload gate
-                    bowden_move_ratio, gate_homing_buffer = self._unload_bowden(bowden_move, ext_unload_overshoot)
-                    homing_movement = self._unload_gate(gate_homing_buffer)
-                    bowden_travel = bowden_move - gate_homing_buffer - homing_movement
+                    if u.require_bowden_move:
+                        # Fast unload of bowden, then unload gate
+                        bowden_move_ratio, gate_homing_buffer = self._unload_bowden(bowden_move, ext_unload_overshoot)
+                        homing_movement = self._unload_gate(gate_homing_buffer)
+                        bowden_travel = bowden_move - gate_homing_buffer - homing_movement
+                    else:
+                        # No Bowden stage exists. If unloading the extruder just
+                        # reverse-homed off the same sensor used as the gate datum,
+                        # that release point is already the parking reference and a
+                        # second zero-distance home would only publish a false state.
+                        bowden_move_ratio = None
+                        gate_homing_buffer = 0.
+                        if (
+                            extruder_entry_datum_established
+                            and self.filament_pos == FILAMENT_POS_HOMED_ENTRY
+                            and u.p.gate_homing_endstop == SENSOR_EXTRUDER_ENTRY
+                        ):
+                            homing_movement = self._park_at_gate(self._gate_profile())
+                        else:
+                            homing_movement = self._unload_gate()
+                        bowden_travel = 0.
 
                     # Notify autotune manager
                     if full:
@@ -3034,7 +3184,8 @@ class MmuFilamentMovement:
                 macro = self.p.purge_macro
                 if extruder_only:
                     macro += " EXTRUDER_ONLY=1"
-                self.wrap_gcode_command(macro, exception=True, wait=True)
+                with self._wrap_pressure_advance(0.0, "for purging"):
+                    self.wrap_gcode_command(macro, exception=True, wait=True)
 
         self.log_trace_exit("purge_standalone() => None")
 
@@ -3080,10 +3231,10 @@ class MmuFilamentMovement:
         elif motor in ["gear+extruder", "synced"]:
             if homing_move != 0:
                 speed = speed or min(u.p.gear_homing_speed, self.p.extruder_homing_speed)
-                accel = accel or min(max(u.p.gear_from_filament_buffer_accel, u.p.gear_load_accel), self.p.extruder_accel)
+                accel = accel or min(self.p.extruder_sync_accel, self.p.extruder_accel)
             else:
                 speed = speed or (self.p.extruder_sync_load_speed if dist > 0 else self.p.extruder_sync_unload_speed)
-                accel = accel or min(max(u.p.gear_from_filament_buffer_accel, u.p.gear_load_accel), self.p.extruder_accel)
+                accel = accel or min(self.p.extruder_sync_accel, self.p.extruder_accel)
 
         elif motor in ["extruder"]:
             if homing_move != 0:
@@ -3298,7 +3449,7 @@ class MmuFilamentMovement:
                         return null_rtn
 
                     if self.log_enabled(LOG_STEPPER):
-                        self.log_stepper("%s MOVE: dist=%.1f, speed=%.1f, accel=%.1f, wait=%s" % (motor.upper(), dist, speed, accel, wait))
+                        self.log_stepper("%s MOVE: dist=%.1f, speed=%.1f, accel=toolhead, wait=%s" % (motor.upper(), dist, speed, wait))
 
                     ext_pos[3] += dist
                     self.toolhead.move(ext_pos, speed)
@@ -3440,6 +3591,13 @@ class MmuFilamentMovement:
                     self.log_info("Proportional sensor indicates no extruder grip - filament may not be fully loaded")
                     self.set_filament_pos_state(FILAMENT_POS_IN_BOWDEN, silent=silent)
 
+        # On a no-Bowden unit the extruder-entry sensor is also the gate datum. A
+        # triggered level proves filament reached the entrance but cannot distinguish
+        # that point from filament extending through the extruder to the nozzle. Recover
+        # conservatively for a safe unload, even when heated checks are not allowed now.
+        elif es and not u.require_bowden_move:
+            self.set_filament_pos_state(FILAMENT_POS_IN_EXTRUDER, silent=silent)
+
         # Somewhere in extruder
         elif filament_detected and can_heat and self.check_filament_in_extruder():
             self.set_filament_pos_state(FILAMENT_POS_IN_EXTRUDER, silent=silent) # Will start from tip forming on unload
@@ -3503,7 +3661,7 @@ class MmuFilamentMovement:
         # First check sensors in filament path
         detected = self.sensor_manager.check_any_sensors_in_path()
 
-        # Check resting postion of sprung sync-feedback buffer for positive identification of filament
+        # Check resting position of sprung sync-feedback buffer for positive identification of filament
         if not detected and u.has_buffer():
             resting_state = u.buffer.buffer_spring_state_num
             state = u.sync_feedback._get_sensor_state(use_virtual_threshold=True) # Get discrete state
@@ -3825,7 +3983,7 @@ class MmuFilamentMovement:
     def wrap_sync_gear_to_extruder(self):
         """
         Preserve sync state across a block. Grip restoration is only performed by
-        the outermost wrapper, because it is often noisey / expensive on type-A MMUs.
+        the outermost wrapper, because it is often noisy / expensive on type-A MMUs.
 
         Yields:
             self while nested operations may temporarily alter sync and grip state.
@@ -4050,6 +4208,13 @@ class MmuFilamentMovement:
         if initial_pa is None:
             yield self
             return
+
+        if not initial_pa:
+            self.log_debug(
+                "Pressure advance was already 0 when setting it %s. If this is unexpected, look for a "
+                "SET_PRESSURE_ADVANCE in slicer gcode or macros (e.g. wipe tower) that isn't restored"
+                % (reason or "temporarily")
+            )
 
         try:
             if reason:

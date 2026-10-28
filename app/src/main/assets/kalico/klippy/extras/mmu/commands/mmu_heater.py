@@ -9,7 +9,7 @@
 # Implements commands:
 #   MMU_HEATER
 #
-# The environment manager will support automatic spool rotation if equiped with eSpooler and the
+# The environment manager will support automatic spool rotation if equipped with eSpooler and the
 # dry cycle is initiated with this option. IMPORTANT: filament must be removed from the MMU inlet and
 # fastened to the spool. Also, the GATES parameter must be supplied to this command.
 #
@@ -40,11 +40,11 @@ class MmuHeaterCommand(BaseCommand):
         + "DRY             = [0|1] Disable/enable filament heater for filament drying cycle\n"
         + "TIMER           = #(mins) Force drying time\n"
         + "TEMP            = #(degrees) Force temperature\n"
-        + "HUMIDITY        = % Terminate drying when humidty goal is reached\n"
+        + "HUMIDITY        = % Terminate drying when humidity goal is reached\n"
         + "GATES           = g1,g2 Gates to control ONLY IF MMU has per-gate heaters/dryers\n"
         + "ROTATE          = [0|1] Rotate spool (requires eSpooler and explicit GATES)\n"
         + "ROTATE_INTERVAL = #(mins) How often to rotate spools when drying (requires eSpooler)\n"
-        + "VENT_INTERVAL   = #(mins) How often to call 'vent' macro in drying cycle\n"
+        + "VENT_INTERVAL   = #(mins) How often to open the vent in drying cycle\n"
         + "(no parameters for status report)"
     )
     HELP_SUPPLEMENT = (
@@ -55,7 +55,7 @@ class MmuHeaterCommand(BaseCommand):
         + f"{CMD} STOP=1                              ...Stop current drying cycle\n"
         + f"{CMD} DRY=1 ROTATE=1 GATES=1,3            ...Start drying cycle on gates 1 & 3 periodically rotating them (requires espooler)\n"
         + f"{CMD} DRYING_DATA=1                       ...List the current drying data database\n"
-        + f"{CMD} DRY=1 VENT_INTERVAL=10              ...Initiate drying cycle calling vent macro every 10 minutes\n"
+        + f"{CMD} DRY=1 VENT_INTERVAL=10              ...Initiate drying cycle opening the vent every 10 minutes\n"
         + f"With per-gate heaters:\n"
         + f"{CMD} DRY=1 GATES=0,2,3                   ...Drying cycle on gates 0,2 & 3 (subject to max simultaneous heaters)\n"
         + f"{CMD} TEMP=45 GATES=0,1                   ...Turn heaters on for gates 0 & 1\n"
@@ -183,8 +183,8 @@ class MmuHeaterCommand(BaseCommand):
 
             # Optional spool rotation (requires eSpooler and explicit gates)
             # (BTT ViViD is allowed if not in print)
-            if rotate and not (mmu_unit.has_espooler() or mmu_unit.mmu_vendor == VENDOR_VVD):
-                self.mmu.log_warning("Rotation requested but eSpooler not fitted - ignoring")
+            if rotate and not (mmu_unit.has_espooler() or mmu_unit.gear_rotates_spool):
+                self.mmu.log_warning("Rotation requested but no eSpooler and the gear motor cannot turn the spool - ignoring")
                 rotate = 0
 
             if rotate and not gates_param:
@@ -275,7 +275,7 @@ class MmuHeaterCommand(BaseCommand):
                 else:
                     msg += "\nEnvironment sensor not available / misconfigured"
                     cur_temp = ds.get('heater_temp', -1)
-                    if cur_temp is None: cur_temp = -1 # Saftey, should not be possible to get here
+                    if cur_temp is None: cur_temp = -1 # Safety, should not be possible to get here
 
                 msg += "\nDrying temp: %.1f°C (current: %.1f°C)" % (
                     ds.get('temp'),
@@ -284,7 +284,7 @@ class MmuHeaterCommand(BaseCommand):
 
             else:
                 # Per-gate status report
-                msg += "\nPer-gate dryer mode (max concurrent heaters: %d). Humidty target %.1f%%" % (
+                msg += "\nPer-gate dryer mode (max concurrent heaters: %d). Humidity target %.1f%%" % (
                     mmu_unit.max_concurrent_heaters,
                     ds.get('humidity_target'),
                 )
@@ -321,17 +321,21 @@ class MmuHeaterCommand(BaseCommand):
 
             # Venting status
             if ds.get('vent_timer') is not None:
-                msg += "\nVenting operational (running macro %s every %s, next in %s)" % (
-                    mmu_unit.p.heater_vent_macro,
+                vents = []
+                if mmu_unit.has_vent_servo():
+                    vents.append("vent servo")
+                if mmu_unit.p.heater_vent_run_fan and mmu_unit.fan_manager.has_fans():
+                    vents.append("managed fan")
+                if mmu_unit.p.heater_vent_macro:
+                    vents.append("macro %s" % mmu_unit.p.heater_vent_macro)
+                msg += "\nVenting operational (opening for %gs every %s, next in %s; %s)" % (
+                    mmu_unit.p.heater_vent_duration,
                     self._format_minutes(ds.get('vent_interval')),
                     self._format_minutes(max(ENV_CHECK_INTERVAL, ds.get('vent_timer')) / 60),
+                    ", ".join(vents) or "nothing to operate",
                 )
             else:
-                if not mmu_unit.p.heater_vent_macro:
-                    vent_reason = "heater_vent_macro not set"
-                else:
-                    vent_reason = "heater_vent_interval is 0"
-                msg += "\nVenting not operational (%s)" % vent_reason
+                msg += "\nVenting not operational (heater_vent_interval is 0)"
 
             # Rotation status (eSpooler)
             if ds.get('rotate_enabled'):

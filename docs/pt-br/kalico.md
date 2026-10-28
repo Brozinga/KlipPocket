@@ -41,6 +41,9 @@ Verificado numa impressora real (uma Neptune 3 Pro, por USB), com o Fluidd do ap
   Auto Speed, `bed_mesh`, `probe`, `safe_z_home`, `input_shaper`,
   `pause_resume`, `display_status` e o sensor de filamento.
 
+O Happy Hare (multifilamento) também carrega e responde aos comandos `MMU_*` no
+Kalico; veja [Happy Hare](happy-hare.md).
+
 Só a carga foi verificada (o módulo importa e inicia, mas não rodou numa
 impressão): LED Effect, TMC Autotune, Print Recovery, os extras de buzzer e
 câmera, e o Z Calibration.

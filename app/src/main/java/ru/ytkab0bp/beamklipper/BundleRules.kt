@@ -131,6 +131,33 @@ object BundlePatches {
         "                _logger.warning('Failed to write {}: {}'.format(printer_cfg, e))"
 
     fun patchObicoIncludeCfgs(source: String): String = source.replace(OBICO_INCLUDE_CFGS_ORIGINAL, OBICO_INCLUDE_CFGS_PATCHED)
+
+    // Happy Hare keeps its state in mmu_vars.cfg through [save_variables], whose
+    // "filename" its generated config writes as the path on the machine that
+    // ran its installer (~/printer_data/config/mmu/mmu_vars.cfg). That folder
+    // does not exist on the phone, so Klipper stopped with a config error and
+    // the MMU never started. When the file's folder is missing, the part after
+    // "/config/" is re-rooted into this instance's config folder (the one that
+    // holds printer.cfg). A folder that exists is left alone, as is a path with
+    // no "/config/" in it.
+    const val SAVE_VARIABLES_MARKER = "# Beam: re-root a config-relative variables file"
+    private const val SAVE_VARIABLES_REROOT =
+        "        $SAVE_VARIABLES_MARKER\n" +
+        "        if not os.path.isdir(os.path.dirname(self.filename)):\n" +
+        "            _tail = self.filename.rpartition('/config/')[2]\n" +
+        "            if _tail:\n" +
+        "                self.filename = os.path.join(os.path.dirname(os.path.abspath(\n" +
+        "                    self.printer.get_start_args()['config_file'])), _tail)\n" +
+        "                os.makedirs(os.path.dirname(self.filename), exist_ok=True)\n"
+    const val SAVE_VARIABLES_KLIPPER_ORIGINAL = "        self.filename = os.path.expanduser(config.get('filename'))\n"
+    const val SAVE_VARIABLES_KALICO_ORIGINAL = "        self.filename = os.path.expanduser(config.get(\"filename\"))\n"
+
+    fun patchSaveVariables(source: String): String {
+        if (source.contains(SAVE_VARIABLES_MARKER)) return source
+        return source
+            .replace(SAVE_VARIABLES_KLIPPER_ORIGINAL, SAVE_VARIABLES_KLIPPER_ORIGINAL + SAVE_VARIABLES_REROOT)
+            .replace(SAVE_VARIABLES_KALICO_ORIGINAL, SAVE_VARIABLES_KALICO_ORIGINAL + SAVE_VARIABLES_REROOT)
+    }
 }
 
 object BundleFiles {

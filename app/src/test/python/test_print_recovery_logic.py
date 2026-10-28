@@ -840,5 +840,217 @@ class Resume(Base):
         self.assertNotIn('M109', s)
 
 
+class FakeGateMaps:
+    def __init__(self):
+        self.slicer_tool_map = {
+            'tools': {'0': {'color': 'ff0000'}}, 'referenced_tools': [0, 2],
+            'initial_tool': 0, 'purge_volumes': [[0, 50], [50, 0]],
+            'total_toolchanges': 7, 'skip_automap': True}
+
+
+class FakeMmu:
+    """The parts of Happy Hare's controller that print_recovery reads."""
+    def __init__(self):
+        self.is_enabled = True
+        self.tool_selected = 0
+        self.filament_pos = 10
+        self.action = 0
+        self._next_tool = -1
+        self.num_toolchanges = 4
+        self.gate_maps = FakeGateMaps()
+
+
+class MmuBase(Base):
+    def setUp(self):
+        super().setUp()
+        self.mmu = FakeMmu()
+        self.printer.objects['mmu'] = self.mmu
+        self.load_ok = True
+        run = self.gcode.run_script_from_command
+
+        def run_script(script):
+            run(script)
+            for line in script.splitlines():
+                if line.startswith('T') and line[1:].isdigit() \
+                   and self.load_ok:
+                    self.mmu.tool_selected = int(line[1:])
+                    self.mmu.filament_pos = 10
+                if line == 'MMU_RECOVER STRICT=1':
+                    self.mmu.filament_pos = self.recovered_pos
+        self.recovered_pos = 10
+        self.gcode.run_script_from_command = run_script
+
+
+class MmuSampling(MmuBase):
+    def setUp(self):
+        super().setUp()
+        self.printer.stats.state = 'printing'
+        self.printer.sd.active = True
+        self.pr = self.make(snapshot_interval='2')
+
+    def saved(self):
+        self.pr._sample(1000.)
+        return self.pr._read_state()['mmu']
+
+    def test_a_printer_without_happy_hare_saves_nothing_extra(self):
+        del self.printer.objects['mmu']
+        self.pr._sample(1000.)
+        self.assertIsNone(self.pr._read_state()['mmu'])
+
+    def test_a_disabled_happy_hare_saves_nothing_extra(self):
+        self.mmu.is_enabled = False
+        self.assertIsNone(self.saved())
+
+    def test_the_tool_toolchanges_and_slicer_map_are_saved(self):
+        mmu = self.saved()
+        self.assertEqual(mmu['tool'], 0)
+        self.assertEqual(mmu['num_toolchanges'], 4)
+        self.assertEqual(mmu['slicer_tool_map']['referenced_tools'], [0, 2])
+        self.assertEqual(mmu['slicer_tool_map']['purge_volumes'],
+                         [[0, 50], [50, 0]])
+
+    def test_the_saved_map_is_a_copy(self):
+        self.pr._sample(1000.)
+        self.mmu.gate_maps.slicer_tool_map['referenced_tools'].append(9)
+        self.assertEqual(self.pr.history[-1]['mmu']['slicer_tool_map']
+                         ['referenced_tools'], [0, 2])
+
+    def test_a_running_toolchange_saves_the_tool_it_was_changing_to(self):
+        self.mmu.action = 2
+        self.mmu._next_tool = 3
+        self.mmu.tool_selected = 1
+        self.assertEqual(self.saved()['tool'], 3)
+
+    def test_an_idle_happy_hare_ignores_a_stale_next_tool(self):
+        self.mmu._next_tool = 3
+        self.mmu.tool_selected = 1
+        self.assertEqual(self.saved()['tool'], 1)
+
+    def test_a_bypass_or_unknown_tool_is_kept_as_it_is(self):
+        self.mmu.tool_selected = -2
+        self.assertEqual(self.saved()['tool'], -2)
+
+    def test_a_map_that_cannot_be_saved_is_left_out(self):
+        self.mmu.gate_maps.slicer_tool_map = {'tools': object()}
+        self.assertNotIn('slicer_tool_map', self.saved())
+
+
+class MmuResume(MmuBase):
+    def setUp(self):
+        super().setUp()
+        self.write_gcode()
+        self.pr = self.make()
+        self.slicer_map = {'tools': {'1': {'color': '00ff00'}},
+                           'referenced_tools': [1], 'initial_tool': 1,
+                           'purge_volumes': [], 'total_toolchanges': 3}
+        self.set_snapshot()
+
+    def set_snapshot(self, **mmu):
+        state = {'tool': 0, 'num_toolchanges': 5,
+                 'slicer_tool_map': self.slicer_map}
+        state.update(mmu)
+        self.pr.pending = self.snapshot(mmu=state)
+
+    def resume(self, **params):
+        self.gcmd = Gcmd(**params)
+        self.pr.cmd_PRINT_RECOVERY_RESUME(self.gcmd)
+        return self.gcode.all_scripts().splitlines()
+
+    def warned(self):
+        return [m for m in self.gcmd.info if 'Happy Hare is off' in m]
+
+    def test_a_loaded_tool_needs_no_recovery_or_tool_change(self):
+        lines = self.resume()
+        self.assertNotIn('MMU_RECOVER STRICT=1', lines)
+        self.assertFalse([l for l in lines if l == 'T0'])
+
+    def test_happy_hare_starts_its_print_before_the_purge_and_the_file(self):
+        lines = self.resume()
+        start = lines.index('MMU_PRINT_START')
+        self.assertLess(lines.index('M109 S210.0'), start)
+        self.assertLess(start, lines.index('G1 E20.000 F300'))
+        self.assertLess(start, lines.index('M23 cube.gcode'))
+
+    def test_the_slicer_map_and_toolchange_count_are_restored(self):
+        self.resume()
+        self.assertEqual(self.mmu.num_toolchanges, 5)
+        smap = self.mmu.gate_maps.slicer_tool_map
+        self.assertEqual(smap['referenced_tools'], [1])
+        self.assertEqual(smap['total_toolchanges'], 3)
+        self.assertTrue(smap['skip_automap'])
+
+    def test_a_different_tool_is_loaded_before_the_print_starts(self):
+        self.set_snapshot(tool=2)
+        lines = self.resume()
+        self.assertIn('T2', lines)
+        self.assertLess(lines.index('M109 S210.0'), lines.index('T2'))
+        self.assertLess(lines.index('T2'), lines.index('MMU_PRINT_START'))
+        self.assertEqual(self.mmu.tool_selected, 2)
+
+    def test_an_unloaded_tool_is_loaded_again(self):
+        self.mmu.filament_pos = 0
+        self.assertIn('T0', self.resume())
+
+    def test_an_unsure_filament_position_is_recovered_first(self):
+        self.mmu.filament_pos = -1
+        lines = self.resume()
+        self.assertLess(lines.index('MMU_RECOVER STRICT=1'),
+                        lines.index('MMU_PRINT_START'))
+        self.assertNotIn('T0', lines)
+
+    def test_a_recovery_that_finds_nothing_loaded_loads_the_tool(self):
+        self.mmu.filament_pos = -1
+        self.recovered_pos = 0
+        lines = self.resume()
+        self.assertLess(lines.index('MMU_RECOVER STRICT=1'),
+                        lines.index('T0'))
+
+    def test_a_tool_that_does_not_load_stops_the_resume(self):
+        self.mmu.filament_pos = 0
+        self.load_ok = False
+        with self.assertRaises(CommandError) as ctx:
+            self.pr.cmd_PRINT_RECOVERY_RESUME(Gcmd())
+        self.assertIn('T0 is not loaded', str(ctx.exception))
+        scripts = self.gcode.all_scripts()
+        self.assertNotIn('MMU_PRINT_START', scripts)
+        self.assertNotIn('M23', scripts)
+        self.assertIsNotNone(self.pr.pending)
+        self.assertFalse(self.pr.resuming)
+
+    def test_a_bypass_filament_is_left_alone(self):
+        self.mmu.tool_selected = -2
+        self.mmu.filament_pos = 0
+        self.set_snapshot(tool=-2)
+        lines = self.resume()
+        self.assertIn('MMU_PRINT_START', lines)
+        self.assertEqual([l for l in lines if l[:1] == 'T'], [])
+
+    def test_a_disabled_happy_hare_is_reported_and_skipped(self):
+        self.mmu.is_enabled = False
+        lines = self.resume()
+        self.assertNotIn('MMU_PRINT_START', lines)
+        self.assertIn('M24', lines)
+        self.assertTrue(self.warned())
+
+    def test_no_happy_hare_object_is_reported_and_skipped(self):
+        del self.printer.objects['mmu']
+        self.assertNotIn('MMU_PRINT_START', self.resume())
+        self.assertTrue(self.warned())
+
+    def test_a_snapshot_without_a_mmu_touches_nothing(self):
+        self.pr.pending = self.snapshot()
+        lines = self.resume()
+        self.assertFalse([l for l in lines if l.startswith('MMU_')
+                          or l[:1] == 'T'])
+        self.assertFalse(self.warned())
+        self.assertEqual(self.mmu.num_toolchanges, 4)
+
+    def test_no_slicer_map_in_the_snapshot_keeps_the_current_one(self):
+        self.set_snapshot()
+        del self.pr.pending['mmu']['slicer_tool_map']
+        self.resume()
+        self.assertEqual(self.mmu.gate_maps.slicer_tool_map['initial_tool'], 0)
+
+
 if __name__ == '__main__':
     unittest.main()

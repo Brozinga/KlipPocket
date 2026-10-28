@@ -133,8 +133,8 @@ Salve e reinicie. No Fluidd/Mainsail o painel **System** lista os dois MCUs, e o
 - **Mesmo chip, mesmo id:** se duas placas têm o mesmo id e você usa *By
   VID/PID*, elas disputam um nome. Troque para *By path*.
 - Funciona nos dois motores, [Klipper e Kalico](kalico.md).
-- Placas que dependem de software extra (como o Happy Hare) são outro assunto:
-  esses módulos não estão disponíveis no app.
+- Uma placa de MMU com Happy Hare é só mais uma placa USB aqui; veja
+  [Happy Hare](happy-hare.md) para o resto da configuração.
 
 ## Solução rápida de problemas
 

@@ -109,7 +109,7 @@ probe_points: 100, 100, 20
   *Unable to open serial port*，请再次运行 **List USB devices** 并更新路径。
 - **同芯片同 ID：** 两块板 ID 相同又使用 *By VID/PID* 时会抢同一个名称，请改用 *By path*。
 - 两个引擎都适用，[Klipper 和 Kalico](kalico.md)。
-- 依赖额外软件的板（例如 Happy Hare）是另一回事：这些模块在应用中不可用。
+- 运行 Happy Hare 的 MMU 主板在这里只是又一块 USB 板；其余设置见 [Happy Hare](happy-hare.md)。
 
 ## 快速排查
 

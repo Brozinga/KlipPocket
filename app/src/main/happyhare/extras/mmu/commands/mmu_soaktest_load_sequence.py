@@ -23,7 +23,7 @@ from .mmu_base_command import *
 
 class MmuSoaktestLoadSequenceCommand(BaseCommand):
     """
-    Soak test tool load/unload sequence accross specified units
+    Soak test tool load/unload sequence across specified units
     """
 
     CMD = "MMU_SOAKTEST_LOAD_SEQUENCE"
@@ -34,7 +34,7 @@ class MmuSoaktestLoadSequenceCommand(BaseCommand):
         + "UNIT   = #(int)|_name_ Optional to constrain test to specific unit\n"
         + "LOOP   = #(int)        How many times to do complete T0-Tx test loops (default 1)\n"
         + "RANDOM = 1             Randomize tool selection (tools may be skipped)\n"
-        + "FULL   = [0|1]         Whether to perform full load to extruder enntry or quick partial bowden load\n"
+        + "FULL   = [0|1]         Whether to perform full load to extruder entry or quick partial bowden load\n"
     )
     HELP_SUPPLEMENT = (
         "Examples:\n"

@@ -1,0 +1,1200 @@
+# Happy Hare test harness - milestone C: filament motion sequencing.
+#
+# Exercises HH's load/unload/preload CHOREOGRAPHY against the 1-D filament path model
+# (test/hh/filament.py). There is no acceleration, step generation or drip pacing -
+# what is under test is the sequencing and the position arithmetic, not Klipper's
+# motion planner.
+#
+# Three integration points make this work, all in the fake layer with no monkeypatching
+# of Happy Hare:
+#   - HOMING moves: the fake HomingMove asks the model which endstop trips first and
+#     how far the move gets (test/hh/klippy_root/extras/homing.py).
+#   - PLAIN moves (notably the final park): observed via the fake motion_queuing's
+#     trapq_append, from which the signed distance is exactly recoverable.
+#   - TOOLHEAD extrusion: its E-axis delta advances filament only while the MMU gear is
+#     synchronized to the extruder, matching print-time movement.
+#
+# Geometry is the model's DEFAULT_LAYOUT: park -100, entry -50, gate/exit 0. The entry
+# switch sits BETWEEN the park point and the gate sensor, so a parked filament leaves it
+# clear - which is what Happy Hare requires (its preload failure tail marks a gate
+# GATE_UNKNOWN when the entry switch is still covered afterwards).
+#
+# REALISTIC STARTING POSITIONS MATTER. A gate can only be preloaded from a state where
+# the filament is ALREADY past the entry switch, because that is what a user pushing
+# filament in produces (and the push is what fires the insert that triggers preload).
+# Starting behind the entry switch and then preloading manufactures an entry-switch edge
+# DURING the operation, which fires a nested insert-driven preload - the insert handler
+# guards only on `not is_printing()` (extras/mmu/commands/mmu_sensor_insert.py:70-75),
+# not on being mid-operation. That nesting is an artefact of an impossible start state,
+# not something to test.
+#
+#   ./venv/bin/python -m unittest test.test_mmu_motion
+#
+# This file may be distributed under the terms of the GNU GPLv3 license.
+
+import logging
+import unittest
+
+from test.hh import cfg, profiles, session
+from test.hh.filament import TIP_PARKED, TIP_PRESENTED
+
+# Past the entry switch (-50): the only state a preload can realistically start from
+TIP_AT_GATE = -40.0
+
+logging.getLogger().setLevel(logging.CRITICAL)
+
+FILAMENT_POS_UNLOADED = 0
+FILAMENT_POS_HOMED_GATE = 1
+FILAMENT_POS_IN_BOWDEN = 3
+FILAMENT_POS_END_BOWDEN = 4
+FILAMENT_POS_IN_EXTRUDER = 9
+FILAMENT_POS_LOADED = 10
+GATE_UNKNOWN = -1
+GATE_EMPTY = 0
+GATE_AVAILABLE = 1
+
+
+class MotionTestCase(unittest.TestCase):
+    # This suite exercises Box Turtle's real split exit/shared-exit geometry.
+    PROFILE = 'boxturtle'
+    # Extra session() kwargs, e.g. the Kalico-generation emulation
+    SESSION_KWARGS = {}
+
+    def setUp(self):
+        self.hh = session(self.PROFILE, **self.SESSION_KWARGS)
+        self.hh.boot()
+        self.assertEqual(self.hh.errors, [], 'bootup was not clean')
+        self.fil = self.hh.filament()
+
+    def tearDown(self):
+        self.hh.close()
+
+
+class TestModelItself(MotionTestCase):
+    """The model is simple, but wrong geometry would invalidate everything below."""
+
+    def test_sensor_triggers_when_tip_reaches_it(self):
+        entry = self.fil.layout['mmu_entry']
+        self.hh.place_filament(0, position=entry - 10.0)
+        self.assertFalse(self.fil.triggered('mmu_entry_0'))
+        self.hh.place_filament(0, position=entry + 1.0)
+        self.assertTrue(self.fil.triggered('mmu_entry_0'))
+        self.assertFalse(self.fil.triggered('mmu_exit_0'))
+
+    def test_parked_state_is_coherent(self):
+        """
+        Parked at -100 the GATE switch is clear and the ENTRY switch is covered. Required,
+        not incidental: the entry switch is upstream of the gear, so a filament the gear
+        can still grip necessarily runs back through it to the spool. HH depends on that -
+        validate_gate_status() forces a non-EMPTY gate to GATE_EMPTY when entry reads clear
+        (mmu_gate_maps.py:228-229), which a layout with entry between park and the gate
+        would trigger for every parked lane.
+        """
+        self.hh.place_filament(0)
+        self.assertEqual(self.fil.tip[0], TIP_PARKED)
+        self.assertGreater(TIP_PARKED, self.fil.layout['mmu_entry'])
+        self.assertTrue(self.hh.sensor('mmu_entry_0').present)
+        self.assertFalse(self.hh.sensor('mmu_exit_0').present)
+
+    def test_a_parked_gate_survives_validate_gate_status(self):
+        """
+        The geometry check with teeth. validate_gate_status() runs at bootup
+        (mmu_controller.py:363) and in reset_gate_map, and reads the entry switch to
+        'correct' the gate map. Under the old inverted layout a successful preload left
+        entry clear, so this demoted the gate it had just marked AVAILABLE to EMPTY.
+        """
+        self.hh.place_filament(0, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=0')
+        self.assertEqual(self.hh.mmu.gate_status[0], GATE_AVAILABLE)
+        self.hh.mmu.gate_maps.validate_gate_status()
+        self.assertEqual(self.hh.mmu.gate_status[0], GATE_AVAILABLE,
+                         'a parked, preloaded gate must survive sensor validation')
+
+    def test_one_gate_does_not_affect_another(self):
+        self.hh.place_filament(0)
+        self.assertFalse(self.hh.sensor('mmu_entry_1').present)
+        self.assertFalse(self.hh.sensor('mmu_entry_2').present)
+
+    def test_trip_distance_is_direction_aware(self):
+        self.hh.place_filament(0)                   # tip at -100
+        trip = self.fil.trip_distance(0, 300., ['mmu_exit_0'])
+        self.assertEqual(trip[0], 'mmu_exit_0')
+        self.assertAlmostEqual(trip[1], 100.0)      # -100 -> 0
+        # Retracting, the exit switch is already clear so it cannot trip again
+        self.assertIsNone(self.fil.trip_distance(0, -300., ['mmu_exit_0']))
+
+    def test_trip_distance_respects_move_length(self):
+        self.hh.place_filament(0)
+        self.assertIsNone(self.fil.trip_distance(0, 50., ['mmu_exit_0']),
+                          'a 50mm move cannot reach a sensor 100mm away')
+
+    def test_tension_sprung_buffer_uses_configured_travel(self):
+        """Only contact during extruder homing can build compression."""
+        buffer = self.hh.mmu.mmu_machine.units[0].buffer
+        entry = self.fil.layout['extruder_entry']
+        compression = entry + buffer.buffer_maxrange * 0.7
+
+        self.assertAlmostEqual(self.fil.position('filament_compression'), compression)
+
+        self.hh.place_filament(0, position=entry - 1.)
+        self.assertTrue(self.hh.sensor('filament_tension').present)
+        self.assertFalse(self.hh.sensor('filament_compression').present)
+
+        self.hh.place_filament(0, position=entry)
+        self.assertFalse(self.hh.sensor('filament_tension').present)
+        self.assertFalse(self.hh.sensor('filament_compression').present)
+
+        # A calibrated Bowden move can overshoot the nominal coordinate without
+        # proving that the filament has contacted the extruder. It must not squeeze
+        # the buffer merely because the model's absolute tip position passed entry.
+        self.fil.advance(0, buffer.buffer_maxrange, 'move')
+        self.assertFalse(self.hh.sensor('filament_tension').present)
+        self.assertFalse(self.hh.sensor('filament_compression').present)
+
+        trip = self.fil.trip_distance(
+            0, buffer.buffer_maxrange,
+            ['unit0:filament_compression'],
+        )
+        self.assertAlmostEqual(trip[1], buffer.buffer_maxrange * 0.7)
+        self.fil.advance(0, trip[1], 'homing -> unit0:filament_compression')
+        self.assertFalse(self.hh.sensor('filament_tension').present)
+        self.assertTrue(self.hh.sensor('filament_compression').present)
+
+
+class TestGateMapCommand(MotionTestCase):
+
+    def test_reset_requires_a_gate_target(self):
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 MATERIAL=PLA')
+        with self.assertRaisesRegex(Exception, 'requires GATE or GATES'):
+            self.hh.run_gcode('MMU_GATE_MAP RESET=1')
+        self.assertEqual(self.hh.mmu.gate_material[1], 'PLA')
+
+    def test_reset_only_restores_the_requested_gates(self):
+        mmu = self.hh.mmu
+        mmu.p.default_gate_material[0] = 'ABS'
+        mmu.p.default_gate_material[2] = 'PETG'
+        self.hh.run_gcode('MMU_GATE_MAP GATES=0,1,2 MATERIAL=PLA')
+
+        self.hh.run_gcode('MMU_GATE_MAP RESET=1 GATES=0,2')
+
+        self.assertEqual(mmu.gate_material[0], 'ABS')
+        self.assertEqual(mmu.gate_material[1], 'PLA')
+        self.assertEqual(mmu.gate_material[2], 'PETG')
+
+    def test_empty_transition_clears_all_gate_attributes(self):
+        mmu = self.hh.mmu
+        self.hh.run_gcode(
+            'MMU_GATE_MAP GATE=1 AVAILABLE=1 NAME=Basic MATERIAL=PLA '
+            'VENDOR=Maker COLOR=ff0000 TEMP=230 SPEED=50 SPOOLID=7 RFID=abc123'
+        )
+
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 AVAILABLE=0')
+
+        self.assertEqual(mmu.gate_filament_name[1], '')
+        self.assertEqual(mmu.gate_material[1], '')
+        self.assertEqual(mmu.gate_vendor[1], '')
+        self.assertEqual(mmu.gate_color[1], '')
+        self.assertEqual(mmu.gate_temperature[1], int(mmu.p.default_extruder_temp))
+        self.assertEqual(mmu.gate_speed_override[1], 100)
+        self.assertEqual(mmu.gate_spool_id[1], -1)
+        self.assertEqual(mmu.gate_spool_rfid[1], '')
+
+        # Clearing is transition-based: metadata may intentionally be added later
+        # without first changing the gate away from EMPTY.
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 MATERIAL=PETG RFID=deadbeef')
+        self.assertEqual(mmu.gate_material[1], 'PETG')
+        self.assertEqual(mmu.gate_spool_rfid[1], 'DEADBEEF')
+
+    def test_gate_map_rejects_invalid_or_multiple_rfid_values(self):
+        mmu = self.hh.mmu
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 RFID=aabbccdd QUIET=1')
+        self.assertEqual(mmu.gate_spool_rfid[1], 'AABBCCDD')
+
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 RFID=11111111,22222222 QUIET=1')
+        self.assertEqual(mmu.gate_spool_rfid[1], 'AABBCCDD')
+
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 RFID=not-hex QUIET=1')
+        self.assertEqual(mmu.gate_spool_rfid[1], 'AABBCCDD')
+
+    def test_spoolman_map_preserves_observed_uid_and_applies_aliases(self):
+        mmu = self.hh.mmu
+        self.hh.run_gcode('MMU_GATE_MAP GATE=1 RFID=aabbccdd QUIET=1')
+        gate_map = {
+            1: {'spool_id': 7, 'rfids': 'AABBCCDD,BBBB1234'}
+        }
+        self.hh.run_gcode('MMU_GATE_MAP MAP="%s" FROM_SPOOLMAN=1 QUIET=1' % gate_map)
+
+        self.assertEqual(mmu.gate_spool_rfid[1], 'AABBCCDD')
+        self.assertEqual(mmu.gate_maps.gate_spool_rfid_aliases[1],
+                         ('AABBCCDD', 'BBBB1234'))
+
+    def test_gate_map_details_reports_rfid_aliases(self):
+        mmu = self.hh.mmu
+        mmu.gate_maps.set_gate_rfid_aliases(1, ('AABBCCDD', 'BBBB1234'))
+
+        at = len(self.hh.console)
+        self.hh.run_gcode('MMU_GATE_MAP DETAILS=1')
+        report = '\n'.join(self.hh.console[at:])
+
+        self.assertIn('[RFIDS: AABBCCDD,BBBB1234]', report)
+        self.assertIn('[RFIDS: none]', report)
+        self.assertNotIn('[RFIDS:', mmu.gate_maps.gate_map_to_string())
+
+    def test_runtime_empty_transition_also_clears_attributes(self):
+        mmu = self.hh.mmu
+        self.hh.run_gcode(
+            'MMU_GATE_MAP GATE=2 AVAILABLE=1 NAME=Basic MATERIAL=PLA '
+            'SPOOLID=8 RFID=abc123'
+        )
+
+        mmu.gate_maps.set_gate_status(2, GATE_EMPTY)
+
+        self.assertEqual(mmu.gate_filament_name[2], '')
+        self.assertEqual(mmu.gate_material[2], '')
+        self.assertEqual(mmu.gate_spool_id[2], -1)
+        self.assertEqual(mmu.gate_spool_rfid[2], '')
+
+    def test_help_shows_targeted_reset_example(self):
+        at = len(self.hh.console)
+        self.hh.run_gcode('MMU_GATE_MAP HELP=1')
+        help_text = '\n'.join(self.hh.console[at:])
+        self.assertIn('RESET=1 GATES=4,5', help_text)
+
+class TestEveryDriveModeMovesFilament(MotionTestCase):
+    """
+    Happy Hare drives filament in four sync modes (mmu_constants.py:169-172), and a plain move
+    in ANY of them physically moves filament - so the model has to follow in all four.
+
+    Two of them used to move nothing. _on_manual_move watched the GEAR stepper's trapq, but in
+    'extruder' and 'synced' modes the gear is not what moves; the whole move was dropped and
+    the filament silently stayed put. The consequence was not subtle once a machine had an
+    encoder: no model movement means no encoder pulses, and HH concludes the filament is stuck.
+
+    The gear filter was there for a real reason - a gear+extruder move appends to BOTH trapqs
+    for ONE physical movement - so this asserts the exact distance, not just "moved", which is
+    what would catch a regression to double counting.
+    """
+
+    MOVE = 20.0
+
+    def setUp(self):
+        super().setUp()
+        self.hh.place_filament(0, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=0')
+        self.assertEqual(self.hh.errors, [], 'preload was not clean')
+        self.hh.heat_extruder(220)
+        self.hh.mmu.select_gate(0)
+
+    def _moved(self, motor):
+        before = self.fil.tip[0]
+        self.hh.run_gcode('MMU_TEST_MOVE MOVE=%.1f MOTOR=%s' % (self.MOVE, motor))
+        self.assertEqual(self.hh.errors, [], 'MOTOR=%s errored' % motor)
+        return self.fil.tip[0] - before
+
+    def test_gear(self):
+        self.assertAlmostEqual(self._moved('gear'), self.MOVE, places=3)
+
+    def test_gear_plus_extruder(self):
+        """Both trapqs see this one move; the model must advance ONCE."""
+        self.assertAlmostEqual(self._moved('gear+extruder'), self.MOVE, places=3)
+
+    def test_extruder_only(self):
+        self.assertAlmostEqual(self._moved('extruder'), self.MOVE, places=3)
+
+    def test_gear_synced_to_extruder(self):
+        self.assertAlmostEqual(self._moved('synced'), self.MOVE, places=3)
+
+    def test_unsynced_toolhead_extrusion_does_not_move_the_model(self):
+        before = self.fil.tip[0]
+        pos = self.hh.mmu.toolhead.get_position()
+        pos[3] += self.MOVE
+        self.hh.mmu.toolhead.move(pos, 25.)
+        self.assertAlmostEqual(self.fil.tip[0] - before, 0., places=3)
+
+
+class TestExtruderSyncAccel(MotionTestCase):
+    """
+    A gear-led synced move (gear+extruder) takes extruder_sync_accel, capped by extruder_accel.
+    It used to take max(gear_from_filament_buffer_accel, gear_load_accel), so on a unit with no
+    filament buffer the acceleration came from a parameter that was not even in its config.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.hh.place_filament(0, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=0')
+        self.hh.heat_extruder(220)
+        self.hh.mmu.select_gate(0)
+        self.assertEqual(self.hh.errors, [])
+
+    def accel_of_gear_led_synced_move(self):
+        drive = self.hh.mmu.drive()
+        real = drive.move
+        accels = []
+
+        def spy(dist, speed, accel, *args, **kwargs):
+            accels.append(accel)
+            return real(dist, speed, accel, *args, **kwargs)
+
+        drive.move = spy
+        try:
+            self.hh.run_gcode('MMU_TEST_MOVE MOVE=20 MOTOR=gear+extruder')
+        finally:
+            del drive.move
+        self.assertEqual(self.hh.errors, [])
+        self.assertEqual(len(accels), 1)
+        return accels[0]
+
+    def test_the_default_is_rendered(self):
+        self.assertIn('extruder_sync_accel        : 400', cfg.render(profiles.get(self.PROFILE))['config/base/mmu.cfg'])
+        self.assertEqual(self.hh.mmu.p.extruder_sync_accel, 400.)
+
+    def test_gear_led_synced_move_uses_extruder_sync_accel(self):
+        self.hh.mmu.p.extruder_sync_accel = 250.
+        self.hh.mmu.mmu_unit().p.gear_from_filament_buffer_accel = 900.
+        self.assertEqual(self.accel_of_gear_led_synced_move(), 250.)
+
+    def test_extruder_accel_still_caps_it(self):
+        self.hh.mmu.p.extruder_sync_accel = 2000.
+        self.hh.mmu.p.extruder_accel = 300.
+        self.assertEqual(self.accel_of_gear_led_synced_move(), 300.)
+
+
+class TestQuietPlacement(MotionTestCase):
+    """
+    Placing filament is a real event, and the harness has to be explicit about it:
+    tripping the entry switch is an INSERT, which HH answers by preloading the gate.
+    """
+
+    def test_quiet_placement_does_not_move_filament(self):
+        self.hh.place_filament(0)                   # quiet=True by default
+        self.assertEqual(self.fil.history, [],
+                         'quiet placement must not provoke any HH motion')
+        self.assertEqual(self.fil.tip[0], TIP_PARKED)
+
+    def test_placement_short_of_the_entry_switch_is_inert(self):
+        """
+        No switch changes state, so there is no event for HH to react to - loud or not.
+        TIP_PRESENTED (-180) sits behind the entry switch at -150.
+        """
+        self.hh.place_filament(0, position=TIP_PRESENTED, quiet=False)
+        self.hh.settle()
+        self.assertFalse(self.hh.sensor('mmu_entry_0').present)
+        self.assertEqual(self.fil.history, [])
+
+    def test_loud_placement_past_the_entry_switch_preloads_the_gate(self):
+        """
+        Covering the entry switch IS an insert event, and HH answers it by running
+        MMU_PRELOAD for that gate (extras/mmu/commands/mmu_sensor_insert.py:70-75) -
+        which is why scenario setup defaults to quiet.
+
+        There is ONE preload implementation, _preload_gate; the insert route reaches it
+        through the ordinary MMU_PRELOAD command. It homes to the gate and parks - and the
+        entry switch STAYS covered throughout, because every move it makes happens
+        downstream of the gear. The user's push is the only thing that ever crosses it.
+        """
+        self.hh.place_filament(0, position=TIP_AT_GATE, quiet=False)
+        self.hh.settle()
+        homed = [r for _g, _d, r in self.fil.history if 'mmu_exit_0' in r]
+        self.assertTrue(homed, 'expected a homing move to the gate sensor')
+        preload_park = (self.fil.layout['mmu_exit']
+                        + self.hh.mmu.mmu_unit(0).p.gate_preload_parking_distance)
+        self.assertAlmostEqual(self.fil.tip[0], preload_park, places=2)
+        self.assertEqual(self.hh.mmu.gate_status[0], GATE_AVAILABLE)
+        self.assertTrue(self.hh.sensor('mmu_entry_0').present,
+                        'the gear is downstream of the entry switch - preload cannot clear it')
+        self.assertEqual(self.hh.errors, [])
+
+    def test_the_preload_does_not_re_trigger_itself(self):
+        """
+        The duplicate-preload symptom, pinned at its root. An MMU move cannot cross the
+        entry switch, so a preload raises no second insert event and runs exactly once.
+        """
+        at = len(self.hh.console)
+        self.hh.place_filament(0, position=TIP_AT_GATE, quiet=False)
+        self.hh.settle()
+        banners = [l for l in self.hh.console[at:] if l.startswith('Preloading')]
+        self.assertEqual(banners, ['Preloading gate 0...'])
+
+
+class TestLoadGate(MotionTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.hh.place_filament(0)
+        self.hh.mmu.select_gate(0)
+
+    def test_homes_forward_to_the_gate_sensor(self):
+        """
+        BoxTurtle's gate_homing_endstop is the shared exit, so _load_gate drives
+        forward from the model's parked position until that switch trips.
+
+        It does NOT park: _load_gate leaves the filament standing ON the gate, which is
+        the starting position the bowden load expects. (It used to appear to park here,
+        but that was a nested MMU_PRELOAD fired by a phantom insert event off the old
+        inverted entry-switch geometry - not _load_gate's doing at all.)
+        """
+        overshoot = self.hh.mmu._load_gate()
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_HOMED_GATE)
+        self.assertEqual(overshoot, 0.0)
+        self.assertAlmostEqual(self.fil.tip[0], self.fil.layout['mmu_shared_exit'], places=2)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_the_gate_sensor_was_tripped_on_the_way(self):
+        """A forward homing move reaches the shared hub switch."""
+        start = self.fil.tip[0]
+        self.hh.mmu._load_gate()
+        trips = [d for _g, d, reason in self.fil.history
+                 if 'homing -> unit0:mmu_shared_exit' in reason and d > 0]
+        self.assertTrue(trips, 'never homed forward onto the gate sensor')
+        expected = self.fil.layout['mmu_shared_exit'] - start
+        self.assertAlmostEqual(trips[0], expected, places=3)
+        self.assertTrue(self.hh.sensor('unit0:mmu_shared_exit').present,
+                        '_load_gate leaves the filament on the gate switch')
+
+    def test_second_home_against_an_already_triggered_switch_is_free(self):
+        """
+        _load_gate issues a confirming forward home after the first trip. With the
+        switch already closed that must complete with ZERO travel, exactly as real
+        hardware does - otherwise the model would shove another 200mm of filament
+        into the bowden.
+        """
+        self.hh.mmu._load_gate()
+        forward = [d for _g, d, reason in self.fil.history
+                   if d > 0 and 'homing' in reason]
+        self.assertEqual(len(forward), 1,
+                         'expected exactly one forward homing advance, got %r' % forward)
+
+    def test_marks_the_gate_available(self):
+        self.hh.mmu._load_gate()
+        self.assertEqual(self.hh.mmu.gate_status[0], GATE_AVAILABLE)
+
+    def test_no_filament_fails_and_marks_the_gate_empty(self):
+        """
+        With nothing to find, homing runs the full gate_homing_max and no switch
+        trips. HH must report failure rather than believing it succeeded.
+        """
+        self.hh.place_filament(0, position=-100000.0)
+        with self.assertRaises(Exception):
+            self.hh.mmu._load_gate()
+        self.assertEqual(self.hh.mmu.gate_status[0], GATE_EMPTY)
+
+    def test_kalico_homing_drives_homing_move_directly(self):
+        """
+        Klipper versions whose manual_home predates the probe_pos argument (Kalico,
+        mainline v0.13.0-111) return no trigger position either: going through
+        manual_home, homing_move runs with probe_pos=False and reports the move
+        TARGET as the position - a bowden calibration on Kalico measured the
+        2000mm homing max instead of the ~1200mm tube length. do_homing_move
+        therefore introspects manual_home's signature and, when probe_pos is
+        absent, drives HomingMove directly (the approach the verified v3 code
+        used on Kalico), passing probe_pos through, and never calls manual_home.
+        Klipper versions with the probe_pos parameter keep using manual_home.
+
+        Simulate the old generation by swapping the fake PrinterHoming's
+        manual_home for a probe_pos-less version that returns the move target,
+        as the old implementations did. The signature IS the branch condition,
+        so no fork marker object is involved; record any manual_home call
+        (there must be none) and assert the move goes through
+        HomingMove.homing_move with probe_pos.
+        """
+        # Local import: the fake klippy tree (and hence `extras`) only exists on
+        # sys.path once the session in setUp has installed the overlay.
+        from extras.homing import HomingMove
+        printer = self.hh.printer
+        homing = printer.lookup_object('homing')
+        manual_home_calls = []
+        original_manual_home = homing.manual_home
+
+        def legacy_manual_home(toolhead, endstops, movepos, speed,
+                               triggered, check_triggered):
+            # Old-generation signature: no probe_pos, and the move target is
+            # what the caller ends up with.
+            manual_home_calls.append((movepos, speed))
+            hmove = HomingMove(printer, endstops, toolhead)
+            hmove.homing_move(movepos, speed, probe_pos=False,
+                              triggered=triggered, check_triggered=check_triggered)
+            return movepos
+        homing.manual_home = legacy_manual_home
+
+        moves = []
+        original_homing_move = HomingMove.homing_move
+
+        def recording_homing_move(self, movepos, speed, probe_pos=False,
+                                  triggered=True, check_triggered=True):
+            moves.append((probe_pos, triggered, check_triggered))
+            return original_homing_move(self, movepos, speed, probe_pos=probe_pos,
+                                        triggered=triggered,
+                                        check_triggered=check_triggered)
+
+        try:
+            HomingMove.homing_move = recording_homing_move
+            overshoot = self.hh.mmu._load_gate()
+        finally:
+            HomingMove.homing_move = original_homing_move
+            homing.manual_home = original_manual_home
+
+        self.assertEqual(manual_home_calls, [],
+                         'do_homing_move must not use a manual_home that lacks '
+                         'the probe_pos parameter')
+        self.assertEqual(len(moves), 1)
+        probe_pos, triggered, check_triggered = moves[0]
+        self.assertTrue(probe_pos,
+                        'old-generation homing must pass probe_pos through, or '
+                        'the move target is reported as the trigger position')
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_HOMED_GATE)
+        self.assertEqual(overshoot, 0.0)
+        self.assertEqual(self.hh.errors, [])
+
+
+class TestCheckGate(MotionTestCase):
+
+    def test_entry_bounce_is_suppressed_for_each_selected_gate(self):
+        """
+        MMU_CHECK_GATE owns the selected gate's filament motion. An electrical
+        open/closed bounce during that motion must update the readable switch state
+        without queuing a stale REMOVE handler after the command completes.
+
+        Exercise two gates so the event suspension has to follow select_gate(); an
+        outer snapshot would protect only whichever gate happened to start active.
+        """
+        mmu = self.hh.mmu
+        gates = (0, 1)
+        for gate in gates:
+            self.hh.place_filament(gate, position=TIP_AT_GATE)
+        self.hh.settle(1.0) # Clear the sensors' event-delay window
+
+        load_gate = mmu._load_gate
+
+        def load_gate_with_entry_bounce(*args, **kwargs):
+            sensor = self.hh.sensor('mmu_entry_%d' % mmu.gate_selected)
+            sensor.set(False, settle=False)
+            sensor.set(True, settle=False)
+            return load_gate(*args, **kwargs)
+
+        mmu._load_gate = load_gate_with_entry_bounce
+        self.hh.run_gcode('MMU_CHECK_GATE GATES=0,1')
+
+        self.assertEqual(self.hh.errors, [])
+        self.assertEqual([mmu.gate_status[gate] for gate in gates],
+                         [GATE_AVAILABLE, GATE_AVAILABLE])
+        self.assertTrue(all(self.hh.sensor('mmu_entry_%d' % gate).present
+                            for gate in gates))
+
+        # The protection is scoped to the check; a genuine later removal must
+        # still update the gate map normally.
+        self.hh.sensor('mmu_entry_1').set(False)
+        self.assertEqual(mmu.gate_status[1], GATE_EMPTY)
+        self.assertEqual(self.hh.errors, [])
+
+
+class TestKmsEncoderUnload(unittest.TestCase):
+    """KMS must not skip its extruder-exit phase when a secondary probe is unavailable."""
+
+    def setUp(self):
+        self.hh = session('kms')
+        self.hh.boot(calibrate=True, gates_loaded_at=TIP_AT_GATE, prime=True)
+        self.fil = self.hh.filament()
+        self.hh.heat_extruder(220)
+        self.hh.place_filament(0, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=0')
+        self.hh.run_gcode('MMU_LOAD')
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_LOADED)
+        self.assertEqual(self.hh.errors, [], 'KMS load setup was not clean')
+
+    def tearDown(self):
+        self.hh.close()
+
+    def test_unload_preserves_positive_detection_when_probe_is_unavailable(self):
+        mmu = self.hh.mmu
+        self.assertTrue(mmu.mmu_unit().filament_always_gripped)
+        self.assertTrue(mmu.can_use_encoder())
+        self.assertIsNone(mmu.sensor_manager.check_sensor('extruder'))
+        self.assertIsNone(mmu.sensor_manager.check_sensor('toolhead'))
+
+        states = []
+        set_state = mmu.set_filament_pos_state
+
+        def record_state(state, silent=False):
+            changed = mmu.filament_pos != state
+            result = set_state(state, silent=silent)
+            if changed:
+                states.append(state)
+            return result
+
+        mmu.set_filament_pos_state = record_state
+        self.hh.run_gcode('MMU_UNLOAD')
+
+        self.assertEqual(states, [
+            FILAMENT_POS_IN_EXTRUDER,
+            FILAMENT_POS_END_BOWDEN,
+            FILAMENT_POS_IN_BOWDEN,
+            FILAMENT_POS_HOMED_GATE,
+            FILAMENT_POS_UNLOADED,
+        ])
+        self.assertEqual(mmu.filament_pos, FILAMENT_POS_UNLOADED)
+        self.assertEqual(self.hh.errors, [])
+
+
+class TestParkedState(MotionTestCase):
+    """
+    The park position is what every other sequence starts and ends at, so pin its
+    sensor signature down. _load_gate homes to the gate; _park_from_gate is what takes
+    it back to the park, so the pair is exercised here rather than _load_gate alone.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.hh.place_filament(0)
+        self.hh.mmu.select_gate(0)
+        self.hh.mmu._load_gate()
+
+    def test_the_gate_switch_is_reached_by_the_load(self):
+        self.assertTrue(self.hh.sensor('unit0:mmu_shared_exit').present)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_parking_afterwards_clears_the_gate_switch(self):
+        """
+        However far the park retracts it must end behind the gate switch - HH relies on
+        that switch being open to tell the next load the gate is free. The ENTRY switch
+        stays covered the whole time; the park never reaches it.
+        """
+        mmu = self.hh.mmu
+        mmu._park_from_gate(mmu._gate_profile())
+        self.assertFalse(self.hh.sensor('unit0:mmu_shared_exit').present)
+        self.assertTrue(self.hh.sensor('mmu_entry_0').present)
+        gate_park = (self.fil.layout['mmu_shared_exit']
+                     + mmu.mmu_unit(0).p.gate_parking_distance)
+        self.assertAlmostEqual(self.fil.tip[0], gate_park, places=2)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_hh_agrees_the_gate_is_loaded(self):
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_HOMED_GATE)
+        self.assertEqual(self.hh.mmu.gate_status[0], GATE_AVAILABLE)
+
+
+class TestPreload(MotionTestCase):
+    """MMU_PRELOAD as a user would run it - the full command, not an internal."""
+
+    def test_preload_ends_parked_at_the_configured_distance(self):
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+        self.assertEqual(self.hh.mmu.gate_status[1], GATE_AVAILABLE)
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_UNLOADED)
+        preload_park = (self.fil.layout['mmu_exit']
+                        + self.hh.mmu.mmu_unit(0).p.gate_preload_parking_distance)
+        self.assertAlmostEqual(self.fil.tip[1], preload_park, places=2)
+        self.assertTrue(self.hh.sensor('mmu_exit_1').present)
+        self.assertFalse(self.hh.sensor('unit0:mmu_shared_exit').present)
+        self.assertTrue(self.hh.sensor('mmu_entry_1').present,
+                        'a parked filament still runs back through the entry switch')
+        self.assertEqual(self.hh.errors, [])
+
+    def test_insert_driven_preload_ends_parked(self):
+        """
+        The realistic route: a user pushes filament past the entry switch, which fires
+        an insert, which runs MMU_PRELOAD (mmu_sensor_insert.py:74). End state must be
+        identical to the explicit command.
+        """
+        self.hh.place_filament(2, position=TIP_AT_GATE, quiet=False)
+        self.hh.settle()
+        preload_park = (self.fil.layout['mmu_exit']
+                        + self.hh.mmu.mmu_unit(0).p.gate_preload_parking_distance)
+        self.assertAlmostEqual(self.fil.tip[2], preload_park, places=2)
+        self.assertEqual(self.hh.mmu.gate_status[2], GATE_AVAILABLE)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_preload_passes_the_gate_sensor_on_the_way(self):  # noqa: D401
+        """
+        Preload homes forward to the per-gate exit and parks 10mm beyond it, so
+        the exit remains covered while the downstream shared hub remains clear.
+        """
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+        reached = [d for gate, d, reason in self.fil.history
+                   if gate == 1 and 'mmu_exit_1' in reason]
+        self.assertTrue(reached, 'preload never homed to the gate sensor')
+        self.assertTrue(self.hh.sensor('mmu_exit_1').present)
+        self.assertFalse(self.hh.sensor('unit0:mmu_shared_exit').present)
+
+    def test_plain_preload_announces_itself_once_and_without_nfc(self):
+        """
+        One banner, from _preload_gate, naming the gate. The command used to log its own
+        "Preloading filament in gate 1..." first, so the user saw two. BoxTurtle has no
+        per-gate NFC reader, so the banner must NOT claim a scan.
+        """
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        at = len(self.hh.console)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+        banners = [l for l in self.hh.console[at:] if l.startswith('Preloading')]
+        self.assertEqual(banners, ['Preloading gate 1...'])
+
+    def test_plain_preload_parks_without_a_reverse_home(self):
+        """
+        Preload homes FORWARD onto the gate endstop, so it is already standing on the
+        datum: the park is a single retraction. It used to borrow _unload_gate(), whose
+        reverse-home leg was a pointless round trip from that position.
+        """
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        at = len(self.fil.history)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+        legs = [(d, r) for gate, d, r in self.fil.history[at:] if gate == 1]
+        homing = [(d, r) for d, r in legs if 'homing' in r]
+        self.assertEqual(len(homing), 1,
+                         'expected exactly one homing leg, got %r' % (homing,))
+        self.assertGreater(homing[0][0], 0, 'the one homing leg must be forward')
+
+    def test_preload_with_no_filament_reports_empty(self):
+        self.hh.place_filament(2, position=-100000.0)
+        self.hh.run_gcode('MMU_PRELOAD GATE=2')
+        self.assertEqual(self.hh.mmu.gate_status[2], GATE_EMPTY)
+
+    def test_eject_announces_itself_once_and_names_the_gate(self):
+        """
+        Same shape as the preload banner, and for the same reason: MMU_EJECT used to log
+        its own "Ejecting filament out of gate 1" and then _eject_from_gate logged a bare
+        "Ejecting...", so the user saw two lines and neither pairing was obvious.
+        """
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+        at = len(self.hh.console)
+        self.hh.run_gcode('MMU_EJECT GATE=1')
+        banners = [l for l in self.hh.console[at:] if l.lower().startswith('ejecting')]
+        self.assertEqual(banners, ['Ejecting gate 1...'])
+        self.assertEqual(self.hh.mmu.gate_status[1], GATE_EMPTY)
+
+    def test_a_failed_preload_keeps_an_assigned_spool_id(self):
+        """
+        The pending spool is assigned while this gate is already EMPTY, so a failed
+        preload does not constitute a transition into EMPTY and must not clear it.
+        """
+        mmu = self.hh.mmu
+        mmu.pending_spool_id = 7
+        mmu._check_pending_filament(2)
+        self.assertEqual(mmu.gate_maps.gate_spool_id[2], 7)
+
+        self.hh.place_filament(2, position=-100000.0)
+        self.hh.run_gcode('MMU_PRELOAD GATE=2')
+        self.assertEqual(mmu.gate_status[2], GATE_EMPTY)
+        self.assertEqual(mmu.gate_maps.gate_spool_id[2], 7)
+
+    def test_preload_leaves_other_gates_alone(self):
+        self.hh.place_filament(0)
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+        self.assertAlmostEqual(self.fil.tip[0], TIP_PARKED, places=3)
+
+
+class TestSensorlessPreload(MotionTestCase):
+    """gate_preload_endstop=none is open-loop and must not disturb normal preload."""
+
+    FIXED_MOVE = 120.0
+    PARKING_MOVE = -20.0
+
+    def setUp(self):
+        super().setUp()
+        # Apply dependent values in an order that keeps every intermediate runtime profile
+        # valid. MMU_TEST_CONFIG deliberately applies each command immediately.
+        self.hh.run_gcode(
+            'MMU_TEST_CONFIG UNIT=0 gate_preload_parking_distance=%.1f'
+            % self.PARKING_MOVE)
+        self.hh.run_gcode(
+            'MMU_TEST_CONFIG UNIT=0 gate_preload_homing_max=%.1f'
+            % self.FIXED_MOVE)
+        self.hh.run_gcode('MMU_TEST_CONFIG UNIT=0 gate_preload_endstop=none')
+        self.hh.run_gcode('MMU_TEST_CONFIG UNIT=0 gate_preload_attempts=9')
+        self.assertEqual(self.hh.errors, [], 'sensorless preload setup was not clean')
+
+    def test_fixed_preload_is_one_plain_move_without_parking(self):
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.fil.history.clear()
+
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+
+        legs = [(distance, reason) for gate, distance, reason in self.fil.history
+                if gate == 1]
+        self.assertEqual(len(legs), 1, legs)
+        self.assertAlmostEqual(legs[0][0], self.FIXED_MOVE)
+        self.assertFalse(any('homing' in reason.lower() for _distance, reason in legs), legs)
+        self.assertAlmostEqual(self.fil.tip[1], TIP_AT_GATE + self.FIXED_MOVE)
+
+    def test_runtime_parking_distance_is_accepted_but_ignored(self):
+        self.hh.run_gcode('MMU_TEST_CONFIG UNIT=0 gate_preload_parking_distance=25')
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.fil.history.clear()
+
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+
+        legs = [(distance, reason) for gate, distance, reason in self.fil.history
+                if gate == 1]
+        self.assertEqual([distance for distance, _reason in legs], [self.FIXED_MOVE])
+        self.assertEqual(self.hh.errors, [])
+
+    def test_attempts_are_forced_to_one_and_gate_remains_unknown(self):
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+
+        profile = self.hh.mmu._preload_profile()
+        self.assertEqual(profile.attempts, 1)
+        self.assertEqual(self.hh.mmu.gate_status[1], GATE_UNKNOWN)
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_UNLOADED)
+        self.assertEqual(self.hh.mmu.last_preloaded_gate, 1)
+        self.assertIn('presence was not verified', ' '.join(self.hh.console))
+        self.assertNotIn('Filament detected and loaded in gate 1', self.hh.console)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_runtime_endstop_change_only_forces_attempts_while_none_is_active(self):
+        unit = self.hh.mmu.mmu_unit(0)
+        self.assertEqual(unit.p.gate_preload_attempts, 9)
+        self.assertEqual(self.hh.mmu._preload_profile().attempts, 1)
+
+        self.hh.run_gcode('MMU_TEST_CONFIG UNIT=0 gate_preload_endstop=mmu_exit')
+        profile = self.hh.mmu._preload_profile()
+        self.assertEqual(profile.endstop, 'mmu_exit')
+        self.assertEqual(profile.attempts, 9)
+
+        self.hh.run_gcode('MMU_TEST_CONFIG UNIT=0 gate_preload_endstop=none')
+        profile = self.hh.mmu._preload_profile()
+        self.assertEqual(profile.endstop, 'none')
+        self.assertEqual(profile.attempts, 1)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_runtime_can_apply_complete_sensorless_profile_in_one_command(self):
+        self.hh.run_gcode('MMU_TEST_CONFIG UNIT=0 gate_preload_endstop=mmu_exit')
+        self.hh.run_gcode(
+            'MMU_TEST_CONFIG UNIT=0 gate_preload_attempts=7 '
+            'gate_preload_endstop=none gate_preload_homing_max=60 '
+            'gate_preload_parking_distance=-20 nfc_preload_clear_distance=-500 '
+            'nfc_preload_jog_scan_window=-500,500')
+
+        unit = self.hh.mmu.mmu_unit(0)
+        profile = self.hh.mmu._preload_profile()
+        self.assertEqual(unit.p.gate_preload_attempts, 7)
+        self.assertEqual(profile.endstop, 'none')
+        self.assertEqual(profile.homing_max, 60.0)
+        self.assertEqual(profile.parking_distance, -20.0)
+        self.assertEqual(profile.attempts, 1)
+        self.assertEqual(profile.clear_distance, -500.0)
+        self.assertEqual(profile.jog_scan_window, [-500.0, 500.0])
+        self.assertEqual(self.hh.errors, [])
+
+    def test_no_filament_is_not_misreported_as_empty_or_available(self):
+        self.hh.place_filament(2, position=-100000.0)
+        self.hh.run_gcode('MMU_PRELOAD GATE=2')
+
+        self.assertEqual(self.hh.mmu.gate_status[2], GATE_UNKNOWN)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_fitted_exit_sensor_does_not_take_already_preloaded_shortcut(self):
+        self.hh.place_filament(1, position=self.fil.layout['mmu_exit'] + 5.0)
+        self.assertTrue(self.hh.sensor('mmu_exit_1').present)
+        self.fil.history.clear()
+
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+
+        legs = [(distance, reason) for gate, distance, reason in self.fil.history
+                if gate == 1]
+        self.assertEqual([distance for distance, _reason in legs],
+                         [self.FIXED_MOVE])
+        self.assertFalse(any('homing' in reason.lower() for _distance, reason in legs), legs)
+        self.assertEqual(self.hh.mmu.gate_status[1], GATE_UNKNOWN)
+        self.assertNotIn('already preloaded', ' '.join(self.hh.console).lower())
+
+    def test_pending_spool_identity_is_applied_after_completed_fixed_move(self):
+        self.hh.place_filament(1, position=TIP_AT_GATE)
+        self.hh.mmu.pending_spool_id = 7
+        self.hh.run_gcode('MMU_PRELOAD GATE=1')
+
+        self.assertEqual(self.hh.mmu.gate_spool_id[1], 7)
+        self.assertEqual(self.hh.mmu.gate_status[1], GATE_UNKNOWN)
+
+    def test_current_loaded_gate_is_refused_before_motion(self):
+        self.hh.mmu.select_gate(0)
+        self.hh.mmu.filament_pos = FILAMENT_POS_LOADED
+        self.fil.history.clear()
+
+        self.hh.run_gcode('MMU_PRELOAD GATE=0')
+
+        self.assertEqual(self.fil.history, [])
+        self.assertTrue(any('filament is loaded' in error.lower()
+                            for error in self.hh.errors), self.hh.errors)
+
+    def test_crossload_preloads_another_gate_and_restores_loaded_state(self):
+        self.hh.place_filament(0)
+        self.hh.place_filament(2, position=TIP_AT_GATE)
+        self.hh.mmu.select_gate(0)
+        self.hh.mmu.filament_pos = FILAMENT_POS_LOADED
+
+        self.hh.run_gcode('MMU_PRELOAD GATE=2')
+
+        self.assertEqual(self.hh.mmu.gate_selected, 0)
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_LOADED)
+        self.assertEqual(self.hh.mmu.gate_status[2], GATE_UNKNOWN)
+        self.assertEqual(self.hh.errors, [])
+
+
+class TestNfcEndstopTrips(unittest.TestCase):
+    """
+    The per-gate NFC reader doubles as a homing endstop. Here the model decides when
+    the tag enters the read window, so this is the first exercise of MmuNfcEndstop's
+    trigger path in a homing move.
+
+    Scope note: this covers the ENDSTOP trip. It does not cover read_gate() returning
+    the UID - that reads the real chip driver, which the harness currently answers only
+    with a scripted RC522 init. A model-driven virtual reader is the next step, and
+    until it exists the full MMU_NFC_SCAN jog cannot be asserted end to end.
+    """
+
+    def setUp(self):
+        self.hh = session('nfc_per_gate')
+        self.hh.boot()
+        self.fil = self.hh.filament()
+
+    def tearDown(self):
+        self.hh.close()
+
+    def test_tag_is_detected_inside_the_read_window(self):
+        self.fil.attach_tag(0, '04A1B2C3', {'material': 'PLA'})
+        reader = self.fil.layout['mmu_nfc']
+        self.hh.place_filament(0, position=reader)          # tag right on the reader
+        self.assertIsNotNone(self.fil.tag_detected(0))
+        self.hh.place_filament(0, position=reader - 100.0)  # far away
+        self.assertIsNone(self.fil.tag_detected(0))
+
+    def test_forward_jog_reaches_the_tag_at_the_window_edge(self):
+        """
+        Distance to detection is the gap to the NEAR edge of the window, so a tag
+        becomes readable slightly before it is centred on the reader.
+        """
+        self.fil.attach_tag(0, '04A1B2C3')
+        self.hh.place_filament(0)                            # tip -100
+        reader = self.fil.layout['mmu_nfc']                  # -60
+        expected = (reader - self.fil.tag_window) - self.fil.tip[0]
+        distance = self.fil.nfc_trip_distance(0, 300.)
+        self.assertAlmostEqual(distance, expected, places=3)
+
+    def test_no_tag_means_no_trip(self):
+        self.hh.place_filament(0)
+        self.assertIsNone(self.fil.nfc_trip_distance(0, 300.),
+                          'a gate with no tag must never trip the NFC endstop')
+
+    def test_nfc_endstop_wins_when_closer_than_the_gate_switch(self):
+        """
+        The whole point of the first-wins compound: from the park position the tag
+        (window edge at -75) is nearer than the gate switch (0), so a forward homing
+        move must stop on the NFC endstop.
+        """
+        self.fil.attach_tag(0, '04A1B2C3')
+        self.hh.place_filament(0)
+        nfc = self.fil.nfc_trip_distance(0, 300.)
+        switch = self.fil.trip_distance(0, 300., ['mmu_exit_0'])
+        self.assertIsNotNone(nfc)
+        self.assertIsNotNone(switch)
+        self.assertLess(nfc, switch[1])
+
+
+def _assert_all_mmu_steppers_on_the_emulator(testcase):
+    # Local import: the fake klippy tree (and hence `extras`) only exists on
+    # sys.path once the session in setUp has installed the overlay.
+    from extras.mmu_stepper import MotionQueuingEmulator
+    printer = testcase.hh.printer
+    testcase.assertIsNone(printer.lookup_object('motion_queuing', None),
+                          'this generation has no motion_queuing module')
+    unit = testcase.hh.mmu.mmu_unit(0)
+    steppers = [d.mmu_gear_stepper for d in unit.drives
+                if d.mmu_gear_stepper is not None]
+    steppers.append(unit.extruder_wrapper.homing_extruder_stepper)
+    for mstepper in steppers:
+        testcase.assertIsInstance(mstepper.motion_queuing, MotionQueuingEmulator,
+                                  'MmuStepper %s must run on the emulator' % mstepper.name)
+
+
+def _assert_step_generator_tracking(testcase):
+    # Old-generation toolheads step every registered generator ahead of the
+    # print time; a manual-mode stepper stepped that way runs its time
+    # cursor ahead of the manual trapq, and the next drip move dies in
+    # stepcompress ("Internal error in stepcompress" on a real Kalico).
+    # Manual-mode steppers must come off the toolhead's step generator list
+    # and return to it when they enter extruder mode.
+    toolhead = testcase.hh.printer.lookup_object('toolhead')
+    testcase.assertTrue(hasattr(toolhead, 'step_generators'),
+                        'this generation\'s toolhead must expose step generators')
+    unit = testcase.hh.mmu.mmu_unit(0)
+    gear = next(d.mmu_gear_stepper for d in unit.drives
+                if d.mmu_gear_stepper is not None)
+    handler = gear.stepper.generate_steps
+    testcase.assertNotIn(handler, toolhead.step_generators,
+                         'a manual-mode stepper must not be stepped by the toolhead')
+    home = unit.extruder_wrapper.homing_extruder_stepper
+    testcase.assertIn(home.stepper.generate_steps, toolhead.step_generators,
+                      'the homing extruder stepper stays with the toolhead')
+    gear.switch_to_extruder_mode()
+    testcase.assertIn(handler, toolhead.step_generators,
+                      'extruder mode follows the toolhead through step generation')
+    gear.switch_to_manual_mode()
+    testcase.assertNotIn(handler, toolhead.step_generators)
+    testcase.assertEqual(testcase.hh.errors, [])
+
+
+def _assert_gcode_axis_step_generator_tracking(testcase):
+    # A manual stepper assigned as a G-code axis must be stepped by the
+    # toolhead exactly like an extruder-mode one: the old-generation
+    # manual_stepper.command_with_gcode_axis registers the step generator
+    # when it assigns the axis and unregisters it when it removes the axis.
+    # Without that, a G1 move on the assigned axis queues movement and
+    # updates the software position without generating a single motor step.
+    toolhead = testcase.hh.printer.lookup_object('toolhead')
+    testcase.assertTrue(hasattr(toolhead, 'step_generators'),
+                        'this generation\'s toolhead must expose step generators')
+    unit = testcase.hh.mmu.mmu_unit(0)
+    gear = next(d.mmu_gear_stepper for d in unit.drives
+                if d.mmu_gear_stepper is not None)
+    handler = gear.stepper.generate_steps
+    stepper = gear.full_name.split()[-1]
+    testcase.assertNotIn(handler, toolhead.step_generators,
+                         'a standalone manual stepper must not be stepped by the toolhead')
+    testcase.hh.run_gcode('MMU_STEPPER STEPPER=%s GCODE_AXIS=A' % stepper)
+    testcase.assertEqual(toolhead.step_generators.count(handler), 1,
+                         'assigning the axis must register the step generator exactly once')
+    testcase.hh.run_gcode('MMU_STEPPER STEPPER=%s GCODE_AXIS=' % stepper)
+    testcase.assertNotIn(handler, toolhead.step_generators,
+                         'removing the axis must unregister the step generator')
+    testcase.hh.run_gcode('MMU_STEPPER STEPPER=%s GCODE_AXIS=A' % stepper)
+    testcase.assertEqual(toolhead.step_generators.count(handler), 1,
+                         'reassigning must register exactly once, not stack a second entry')
+    testcase.assertEqual(testcase.hh.errors, [])
+
+
+class TestKalico(MotionTestCase):
+    """
+    Kalico-generation session: is_kalico() is True from config load (the
+    'danger_options' marker object) and the motion_queuing module does not
+    exist, exactly as on real Kalico - so MmuStepper must take the
+    MotionQueuingEmulator path for its whole life: boot, homing and plain
+    moves.
+    """
+    SESSION_KWARGS = {'kalico': True}
+
+    def test_boot_without_motion_queuing(self):
+        """
+        The pre-fix crash: MmuStepper.__init__ did
+        printer.load_object(config, 'motion_queuing'), which on real Kalico
+        raises "Module 'motion_queuing' not found" and kills boot. The Kalico
+        generation must boot clean, with every MmuStepper on the emulator.
+        """
+        self._assert_all_mmu_steppers_on_the_emulator()
+        self.assertEqual(self.hh.errors, [])
+
+    def _assert_all_mmu_steppers_on_the_emulator(self):
+        _assert_all_mmu_steppers_on_the_emulator(self)
+
+    def test_load_and_park_on_kalico(self):
+        """
+        The load homes through HomingMove; the park is a PLAIN move - the one
+        that must reach the filament model through the emulator's trapq_append
+        (on real Kalico: the chelper trapq and stepcompress), so the tip must
+        end at the configured park exactly as on mainline Klipper.
+        """
+        self.hh.place_filament(0)
+        self.hh.mmu.select_gate(0)
+        self.hh.mmu._load_gate()
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_HOMED_GATE)
+        mmu = self.hh.mmu
+        mmu._park_from_gate(mmu._gate_profile())
+        gate_park = (self.fil.layout['mmu_shared_exit']
+                     + mmu.mmu_unit(0).p.gate_parking_distance)
+        self.assertAlmostEqual(self.fil.tip[0], gate_park, places=2,
+                               msg='the park move never reached the model')
+        self.assertFalse(self.hh.sensor('unit0:mmu_shared_exit').present)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_bootup_disables_idle_gear_steppers(self):
+        """
+        MMU_BOOTUP de-energizes the idle type-B gear steppers. On the
+        pre-set_motors_enable generation this must go through the per-stepper
+        path - on-printer it crashed with "'PrinterStepperEnable' object has
+        no attribute 'set_motors_enable'".
+        """
+        se = self.hh.printer.lookup_object('stepper_enable')
+        self.assertFalse(hasattr(se, 'set_motors_enable'),
+                         'this generation has no set_motors_enable')
+        unit = self.hh.mmu.mmu_unit(0)
+        gear_drives = [d for d in unit.drives if d.mmu_gear_stepper is not None]
+        self.assertTrue(gear_drives, 'boxturtle must be multigear')
+        for d in gear_drives:
+            d.mmu_gear_stepper.do_enable(True)
+        self.hh.mmu.disable_all_idle_gear_steppers()
+        for d in gear_drives:
+            el = se.lookup_enable(d.mmu_gear_stepper.stepper.get_name())
+            self.assertFalse(el.is_enabled,
+                             'gear stepper %s must be de-energized' % el.name)
+            self.assertEqual(el.transitions[-1][1], False)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_manual_mode_steppers_off_toolhead_step_generators(self):
+        """
+        The on-printer "Internal error in stepcompress": the inherited
+        Kalico _handle_connect registered every MmuStepper as a toolhead
+        step generator, so toolhead step generation ran the stepper's time
+        cursor ahead of the manual trapq; the gate homing's drip move then
+        asked for steps at an earlier time and stepcompress blew up. Manual
+        mode must take the stepper off the toolhead's step generator list.
+        """
+        _assert_step_generator_tracking(self)
+
+    def test_gcode_axis_assignment_restores_step_generator(self):
+        """
+        The inverse of the stepcompress bug: a manual stepper assigned a
+        G-code axis (MMU_STEPPER ... GCODE_AXIS=A) is planned by the
+        toolhead, so on the pre-motion_queuing generation its step
+        generator must be registered again - exactly what Kalico's own
+        manual_stepper.command_with_gcode_axis does. Unregistered, a G1
+        move on axis A would queue and advance the software position
+        without any motor steps. The fake toolhead does not generate
+        physical steps, so only the registration list can catch this.
+        """
+        _assert_gcode_axis_step_generator_tracking(self)
+
+
+class TestOldKlipper(MotionTestCase):
+    """
+    Old mainline Klipper generation: no motion_queuing module, and no Kalico
+    marker. Old mainline is not officially supported - this is the bonus case
+    that selection on the module's ABSENCE (not on the fork) makes possible.
+    The emulator must be picked without is_kalico() ever being True, and the
+    homing then takes the HomingMove-direct branch of do_homing_move - old
+    mainline's manual_home also predates probe_pos, so the signature
+    introspection routes it there too - on top of the emulator.
+    """
+    SESSION_KWARGS = {'old_klipper': True}
+
+    def test_boot_on_the_emulator_without_the_kalico_marker(self):
+        printer = self.hh.printer
+        self.assertFalse(printer.lookup_object('danger_options', False),
+                         'this session must not look like Kalico')
+        _assert_all_mmu_steppers_on_the_emulator(self)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_load_and_park_on_old_klipper(self):
+        self.hh.place_filament(0)
+        self.hh.mmu.select_gate(0)
+        self.hh.mmu._load_gate()
+        self.assertEqual(self.hh.mmu.filament_pos, FILAMENT_POS_HOMED_GATE)
+        mmu = self.hh.mmu
+        mmu._park_from_gate(mmu._gate_profile())
+        gate_park = (self.fil.layout['mmu_shared_exit']
+                     + mmu.mmu_unit(0).p.gate_parking_distance)
+        self.assertAlmostEqual(self.fil.tip[0], gate_park, places=2,
+                               msg='the park move never reached the model')
+        self.assertFalse(self.hh.sensor('unit0:mmu_shared_exit').present)
+        self.assertEqual(self.hh.errors, [])
+
+    def test_manual_mode_steppers_off_toolhead_step_generators(self):
+        _assert_step_generator_tracking(self)
+
+    def test_gcode_axis_assignment_restores_step_generator(self):
+        _assert_gcode_axis_step_generator_tracking(self)
+
+
+if __name__ == '__main__':
+    unittest.main()

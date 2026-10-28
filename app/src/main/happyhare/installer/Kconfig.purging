@@ -1,0 +1,334 @@
+# Defines parameter token types and defaults for purging
+#
+# Feature flags and derived bus settings:
+#   MMU_HAS_BLOBIFIER
+#   MMU_HAS_BLOBIFIER_BUCKET_SWITCH
+#   BOOL_BLOBIFIER_TMC_SPI
+#   BOOL_BLOBIFIER_TMC_HAS_HOLD_CURRENT
+#   BOOL_BLOBIFIER_TMC_HAS_STEALTHCHOP
+#   BOOL_BLOBIFIER_TMC_HAS_RREF
+#   BOOL_BLOBIFIER_TMC_SPI_SOFTWARE
+#
+# Blobifier bucket switch:
+#   PIN_BLOBIFIER_BUCKET_SWITCH
+#
+# Blobifier servo tray:
+#   PIN_BLOBIFIER_SERVO
+#   PARAM_BLOBIFIER_SERVO_MIN_PULSE_WIDTH, PARAM_BLOBIFIER_SERVO_MAX_PULSE_WIDTH,
+#   PARAM_BLOBIFIER_SERVO_MAXIMUM_ANGLE,
+#   BOOL_BLOBIFIER_SERVO_INITIAL_ANGLE (and PARAM_BLOBIFIER_SERVO_INITIAL_ANGLE)
+#   (via components/Kconfig.servo)
+#
+# Blobifier stepper tray: (only used when CHOICE_BLOBIFIER_TYPE_STEPPER)
+#   PIN_BLOBIFIER_STEP
+#   PIN_BLOBIFIER_DIR
+#   PIN_BLOBIFIER_ENABLE
+#   PIN_BLOBIFIER_ENDSTOP
+#   PARAM_BLOBIFIER_STEPPER_MICROSTEPS
+#   PARAM_BLOBIFIER_STEPPER_GEAR_RATIO
+#   PARAM_BLOBIFIER_STEPPER_ROTATION_DISTANCE
+#   PARAM_BLOBIFIER_STEPPER_POSITION_MIN
+#   PARAM_BLOBIFIER_STEPPER_POSITION_MAX
+#   PARAM_BLOBIFIER_STEPPER_HOMING_SPEED
+#   PARAM_BLOBIFIER_STEPPER_VELOCITY
+#   PARAM_BLOBIFIER_STEPPER_ACCEL
+#   PARAM_BLOBIFIER_TMC
+#   PIN_BLOBIFIER_UART
+#   PIN_BLOBIFIER_CS
+#   PIN_BLOBIFIER_SPI_SCLK
+#   PIN_BLOBIFIER_SPI_MOSI
+#   PIN_BLOBIFIER_SPI_MISO
+#   PARAM_BLOBIFIER_SPI_BUS
+#   PARAM_BLOBIFIER_RUN_CURRENT
+#   PARAM_BLOBIFIER_HOLD_CURRENT
+#   PARAM_BLOBIFIER_SENSE_RESISTOR
+#   PARAM_BLOBIFIER_RREF
+#
+# Purge macro and behavior:
+#   PARAM_PURGE_MACRO
+#   PARAM_FORCE_PURGE_STANDALONE
+#   PARAM_EXTRUDER_PURGE_CURRENT
+
+config MMU_HAS_BLOBIFIER
+  def_bool n
+
+config PIN_BLOBIFIER_SERVO
+  string
+  default ""
+
+config PIN_BLOBIFIER_BUCKET_SWITCH
+  string
+  default ""
+
+config MMU_HAS_BLOBIFIER_BUCKET_SWITCH
+  bool
+  default y
+
+config PIN_BLOBIFIER_STEP
+  string
+  default ""
+
+config PIN_BLOBIFIER_DIR
+  string
+  default ""
+
+config PIN_BLOBIFIER_ENABLE
+  string
+  default ""
+
+config PIN_BLOBIFIER_ENDSTOP
+  string
+  default ""
+
+config PARAM_BLOBIFIER_STEPPER_MICROSTEPS
+  int
+  default 4
+
+config PARAM_BLOBIFIER_STEPPER_GEAR_RATIO
+  string
+  default "1:1"
+
+config PARAM_BLOBIFIER_STEPPER_ROTATION_DISTANCE
+  float
+  default 62.83
+
+config PARAM_BLOBIFIER_STEPPER_POSITION_MIN
+  float
+  default 0
+
+config PARAM_BLOBIFIER_STEPPER_POSITION_MAX
+  float
+  default 21
+
+config PARAM_BLOBIFIER_STEPPER_HOMING_SPEED
+  float
+  default 20
+
+config PARAM_BLOBIFIER_STEPPER_VELOCITY
+  float
+  default 150
+
+config PARAM_BLOBIFIER_STEPPER_ACCEL
+  float
+  default 1000
+
+# The TMC driver definitions are shared with the other steppers. Every
+# variable is re-assigned immediately before each source, because they are
+# global for the whole parse and Kconfig.purging is itself sourced twice.
+prefix       := BLOBIFIER
+run_current  := 0.6
+hold_current := 0.1
+stallguard   := 0
+source "components/Kconfig.tmc_driver_types"
+
+
+# -------------------------------------
+# Purging menu
+# -------------------------------------
+
+menu "Purging"
+  help
+    Purging
+
+  # -------------------------------------
+  # Blobifier configuration
+  # -------------------------------------
+
+  config MMU_HAS_BLOBIFIER
+    prompt "Have Blobifier?"
+    help
+      Enable this if you have a Blobifier purging system fitted.
+
+      NOTE: There is a lot of setup for Blobifier. After enabling this
+      be sure to edit Macro variables
+
+  if MMU_HAS_BLOBIFIER
+    config MMU_HAS_BLOBIFIER_BUCKET_SWITCH
+      prompt "Have Blobifier bucket switch?"
+      help
+        Enable this only if a switch detects whether the Blobifier collection
+        bucket is installed. Blobifier itself does not require a bucket switch.
+
+    if MMU_HAS_BLOBIFIER_BUCKET_SWITCH
+      config PIN_BLOBIFIER_BUCKET_SWITCH
+        prompt "Blobifier bucket switch pin"
+        validator "$(pin_validator)"
+        help
+          The pull-up ( ^ ) is important here. For example: ^mcu:PA1
+    endif
+
+    choice CHOICE_BLOBIFIER_TYPE
+      prompt "Blobifier tray actuator        "
+      default CHOICE_BLOBIFIER_TYPE_SERVO
+      help
+        How the Blobifier tray is actuated: a servo (default) or a manual_stepper.
+
+      config CHOICE_BLOBIFIER_TYPE_SERVO
+        bool "Servo"
+      config CHOICE_BLOBIFIER_TYPE_STEPPER
+        bool "Stepper"
+    endchoice
+
+    if CHOICE_BLOBIFIER_TYPE_SERVO
+      config PIN_BLOBIFIER_SERVO
+        prompt "Blobifier servo pin            "
+        validator "$(pin_validator)"
+        help
+          $(pin_help)
+    endif
+  endif
+
+  prefix              := BLOBIFIER_SERVO
+  servo_suffix        :=
+  servo_visible       := MMU_HAS_BLOBIFIER && CHOICE_BLOBIFIER_TYPE_SERVO
+  label               := Servo
+  pad_width           := 31
+  servo_min_pulse     := 0.00053
+  servo_max_pulse     := 0.0023
+  servo_initial_angle := 180
+  servo_initial_on    := n
+  servo_rest_angle    := "Tray angle in"$(nl)under Macro Variables -> Blobifier
+  servo_min_hint      := $(nl)$(nl)Test with 'BLOBIFIER_SERVO POS=out': the tray extends fully
+  servo_max_hint      := $(nl)$(nl)Test with 'BLOBIFIER_SERVO POS=in': the tray retracts fully
+  servo_angle_hint    := $(nl)Recommend 180: the tray angles under Macro Variables -> Blobifier$(nl)are relative to it
+  source "components/Kconfig.servo"
+
+  if MMU_HAS_BLOBIFIER
+    if CHOICE_BLOBIFIER_TYPE_STEPPER
+      prefix     := BLOBIFIER
+      label      := Stepper
+      pad_width  := 31
+      source "components/Kconfig.tmc_driver_menu"
+      source "components/Kconfig.tmc_driver_menu_pins"
+      source "components/Kconfig.tmc_driver_menu_current"
+
+      config PIN_BLOBIFIER_STEP
+        prompt "Stepper step pin               "
+        validator "$(pin_validator)"
+        help
+          $(pin_help)
+
+      config PIN_BLOBIFIER_DIR
+        prompt "Stepper dir pin                "
+        validator "$(pin_validator)"
+        help
+          $(pin_help)
+
+      config PIN_BLOBIFIER_ENABLE
+        prompt "Stepper enable pin             "
+        validator "$(pin_validator)"
+        help
+          $(pin_help)
+
+      config PIN_BLOBIFIER_ENDSTOP
+        prompt "Stepper endstop pin            "
+        validator "$(pin_validator)"
+        help
+          The pull-up/invert ( ^! ) is typically required here
+
+      config PARAM_BLOBIFIER_STEPPER_MICROSTEPS
+        prompt "Stepper microsteps             "
+
+      config PARAM_BLOBIFIER_STEPPER_GEAR_RATIO
+        prompt "Stepper gear ratio             "
+        validator "[0-9.]+ *: *[0-9.]+( *, *[0-9.]+ *: *[0-9.]+)*"
+        help
+          E.g. 1:1 or 57:11, 2:1
+
+      config PARAM_BLOBIFIER_STEPPER_ROTATION_DISTANCE
+        prompt "Stepper rotation distance      "
+
+      config PARAM_BLOBIFIER_STEPPER_POSITION_MIN
+        prompt "Stepper position min           "
+
+      config PARAM_BLOBIFIER_STEPPER_POSITION_MAX
+        prompt "Stepper position max           "
+
+      config PARAM_BLOBIFIER_STEPPER_HOMING_SPEED
+        prompt "Stepper homing speed           "
+        help
+          Unused in the macros, here for completeness
+
+      config PARAM_BLOBIFIER_STEPPER_VELOCITY
+        prompt "Stepper velocity               "
+
+      config PARAM_BLOBIFIER_STEPPER_ACCEL
+        prompt "Stepper accel                  "
+    endif
+  endif
+
+
+  # -------------------------------------
+  # Standalone purge choice
+  # -------------------------------------
+
+  comment "_"
+  comment "_Essential purge configuration"
+
+  choice CHOICE_PURGE_MACRO
+    prompt "Select standalone purging option   "
+    default CHOICE_PURGE_MACRO_BLOBIFIER if MMU_HAS_BLOBIFIER
+    default CHOICE_PURGE_MACRO_PURGE
+    help
+      How to perform standalone purging operation.
+
+    config CHOICE_PURGE_MACRO_PURGE
+      bool "Simple purge into bucket"
+      help
+        This simple built in macro simply purges the required volume of
+        filament.  Position can be controlled so this is done into a
+        purge bucket.
+
+    if MMU_HAS_BLOBIFIER
+      config CHOICE_PURGE_MACRO_BLOBIFIER
+        bool "Blobifier"
+        help
+          This popular choice purges into "poop" sized pellets which
+          are optionally caught by a collection bucket.
+    endif
+
+    config CHOICE_PURGE_MACRO_SLICER
+      bool "Slicer managed"
+      help
+        Purging is controlled and managed by the slicer rather than Happy-Hare.
+
+    config CHOICE_PURGE_MACRO_OTHER
+      bool "Other / manually entered"
+      help
+        Specify a custom macro to call to perform purging
+
+    config PURGE_MACRO_OTHER
+      string "Purging macro" if CHOICE_PURGE_MACRO_OTHER
+      default "-enter-your-macro-"
+      help
+        Name of macro to call to perform the standalone purging operation.
+  endchoice
+
+  config PARAM_PURGE_MACRO
+    string
+    default "_MMU_PURGE"      if CHOICE_PURGE_MACRO_PURGE
+    default "BLOBIFIER"       if CHOICE_PURGE_MACRO_BLOBIFIER
+    default ""                if CHOICE_PURGE_MACRO_SLICER
+    default PURGE_MACRO_OTHER if CHOICE_PURGE_MACRO_OTHER
+    default ""
+
+
+  # -------------------------------------
+  # Other purge options
+  # -------------------------------------
+
+  config PARAM_FORCE_PURGE_STANDALONE
+    boolint "Happy Hare controlled in-print purge"
+    default 0 if CHOICE_PURGE_MACRO_SLICER
+    default 1
+    help
+      You can choose whether you want the slicer or Happy Hare (recommended) to control filament purging.
+      To use intelligent volume purging or purge systems like Blobifier ensure this selection is checked
+      and be sure to TURN OFF in your slicer
+  config PARAM_EXTRUDER_PURGE_CURRENT
+    int "Extruder purging current           "
+    default 100
+    help
+      % of extruder current (100%-150%) to use when purging (100 to disable feature)
+
+endmenu

@@ -125,6 +125,30 @@ simples (números, texto, `True`/`False`, listas) são mantidos. Isso não desfa
 o que um macro fez fora das variáveis. Use `macro_variables` para salvar só
 alguns macros ou nenhum.
 
+## Happy Hare (MMU)
+
+Com o [Happy Hare](happy-hare.md) em uso, o snapshot também guarda a
+ferramenta que a impressão estava usando (a que estava sendo carregada, se a
+energia caiu no meio de uma troca), o mapa de ferramentas do slicer e a
+contagem de trocas. O próprio Happy Hare guarda o gate, a ferramenta e onde
+está o filamento, e recalcula tudo isso quando o Klipper inicia.
+
+Em **Retomar**, com o bico já quente e antes da purga:
+
+1. Se o Happy Hare não tiver certeza de onde está o filamento, roda `MMU_RECOVER
+   STRICT=1` (o bico está quente, então ele pode testar o filamento movendo-o).
+2. Se a ferramenta salva não for a carregada, ou não houver nada carregado, roda
+   `T<n>` para descarregar o que estiver lá e carregar a ferramenta certa. Se
+   essa ferramenta não ficar carregada, a retomada para com um erro e a
+   impressão interrompida é mantida, para você consertar a MMU e tentar de novo.
+3. Roda `MMU_PRINT_START`, para o Happy Hare entrar no estado de impressão e
+   sincronizar a engrenagem com o extrusor, e recoloca o mapa de ferramentas do
+   slicer e a contagem de trocas.
+
+Um filamento no bypass é deixado como está. Se o Happy Hare estiver desligado
+ao retomar, aparece um aviso e a retomada segue sem verificar o filamento.
+Ainda não testado em uma MMU física.
+
 ## Comandos
 
 | Comando | O que faz |
@@ -156,8 +180,9 @@ alguns macros ou nenhum.
 - **`G28` personalizado:** se sua configuração altera o home (por exemplo, um
   `homing_override` que também faz home do Z), a etapa de home de X/Y da
   retomada pode se comportar mal. Confira se `G28 X Y` faz home só de X e Y.
-- **Multifilamento e multiferramenta** (MMU/Happy Hare, IDEX, trocadores de
-  ferramenta) não são tratados: só o extrusor ativo é salvo e restaurado.
+- **Multiferramenta** (IDEX, trocadores de ferramenta) não é tratado: só o
+  extrusor ativo é salvo e restaurado. **Happy Hare (MMU)** é tratado, veja
+  acima.
 - **Ventoinhas:** só a ventoinha da peça (`[fan]`) é restaurada. As demais
   (`fan_generic`, do controlador ou auxiliares) voltam ao que sua configuração
   ou macros definirem.

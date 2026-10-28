@@ -41,6 +41,9 @@ Checked on a real printer (a Neptune 3 Pro, over USB), with the app's Fluidd:
   `bed_mesh`, `probe`, `safe_z_home`, `input_shaper`, `pause_resume`,
   `display_status` and the filament sensor.
 
+Happy Hare (multi-filament) also loads and answers its `MMU_*` commands on
+Kalico; see [Happy Hare](happy-hare.md).
+
 Load check only (the module imports and starts; not run in a print):
 LED Effect, TMC Autotune, Print Recovery, the beeper and camera extras, and
 Z Calibration.

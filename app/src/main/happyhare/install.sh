@@ -1,1896 +1,1195 @@
-#!/bin/bash
-# Happy Hare MMU Software
-# Installer / Updater script
+#!/usr/bin/env sh
 #
-# Copyright (C) 2022  moggieuk#6538 (discord) moggieuk@hotmail.com
+# Happy Hare v4 MMU Software
 #
-# Creality K1 Support
-#               2024  hamyy <oudy_1999@hotmail.com>
-#               2024  Unsweeticetea <iamzevle@gmail.com>
-#               2024  Dmitry Kychanov <k1-801@mail.ru>
+# Copyright (C) 2022-2026  moggieuk#6538 (discord)
+#                          moggieuk@hotmail.com
 #
-VERSION=2.73 # Important: Keep synced with mmy.py
+# Installer / Updater launch script with familiar options
+#
+# Carefully written to only use shell options that are widely available
+# Please report any incompatibility via github issue
+#
 
-SCRIPT="$(readlink -f "$0")"
-SCRIPTFILE="$(basename "$SCRIPT")"
-SCRIPTPATH="$(dirname "$SCRIPT")"
-SCRIPTNAME="$0"
-ARGS=( "$@" )
+# Exit immediately on error (really important to catch menuconfig errors / non-saves / aborts)
+set -e
 
-# Creality K1 series printers run on MIPS, with a limited instruction set and different default klipper directories
-# Checking for machine type is the easiest way so far to spot them (will be set to 1 if on MIPS):
-IS_MIPS=0
-if [ $(uname -m) = "mips" ]; then
-    IS_MIPS=1
+SCRIPT_DIR=${INSTALL_SH_SCRIPT_DIR:-$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)}
+SCRIPT_NAME=$(basename "$0")
+
+if [ -n "$(which tput 2>/dev/null)" ]; then
+    C_OFF=$(tput -Txterm-256color sgr0)
+    C_DEBUG=$(tput -Txterm-256color setaf 5)
+    C_INFO=$(tput -Txterm-256color setaf 6)
+    C_NOTICE=$(tput -Txterm-256color bold)$(tput -Txterm-256color setaf 2)
+    C_WARNING=$(tput -Txterm-256color setaf 3)
+    C_ERROR=$(tput -Txterm-256color bold)$(tput -Txterm-256color setaf 1)
 fi
 
-KLIPPER_HOME="${HOME}/klipper"
-MOONRAKER_HOME="${HOME}/moonraker"
-KLIPPER_CONFIG_HOME="${HOME}/printer_data/config"
-OCTOPRINT_KLIPPER_CONFIG_HOME="${HOME}"
-KLIPPER_LOGS_HOME="${HOME}/printer_data/logs"
-OLD_KLIPPER_CONFIG_HOME="${HOME}/klipper_config"
-SENSORS_SECTION="FILAMENT SENSORS"
-LED_SECTION="MMU OPTIONAL NEOPIXEL"
-
-if [ "$IS_MIPS" -eq 1 ]; then
-    KLIPPER_HOME="/usr/share/klipper"
-    MOONRAKER_HOME="/usr/data/moonraker/moonraker"
-    KLIPPER_CONFIG_HOME="/usr/data/printer_data/config"
-    unset OCTOPRINT_KLIPPER_CONFIG_HOME
-    unset OLD_KLIPPER_CONFIG_HOME
-fi
-
-set -e # Exit immediately on error
-
-declare -A PIN 2>/dev/null || {
-    echo "Please run this script with bash $0"
+# Refuse installer runs from anywhere other than the project root.
+caller_dir=$(pwd -P)
+if [ "${caller_dir}" != "${SCRIPT_DIR}" ]; then
+    echo "${C_ERROR}Run this installer from the Happy Hare directory:${C_OFF}" >&2
+    echo "  cd \"${SCRIPT_DIR}\" && ./${SCRIPT_NAME}" >&2
     exit 1
+fi
+
+# Get current HH version from the mmu_constants.py file
+export HH_VERSION=$(sed -n 's/^VERSION = "\(.*\)".*/\1/p' "$SCRIPT_DIR/extras/mmu/mmu_constants.py")
+
+usage() {
+    USAGE="Usage: $0"
+    SPACE=$(echo "${USAGE}" | tr "[:print:]" " ")
+    echo "${C_INFO}"
+    echo "${USAGE} [-i] [-u] [-d] [-y] [-l] [-p] [-z] [-s] [-t] [-r]"
+    echo "${SPACE} [-b <branch>]"
+    echo "${SPACE} [-k <klipper_home_dir>] [-c <klipper_config_dir>] [-m <moonraker_home_dir>]"
+    echo "${SPACE} [-a <kiauh_alternate_klipper>] [config_file]"
+    echo "${C_OFF}"
+    echo "${C_INFO}(no flags for safe re-install / upgrade)${C_OFF}"
+    echo "${C_INFO}[config_file]${C_OFF} is optional, if not specified the default config filename (.mmu_config) will be used."
+    echo "  -i for interactive install (open menuconfig)"
+    echo "  -u, -d for uninstall"
+    echo "  -b <branch> to switch to specified feature branch (sticky)"
+    echo "  -n to specify a multiple MMU unit setup"
+    echo "  -k <dir> non-default klipper home directory"
+    echo "  -c <dir> non-default klipper config directory"
+    echo "  -m <dir> non-default moonraker home directory"
+    echo "  -p, --prev choose a MMU backup and recover its configuration"
+    echo
+    echo "  Advanced:"
+    echo "  -y, --yes automatically answer yes to all y/n prompts"
+    echo "  -l, --last recover .mmu_config files from the last config backup"
+    echo "  -f to just restore klipper/moonraker symlinks (recover after hard klipper update)"
+    echo "  -z skip github update check (nullifies -b <branch>)"
+    echo "  -s to skip restart of services"
+    # TODO: Repetier-Server stub support
+    # echo "  -R specify Repetier-Server <stub> to override printer.cfg and klipper.service names"
+    echo "  -a <name> to specify alternative klipper-service-name when installed with Kiauh"
+    echo "  -r allow running ${SCRIPT_NAME} from a root login (not through sudo)"
+    echo "  -e, --emu Enables multi MCU support (e.g. for EMU design)"
+    echo "  -o override compatibility checks (e.g. unknown MIPS layout)"
+    echo "  -t  activate test mode - write config to /tmp/mmu_test instead of your real install"
+    echo "  (-q verbose make for debugging)"
+    echo "  (-v verbose builder for debugging)"
+    echo
+    exit 0
 }
 
-# Pins for original EASY-BRD and EASY-BRD with Seed Studio XIAO RP2040
-# Note: uart pin is shared on original EASY-BRD (with different uart addresses)
-#
-PIN[EASY-BRD,gear_uart_pin]="PA8";                         PIN[EASY-BRD-RP2040,gear_uart_pin]="gpio6"
-PIN[EASY-BRD,gear_step_pin]="PA4";                         PIN[EASY-BRD-RP2040,gear_step_pin]="gpio27"
-PIN[EASY-BRD,gear_dir_pin]="PA10";                         PIN[EASY-BRD-RP2040,gear_dir_pin]="gpio28"
-PIN[EASY-BRD,gear_enable_pin]="PA2";                       PIN[EASY-BRD-RP2040,gear_enable_pin]="gpio26"
-PIN[EASY-BRD,gear_diag_pin]="";                            PIN[EASY-BRD-RP2040,gear_diag_pin]=""
-PIN[EASY-BRD,selector_uart_pin]="PA8";                     PIN[EASY-BRD-RP2040,selector_uart_pin]="gpio6"
-PIN[EASY-BRD,selector_step_pin]="PA9";                     PIN[EASY-BRD-RP2040,selector_step_pin]="gpio7"
-PIN[EASY-BRD,selector_dir_pin]="PB8";                      PIN[EASY-BRD-RP2040,selector_dir_pin]="gpio0"
-PIN[EASY-BRD,selector_enable_pin]="PA11";                  PIN[EASY-BRD-RP2040,selector_enable_pin]="gpio29"
-PIN[EASY-BRD,selector_diag_pin]="PA7";                     PIN[EASY-BRD-RP2040,selector_diag_pin]="gpio2"
-PIN[EASY-BRD,selector_endstop_pin]="PB9";                  PIN[EASY-BRD-RP2040,selector_endstop_pin]="gpio1"
-PIN[EASY-BRD,servo_pin]="PA5";                             PIN[EASY-BRD-RP2040,servo_pin]="gpio4"
-PIN[EASY-BRD,encoder_pin]="PA6";                           PIN[EASY-BRD-RP2040,encoder_pin]="gpio3"
-PIN[EASY-BRD,neopixel_pin]="";                             PIN[EASY-BRD-RP2040,neopixel_pin]=""
-PIN[EASY-BRD,gate_sensor_pin]="PA6";                       PIN[EASY-BRD-RP2040,gate_sensor_pin]="gpio3";
-PIN[EASY-BRD,pre_gate_0_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_0_pin]="";
-PIN[EASY-BRD,pre_gate_1_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_1_pin]="";
-PIN[EASY-BRD,pre_gate_2_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_2_pin]="";
-PIN[EASY-BRD,pre_gate_3_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_3_pin]="";
-PIN[EASY-BRD,pre_gate_4_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_4_pin]="";
-PIN[EASY-BRD,pre_gate_5_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_5_pin]="";
-PIN[EASY-BRD,pre_gate_6_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_6_pin]="";
-PIN[EASY-BRD,pre_gate_7_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_7_pin]="";
-PIN[EASY-BRD,pre_gate_8_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_8_pin]="";
-PIN[EASY-BRD,pre_gate_9_pin]="";                           PIN[EASY-BRD-RP2040,pre_gate_9_pin]="";
-PIN[EASY-BRD,pre_gate_10_pin]="";                          PIN[EASY-BRD-RP2040,pre_gate_10_pin]="";
-PIN[EASY-BRD,pre_gate_11_pin]="";                          PIN[EASY-BRD-RP2040,pre_gate_11_pin]="";
-
-# Pins for Mellow EASY-BRD with CANbus (original v1.x and v2)
-#
-PIN[MELLOW-EASY-BRD-CAN,gear_uart_pin]="gpio9";            PIN[MELLOW-EASY-BRD-CANv2,gear_uart_pin]="gpio9";
-PIN[MELLOW-EASY-BRD-CAN,gear_step_pin]="gpio7";            PIN[MELLOW-EASY-BRD-CANv2,gear_step_pin]="gpio7";
-PIN[MELLOW-EASY-BRD-CAN,gear_dir_pin]="gpio8";             PIN[MELLOW-EASY-BRD-CANv2,gear_dir_pin]="gpio8";
-PIN[MELLOW-EASY-BRD-CAN,gear_enable_pin]="gpio6";          PIN[MELLOW-EASY-BRD-CANv2,gear_enable_pin]="gpio6";
-PIN[MELLOW-EASY-BRD-CAN,gear_diag_pin]="gpio23";           PIN[MELLOW-EASY-BRD-CANv2,gear_diag_pin]="";               # v2: Dup with encoder (gpio15)
-PIN[MELLOW-EASY-BRD-CAN,selector_uart_pin]="gpio0";        PIN[MELLOW-EASY-BRD-CANv2,selector_uart_pin]="gpio2";
-PIN[MELLOW-EASY-BRD-CAN,selector_step_pin]="gpio2";        PIN[MELLOW-EASY-BRD-CANv2,selector_step_pin]="gpio4";
-PIN[MELLOW-EASY-BRD-CAN,selector_dir_pin]="gpio1";         PIN[MELLOW-EASY-BRD-CANv2,selector_dir_pin]="gpio3";
-PIN[MELLOW-EASY-BRD-CAN,selector_enable_pin]="gpio3";      PIN[MELLOW-EASY-BRD-CANv2,selector_enable_pin]="gpio5";
-PIN[MELLOW-EASY-BRD-CAN,selector_diag_pin]="gpio22";       PIN[MELLOW-EASY-BRD-CANv2,selector_diag_pin]="gpio20";     # v2: Dup with endstop (gpio20)
-PIN[MELLOW-EASY-BRD-CAN,selector_endstop_pin]="gpio20";	   PIN[MELLOW-EASY-BRD-CANv2,selector_endstop_pin]="gpio20";  # Endstop
-PIN[MELLOW-EASY-BRD-CAN,servo_pin]="gpio21";		   PIN[MELLOW-EASY-BRD-CANv2,servo_pin]="gpio21";             # Servo
-PIN[MELLOW-EASY-BRD-CAN,encoder_pin]="gpio15";		   PIN[MELLOW-EASY-BRD-CANv2,encoder_pin]="gpio15";           # Encoder
-PIN[MELLOW-EASY-BRD-CAN,neopixel_pin]="gpio14";		   PIN[MELLOW-EASY-BRD-CANv2,neopixel_pin]="gpio14";          # v1: Extra  / v2: RGB
-PIN[MELLOW-EASY-BRD-CAN,gate_sensor_pin]="gpio15";	   PIN[MELLOW-EASY-BRD-CANv2,gate_sensor_pin]="gpio15";       # Encoder (Alt)
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_0_pin]="gpio10";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_0_pin]="gpio24";        # v1: Exp 5  / v2: Exp 3
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_1_pin]="gpio26";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_1_pin]="gpio22";        # v1: Exp 6  / v2: Exp 4
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_2_pin]="gpio11";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_2_pin]="gpio25";        # v1: Exp 7  / v2: Exp 5
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_3_pin]="gpio27";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_3_pin]="gpio23";        # v1: Exp 8  / v2: Exp 6
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_4_pin]="gpio12";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_4_pin]="gpio13";        # v1: Exp 9  / v2: Exp 7
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_5_pin]="gpio28";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_5_pin]="gpio26";        # v1: Exp 10 / v2: Exp 8
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_6_pin]="gpio24";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_6_pin]="gpio12";        # v1: Exp 11 / v2: Exp 9
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_7_pin]="gpio29";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_7_pin]="gpio27";        # v1: Exp 12 / v2: Exp 10
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_8_pin]="gpio13";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_8_pin]="gpio11";        # v1: Exp 13 / v2: Exp 11
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_9_pin]="gpio25";	   PIN[MELLOW-EASY-BRD-CANv2,pre_gate_9_pin]="gpio28";        # v1: Exp 14 / v2: Exp 12
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_10_pin]="";               PIN[MELLOW-EASY-BRD-CANv2,pre_gate_10_pin]="gpio10";       #              v2: Exp 13
-PIN[MELLOW-EASY-BRD-CAN,pre_gate_11_pin]="";               PIN[MELLOW-EASY-BRD-CANv2,pre_gate_11_pin]="gpio29";       #              v2: Exp 14
-
-# Pins for Fysetc Burrows ERB board (original v1 and v2)
-#
-PIN[ERB,gear_uart_pin]="gpio20";                           PIN[ERBv2,gear_uart_pin]="gpio11";
-PIN[ERB,gear_step_pin]="gpio10";                           PIN[ERBv2,gear_step_pin]="gpio10";
-PIN[ERB,gear_dir_pin]="gpio9";                             PIN[ERBv2,gear_dir_pin]="gpio9";
-PIN[ERB,gear_enable_pin]="gpio8";                          PIN[ERBv2,gear_enable_pin]="gpio8";
-PIN[ERB,gear_diag_pin]="gpio13";                           PIN[ERBv2,gear_diag_pin]="gpio13";
-PIN[ERB,selector_uart_pin]="gpio17";                       PIN[ERBv2,selector_uart_pin]="gpio17";
-PIN[ERB,selector_step_pin]="gpio16";                       PIN[ERBv2,selector_step_pin]="gpio16";
-PIN[ERB,selector_dir_pin]="gpio15";                        PIN[ERBv2,selector_dir_pin]="gpio15";
-PIN[ERB,selector_enable_pin]="gpio14";                     PIN[ERBv2,selector_enable_pin]="gpio14";
-PIN[ERB,selector_diag_pin]="gpio19";                       PIN[ERBv2,selector_diag_pin]="gpio19";
-PIN[ERB,selector_endstop_pin]="gpio24";                    PIN[ERBv2,selector_endstop_pin]="gpio24";
-PIN[ERB,servo_pin]="gpio23";                               PIN[ERBv2,servo_pin]="gpio23";
-PIN[ERB,encoder_pin]="gpio22";                             PIN[ERBv2,encoder_pin]="gpio22";
-PIN[ERB,neopixel_pin]="gpio21";                            PIN[ERBv2,neopixel_pin]="gpio21";
-PIN[ERB,gate_sensor_pin]="gpio22";                         PIN[ERBv2,gate_sensor_pin]="gpio25";  # Hall Effect
-PIN[ERB,pre_gate_0_pin]="gpio0";                           PIN[ERBv2,pre_gate_0_pin]="gpio12";
-PIN[ERB,pre_gate_1_pin]="gpio1";                           PIN[ERBv2,pre_gate_1_pin]="gpio18";
-PIN[ERB,pre_gate_2_pin]="gpio2";                           PIN[ERBv2,pre_gate_2_pin]="gpio2";
-PIN[ERB,pre_gate_3_pin]="gpio3";                           PIN[ERBv2,pre_gate_3_pin]="gpio3";
-PIN[ERB,pre_gate_4_pin]="gpio4";                           PIN[ERBv2,pre_gate_4_pin]="gpio4";
-PIN[ERB,pre_gate_5_pin]="gpio5";                           PIN[ERBv2,pre_gate_5_pin]="gpio5";
-PIN[ERB,pre_gate_6_pin]="gpio6";                           PIN[ERBv2,pre_gate_6_pin]="gpio6";
-PIN[ERB,pre_gate_7_pin]="gpio7";                           PIN[ERBv2,pre_gate_7_pin]="gpio7";
-PIN[ERB,pre_gate_8_pin]="gpio26";                          PIN[ERBv2,pre_gate_8_pin]="gpio26";
-PIN[ERB,pre_gate_9_pin]="gpio27";                          PIN[ERBv2,pre_gate_9_pin]="gpio27";
-PIN[ERB,pre_gate_10_pin]="gpio28";                         PIN[ERBv2,pre_gate_10_pin]="gpio28";
-PIN[ERB,pre_gate_11_pin]="gpio29";                         PIN[ERBv2,pre_gate_11_pin]="gpio29";
-
-# Pins for BTT MMB board (gear on motor1, selector on motor2, endstop on STP11, optional gate sensor on STP1 if no gear DIAG use)
-# Note BTT MMB v1.1 Board switched gear_enable and pre_gate_1 pins
-#
-PIN[MMB10,gear_uart_pin]="PA10";                           PIN[MMB11,gear_uart_pin]="PA10";       # M1
-PIN[MMB10,gear_step_pin]="PB15";                           PIN[MMB11,gear_step_pin]="PB15";
-PIN[MMB10,gear_dir_pin]="PB14";                            PIN[MMB11,gear_dir_pin]="PB14";
-PIN[MMB10,gear_enable_pin]="PA8";                          PIN[MMB11,gear_enable_pin]="PB8";
-PIN[MMB10,gear_diag_pin]="PA3";                            PIN[MMB11,gear_diag_pin]="PA3";        # Aka STP1
-PIN[MMB10,selector_uart_pin]="PC7";                        PIN[MMB11,selector_uart_pin]="PC7";    # M2
-PIN[MMB10,selector_step_pin]="PD2";                        PIN[MMB11,selector_step_pin]="PD2";
-PIN[MMB10,selector_dir_pin]="PB13";                        PIN[MMB11,selector_dir_pin]="PB13";
-PIN[MMB10,selector_enable_pin]="PD1";                      PIN[MMB11,selector_enable_pin]="PD1";
-PIN[MMB10,selector_diag_pin]="PA4";                        PIN[MMB11,selector_diag_pin]="PA4";    # Aka STP2
-PIN[MMB10,selector_endstop_pin]="PB2";                     PIN[MMB11,selector_endstop_pin]="PB2"; # STP11
-PIN[MMB10,servo_pin]="PA0";                                PIN[MMB11,servo_pin]="PA0";
-PIN[MMB10,encoder_pin]="PA1";                              PIN[MMB11,encoder_pin]="PA1";
-PIN[MMB10,neopixel_pin]="PA2";                             PIN[MMB11,neopixel_pin]="PA2";
-PIN[MMB10,gate_sensor_pin]="PA3";                          PIN[MMB11,gate_sensor_pin]="PA3";      # STP1 (if not DIAG)
-PIN[MMB10,pre_gate_0_pin]="PB9";                           PIN[MMB11,pre_gate_0_pin]="PB9";       # STP3
-PIN[MMB10,pre_gate_1_pin]="PB8";                           PIN[MMB11,pre_gate_1_pin]="PA8";       # STP4
-PIN[MMB10,pre_gate_2_pin]="PC15";                          PIN[MMB11,pre_gate_2_pin]="PC15";      # STP5
-PIN[MMB10,pre_gate_3_pin]="PC13";                          PIN[MMB11,pre_gate_3_pin]="PC13";      # STP6
-PIN[MMB10,pre_gate_4_pin]="PC14";                          PIN[MMB11,pre_gate_4_pin]="PC14";      # STP7
-PIN[MMB10,pre_gate_5_pin]="PB12";                          PIN[MMB11,pre_gate_5_pin]="PB12";      # STP8
-PIN[MMB10,pre_gate_6_pin]="PB11";                          PIN[MMB11,pre_gate_6_pin]="PB11";      # STP9
-PIN[MMB10,pre_gate_7_pin]="PB10";                          PIN[MMB11,pre_gate_7_pin]="PB10";      # STP10
-PIN[MMB10,pre_gate_8_pin]="";                              PIN[MMB11,pre_gate_8_pin]="";
-PIN[MMB10,pre_gate_9_pin]="";                              PIN[MMB11,pre_gate_9_pin]="";
-PIN[MMB10,pre_gate_10_pin]="";                             PIN[MMB11,pre_gate_10_pin]="";
-PIN[MMB10,pre_gate_11_pin]="";                             PIN[MMB11,pre_gate_11_pin]="";
-
-# These pins will usually be on main mcu for wiring simplification
-#
-PIN[toolhead_sensor_pin]=""
-PIN[extruder_sensor_pin]=""
-PIN[gantry_servo_pin]=""
-PIN[sync_feedback_tension_pin]=""
-PIN[sync_feedback_compression_pin]=""
-
-# Screen Colors
-OFF='\033[0m'             # Text Reset
-BLACK='\033[0;30m'        # Black
-RED='\033[0;31m'          # Red
-GREEN='\033[0;32m'        # Green
-YELLOW='\033[0;33m'       # Yellow
-BLUE='\033[0;34m'         # Blue
-PURPLE='\033[0;35m'       # Purple
-CYAN='\033[0;36m'         # Cyan
-WHITE='\033[0;37m'        # White
-
-B_RED='\033[1;31m'        # Bold Red
-B_GREEN='\033[1;32m'      # Bold Green
-B_YELLOW='\033[1;33m'     # Bold Yellow
-B_CYAN='\033[1;36m'       # Bold Cyan
-B_WHITE='\033[1;37m'      # Bold White
-
-TITLE="${B_WHITE}"
-DETAIL="${BLUE}"
-INFO="${CYAN}"
-EMPHASIZE="${B_CYAN}"
-ERROR="${B_RED}"
-WARNING="${B_YELLOW}"
-PROMPT="${CYAN}"
-INPUT="${OFF}"
-SECTION="----------\n"
-
-self_update() {
-    [ "$UPDATE_GUARD" ] && return
-    export UPDATE_GUARD=YES
-    clear
-
-    cd "$SCRIPTPATH"
-
-    set +e
-    # timeout is unavailable on MIPS
-    if [ "$IS_MIPS" -ne 1 ]; then
-        BRANCH=$(timeout 3s git branch --show-current)
-    else
-        BRANCH=$(git branch --show-current)
-    fi
-
-    if [ $? -ne 0 ]; then
-        echo -e "${ERROR}Error updating from github"
-        echo -e "${ERROR}You might have an old version of git"
-        echo -e "${ERROR}Skipping automatic update..." 
-        set -e
-        return
-    fi
-    set -e
-
-    [ -z "${BRANCH}" ] && {
-        echo -e "${ERROR}Timeout talking to github. Skipping upgrade check"
-        return
-    }
-    echo -e "${B_GREEN}Running on '${BRANCH}' branch"
-
-    # Both check for updates but also help me not loose changes accidently
-    echo -e "${B_GREEN}Checking for updates..."
-    git fetch --quiet
-
-    set +e
-    git diff --quiet --exit-code "origin/$BRANCH"
-    if [ $? -eq 1 ]; then
-        echo -e "${B_GREEN}Found a new version of Happy Hare on github, updating..."
-        [ -n "$(git status --porcelain)" ] && {
-            git stash push -m 'local changes stashed before self update' --quiet
-        }
-        RESTART=1
-    fi
-    set -e
-
-    if [ -n "${N_BRANCH}" -a "${BRANCH}" != "${N_BRANCH}" ]; then
-        BRANCH=${N_BRANCH}
-        echo -e "${B_GREEN}Switching to '${BRANCH}' branch"
-        RESTART=1
-    fi
-
-    if [ -n "${RESTART}" ]; then
-        git checkout $BRANCH --quiet
-        git pull --quiet --force
-        GIT_VER=$(git describe --tags)
-        echo -e "${B_GREEN}Now on git version ${GIT_VER}"
-        echo -e "${B_GREEN}Running the new install script..."
-        cd - >/dev/null
-        exec "$SCRIPTNAME" "${ARGS[@]}"
-        exit 0 # Exit this old instance
-    fi
-    GIT_VER=$(git describe --tags)
-    echo -e "${B_GREEN}Already the latest version: ${GIT_VER}"
-}
-
-function nextfilename {
-    local name="$1"
-    if [ -d "${name}" ]; then
-        printf "%s-%s" ${name} $(date '+%Y%m%d_%H%M%S')
-    else
-        printf "%s-%s.%s-old" ${name%.*} $(date '+%Y%m%d_%H%M%S') ${name##*.}
-    fi
-}
-
-function nextsuffix {
-    local name="$1"
-    local -i num=0
-    while [ -e "$name.0$num" ]; do
-        num+=1
-    done
-    printf "%s.0%d" "$name" "$num"
-}
-
-verify_not_root() {
-    if [ "$IS_MIPS" -ne 1 ]; then
-        if [ "$EUID" -eq 0 ]; then
-            echo -e "${ERROR}This script must not run as root"
-            exit -1
-        fi
-    else
-        echo -e "${WARNING}This script is running on a MIPS system, so we expect it to be run as root"
-    fi
-}
-
-check_klipper() {
-    if [ "$NOSERVICE" -ne 1 ]; then
-        if [ "$IS_MIPS" -ne 1 ]; then
-            if [ "$(systemctl list-units --full -all -t service --no-legend | grep -F "${KLIPPER_SERVICE}")" ]; then
-                echo -e "${INFO}Klipper ${KLIPPER_SERVICE} systemd service found"
-            else
-                echo -e "${ERROR}Klipper ${KLIPPER_SERVICE} systemd service not found! Please install Klipper first"
-                exit -1
-            fi
-        else
-            # There is no systemd on MIPS, we can only check the running processes
-            running_klipper_pid=$(ps -o pid,comm,args | grep [^]]/usr/share/klipper/klippy/klippy.py | awk '{print $1}')
-            KLIPPER_PID_FILE=/var/run/klippy.pid
-
-            if [ $(cat $KLIPPER_PID_FILE) = $running_klipper_pid ]; then
-                echo -e "${INFO}Klipper service found"
-            else
-                echo -e "${ERROR}Klipper service not found! Please install Klipper first"
-                exit -1
-            fi
-        fi
-    fi
-}
-
-check_octoprint() {
-    if [ "$IS_MIPS" -eq 1 ]; then
-        OCTOPRINT=0 # Octoprint can not be set up on MIPS
-    elif [ "$NOSERVICE" -ne 1 ]; then
-        if [ "$(sudo systemctl list-units --full -all -t service --no-legend | grep -F "octoprint.service")" ]; then
-            echo -e "${INFO}OctoPrint service found"
-            OCTOPRINT=1
-        else
-            OCTOPRINT=0
-        fi
-    fi
-}
-
-verify_home_dirs() {
-    if [ ! -d "${KLIPPER_HOME}" ]; then
-        echo -e "${ERROR}Klipper home directory (${KLIPPER_HOME}) not found. Use '-k <dir>' option to override"
-        exit -1
-    fi
-    if [ ! -d "${KLIPPER_CONFIG_HOME}" ]; then
-        if [ ! -d "${OLD_KLIPPER_CONFIG_HOME}" ]; then
-            if [ ! -f "${OCTOPRINT_KLIPPER_CONFIG_HOME}/${PRINTER_CONFIG}" ]; then
-                echo -e "${ERROR}Klipper config directory (${KLIPPER_CONFIG_HOME} or ${OLD_KLIPPER_CONFIG_HOME}) not found. Use '-c <dir>' option to override"
-                exit -1
-            fi
-            KLIPPER_CONFIG_HOME="${OCTOPRINT_KLIPPER_CONFIG_HOME}"
-        else
-            KLIPPER_CONFIG_HOME="${OLD_KLIPPER_CONFIG_HOME}"
-        fi
-    fi
-    echo -e "${INFO}Klipper config directory (${KLIPPER_CONFIG_HOME}) found"
-
-    if [ ! -d "${MOONRAKER_HOME}" ]; then
-        if [ "${OCTOPRINT}" -eq 0 ]; then
-            echo -e "${ERROR}Moonraker home directory (${MOONRAKER_HOME}) not found. Use '-m <dir>' option to override"
-            exit -1
-        fi
-        echo -e "${WARNING}Moonraker home directory (${MOONRAKER_HOME}) not found. OctoPrint detected, skipping."
-    fi
-}
-
-# Silently cleanup any potentially old klippy modules
-cleanup_old_klippy_modules() {
-    if [ -d "${KLIPPER_HOME}/klippy/extras" ]; then
-        for file in mmu_config_setup.py; do
-            rm -f "${KLIPPER_HOME}/klippy/extras/${file}"
-        done
-    fi
-}
-
-# TEMPORARY: Upgrade mmu sensors part of mmu_hardware.cfg
-upgrade_mmu_sensors() {
-    hardware_cfg="${KLIPPER_CONFIG_HOME}/mmu/base/mmu_hardware.cfg"
-    found_mmu_sensors=$(grep -E -c "${SENSORS_SECTION}" ${hardware_cfg} || true)
-
-    if [ "${found_mmu_sensors}" -eq 0 ]; then
-        # Form new section ready for insertion at end of existing mmu_hardware.cfg
-        sed -n "/${SENSORS_SECTION}/,+26p" "${SRCDIR}/config/base/mmu_hardware.cfg" | sed -e " \
-                    s/^/#/; \
-                " > "${hardware_cfg}.tmp"
-
-        # Add new mmu sensors config section
-        echo -e "${INFO}Adding new mmu sensors section (commented out) to mmu_hardware.cfg..."
-        cat "${hardware_cfg}.tmp" >> "${hardware_cfg}" && rm "${hardware_cfg}.tmp"
-    fi
-}
-
-# TEMPORARY: Upgrade led effects part of mmu_hardware.cfg (assumed last part of file)
-upgrade_led_effects() {
-    hardware_cfg="${KLIPPER_CONFIG_HOME}/mmu/base/mmu_hardware.cfg"
-    found_led_effects=$(grep -E -c "${LED_SECTION}" ${hardware_cfg} || true)
-    led_effects_enabled=$(grep -E -c "^\[mmu_led_effect" ${hardware_cfg} || true)
-
-    # Form new section ready for insertion at end of existing mmu_hardware.cfg
-    if [ "${led_effects_enabled}" -ne 0 ]; then
-        # Was enabled
-        sed -n "/${LED_SECTION}/,\$p" "${SRCDIR}/config/base/mmu_hardware.cfg" | sed -e " \
-                    s/{mmu_num_gates}/${mmu_num_gates}/; \
-                    s/{mmu_num_leds}/${mmu_num_leds}/g; \
-                " > "${hardware_cfg}.add"
-    else
-        # Was disabled
-        sed -n "/${LED_SECTION}/,\$p" "${SRCDIR}/config/base/mmu_hardware.cfg" | sed -e " \
-                    s/^/#/; \
-                    s/{mmu_num_gates}/${mmu_num_gates}/; \
-                    s/{mmu_num_leds}/${mmu_num_leds}/g; \
-                " > "${hardware_cfg}.add"
-    fi
-
-    if [ "${found_led_effects}" -ne 0 ]; then
-        if echo "$FROM_VERSION 2.40" | awk '{exit !(($1 < $2))}'; then
-            cat "${hardware_cfg}" | sed -e "\
-                    /${LED_SECTION}/,\$ d \
-                        " > ${hardware_cfg}.tmp && mv ${hardware_cfg}.tmp ${hardware_cfg}
-            # Upgrade led config section
-            echo -e "${INFO}Updating LED control section in mmu_hardware.cfg..."
-            cat "${hardware_cfg}.add" >> "${hardware_cfg}" && rm "${hardware_cfg}.add"
-        else
-            rm "${hardware_cfg}.add"
-        fi
-    else
-        # Add new led config section
-        echo -e "${INFO}Adding new LED control section (commented out) to mmu_hardware.cfg..."
-        cat "${hardware_cfg}.add" >> "${hardware_cfg}" && rm "${hardware_cfg}.add"
-    fi
-}
-
-link_mmu_plugins() {
-    echo -e "${INFO}Linking mmu extensions to Klipper..."
-    if [ -d "${KLIPPER_HOME}/klippy/extras" ]; then
-        for file in `cd ${SRCDIR}/extras ; ls *.py`; do
-            ln -sf "${SRCDIR}/extras/${file}" "${KLIPPER_HOME}/klippy/extras/${file}"
-        done
-    else
-        echo -e "${WARNING}Klipper extensions not installed because Klipper 'extras' directory not found!"
-    fi
-
-    echo -e "${INFO}Linking mmu extension to Moonraker..."
-    if [ -d "${MOONRAKER_HOME}/moonraker/components" ]; then
-        for file in `cd ${SRCDIR}/components ; ls *.py`; do
-            ln -sf "${SRCDIR}/components/${file}" "${MOONRAKER_HOME}/moonraker/components/${file}"
-        done
-    else
-        echo -e "${WARNING}Moonraker extensions not installed because Moonraker 'components' directory not found!"
-    fi
-}
-
-unlink_mmu_plugins() {
-    echo -e "${INFO}Unlinking mmu extensions from Klipper..."
-    if [ -d "${KLIPPER_HOME}/klippy/extras" ]; then
-        for file in `cd ${SRCDIR}/extras ; ls *.py`; do
-            rm -f "${KLIPPER_HOME}/klippy/extras/${file}"
-        done
-    else
-        echo -e "${WARNING}MMU modules not uninstalled because Klipper 'extras' directory not found!"
-    fi
-
-    echo -e "${INFO}Unlinking mmu extension from Moonraker..."
-    if [ -d "${MOONRAKER_HOME}/moonraker/components" ]; then
-        for file in `cd ${SRCDIR}/components ; ls *.py`; do
-            rm -f "${MOONRAKER_HOME}/moonraker/components/${file}"
-        done
-    else
-        echo -e "${WARNING}MMU modules not uninstalled because Moonraker 'components' directory not found!"
-    fi
-}
-
-parse_file() {
-    file="$1"
-    prefix_filter="$2"
-    namespace="$3"
-    checkdup="$4"
-    checkdup=""
-
-    if [ ! -f "${file}" ]; then
-        return
-    fi
-
-    # Read old config files
-    while IFS= read -r line
-    do
-        # Remove leading spaces, comments and config sections
-        line="${line#"${line%%[![:space:]]*}"}"
-        line="${line%%#*}"
-        line="${line%%[*}"
-        line="${line%%;*}"
-
-        # Check if line is not empty and contains variable or parameter
-         if [ ! -z "$line" ] && { [ -z "$prefix_filter" ] || [[ "$line" =~ ^($prefix_filter) ]]; }; then
-            # Split the line into parameter and value
-            IFS=":=" read -r parameter value <<< "$line"
-
-            # Remove leading and trailing whitespace
-            parameter=$(echo "$parameter" | xargs)
-            # Need to be more careful with value because it can be quoted
-            value=$(echo "$value" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-
-	    # If parameter is one of interest and it has a value remember it
-            if echo "$parameter" | grep -E -q "${prefix_filter}"; then
-                if [ "${value}" != "" ]; then
-                    combined="${namespace}${parameter}"
-                    if [ -n "${checkdup}" ] && [ ! -z "${!combined+x}" ]; then
-                        echo -e "${ERROR}${parameter} defined multiple times!"
-                    fi
-                    if echo "$value" | grep -q '^{.*}$'; then
-                        eval "${combined}=\$${value}"
-                    elif [ "${value%"${value#?}"}" = "'" ]; then
-                        eval "${combined}=\'${value}\'"
-                    else
-                        eval "${combined}='${value}'"
-                    fi
-                fi
-            fi
-        fi
-    done < "${file}"
-}
-
-update_copy_file() {
-    src="$1"
-    dest="$2"
-    prefix_filter="$3"
-    namespace="$4"
-
-    # Read the file line by line
-    while IFS="" read -r line || [ -n "$line" ]
-    do
-        if echo "$line" | grep -E -q '^[[:space:]]*#'; then
-            # Just copy simple comments
-            echo "$line"
-        elif [ ! -z "$line" ] && { [ -z "$prefix_filter" ] || [[ "$line" =~ ^($prefix_filter) ]]; }; then
-            # Line of interest
-            # Split the line into the part before # and the part after #
-            parameterAndValueAndSpace=$(echo "$line" | sed 's/^[[:space:]]*//' | sed 's/;/# /' | cut -d'#' -f1)
-
-            comment=""
-            if echo "$line" | grep -q "#"; then
-                commentChar="#"
-                comment=$(echo "$line" | sed 's/[^#]*#//')
-            elif echo "$line" | grep -q ";"; then
-                commentChar=";"
-                comment=$(echo "$line" | sed 's/[^;]*;//')
-            fi
-            space=`printf "%s" "$parameterAndValueAndSpace" | sed 's/.*[^[:space:]]\(.*\)$/\1/'`
-
-            if echo "$parameterAndValueAndSpace" | grep -E -q "${prefix_filter}"; then
-                # If parameter and value exist, substitute the value with the in memory variable of the same name
-                if echo "$parameterAndValueAndSpace" | grep -E -q '^\['; then
-                    echo "$line"
-                elif [ -n "$parameterAndValueAndSpace" ]; then
-                    parameter=$(echo "$parameterAndValueAndSpace" | cut -d':' -f1)
-                    value=$(echo "$parameterAndValueAndSpace" | cut -d':' -f2)
-                    if [ -n "${namespace}${parameter}" ]; then
-                        # If 'parameter' is set and not empty, evaluate its value
-                        new_value=$(eval echo "\$${namespace}${parameter}")
-                        if [ -n "${namespace}" ]; then
-                            # Namespaced, use once
-                            eval unset ${namespace}${parameter}
-                        fi
-                    elif [ -n "${parameter}" ]; then
-                        # Try non-namespaced name, multi-use
-                        new_value=$(eval echo "\$${parameter}")
-                    else
-                        # If 'parameter' is unset or empty leave as token
-                        new_value="{$parameter}"
-                    fi
-                    if [ -z "$new_value" ]; then
-                        new_value="''"
-                    fi
-                    if [ -n "$comment" ]; then
-                        echo "${parameter}: ${new_value}${space}${commentChar}${comment}"
-                    else
-                        echo "${parameter}: ${new_value}"
-                    fi
-                else
-                    echo "$line"
-                fi
-            else
-                echo "$line"
-            fi
-        else
-            # Just copy simple comments
-            echo "$line"
-        fi
-    done < "$src" >"$dest"
-}
-
-# Set default token values to the tokens themselves to avoid being parsed out
-set_default_tokens() {
-    brd_type="unknown"
-    for var in mmu_num_gates mmu_num_leds serial servo_up_angle servo_move_angle servo_down_angle; do
-        eval "${var}='{$var}'"
-    done
-}
-
-
-# Set default parameters from the distribution (reference) config files
-read_default_config() {
-    echo -e "${INFO}Reading default configuration parameters..."
-    parse_file "${SRCDIR}/config/base/mmu_parameters.cfg" ""          "_param_" "checkdup"
-    parse_file "${SRCDIR}/config/base/mmu_macro_vars.cfg" "variable_" ""        "checkdup"
-    for file in `cd ${SRCDIR}/config/addons ; ls *.cfg | grep -v "_hw" | grep -v "my_"`; do
-        parse_file "${SRCDIR}/config/addons/${file}"      "variable_" ""        "checkdup"
-    done
-}
-
-# Pull parameters from previous installation
-read_previous_config() {
-    cfg="mmu_parameters.cfg"
-    dest_cfg=${KLIPPER_CONFIG_HOME}/mmu/base/${cfg}
-
-    if [ ! -f "${dest_cfg}" ]; then
-        echo -e "${WARNING}No previous ${cfg} found."
-    else
-        echo -e "${INFO}Reading ${cfg} configuration from previous installation..."
-        parse_file "${dest_cfg}" "" "_param_"
-    fi
-
-    # TODO Remove 'mmu_variables' from list once everybody has upgraded
-    for cfg in mmu_variables.cfg mmu_software.cfg mmu_sequence.cfg mmu_cut_tip.cfg mmu_form_tip.cfg mmu_macro_vars.cfg; do
-        dest_cfg=${KLIPPER_CONFIG_HOME}/mmu/base/${cfg}
-
-        if [ ! -f "${dest_cfg}" ]; then
-            if [ "$cfg" != "mmu_variables.cfg" ]; then # TODO remove me with mmu_variables
-                echo -e "${WARNING}No previous ${cfg} found. Will install"
-            fi
-        else
-            echo -e "${INFO}Reading ${cfg} configuration from previous installation..."
-            if [ "${cfg}" == "mmu_macro_vars.cfg" ]; then
-                parse_file "${dest_cfg}" "variable_|filename"
-            else
-                parse_file "${dest_cfg}" "variable_"
-            fi
-        fi
-    done
-
-    # TODO namespace config in third-party addons separately
-    if [ -d "${KLIPPER_CONFIG_HOME}/mmu/addons" ]; then
-        for cfg in `cd ${KLIPPER_CONFIG_HOME}/mmu/addons ; ls *.cfg | grep -v "_hw"`; do
-            dest_cfg=${KLIPPER_CONFIG_HOME}/mmu/addons/${cfg}
-            if [ ! -f "${dest_cfg}" ]; then
-                echo -e "${WARNING}No previous ${cfg} found. Will install"
-            else
-                echo -e "${INFO}Reading ${cfg} configuration from previous installation..."
-                parse_file "${dest_cfg}" "variable_"
-            fi
-        done
-    fi
-
-    # Upgrade / map / force old parameters
-    if [ "${_param_form_tip_macro}" == "_MMU_FORM_TIP_STANDALONE" ]; then
-        _param_form_tip_macro="_MMU_FORM_TIP"
-    fi
-    if [ ! "${_param_encoder_unload_buffer}" == "" ]; then
-        _param_gate_unload_buffer=${_param_encoder_unload_buffer}
-    fi
-    if [ ! "${_param_encoder_unload_max}" == "" ]; then
-        _param_gate_homing_max=${_param_encoder_unload_max}
-    fi
-    if [ ! "${_param_encoder_load_retries}" == "" ]; then
-        _param_gate_load_retries=${_param_encoder_load_retries}
-    fi
-    if [ "${_param_toolhead_ignore_load_error}" == "1" ]; then
-        _param_toolhead_move_error_tolerance=100
-    fi
-    if [ ! "${_param_bowden_load_tolerance}" == "" ]; then
-        _param_bowden_allowable_load_delta=${_param_bowden_load_tolerance}
-    fi
-    if [ ! "${_param_extruder_homing_current}" == "" ]; then
-        _param_extruder_collision_homing_current=${_param_extruder_homing_current}
-    fi
-    if [ "${_param_log_visual}" == "2" ]; then
-        _param_log_visual=1
-    fi
-    if [ "${_param_servo_buzz_gear_on_down}" == "" ]; then
-        if [ "${_param_mmu_vendor}" == "Tradrack" ]; then
-            _param_servo_buzz_gear_on_down=0
-        else
-            _param_servo_buzz_gear_on_down=3
-        fi
-    fi
-    if [ "${_param_gate_parking_distance}" == "" ]; then
-        if [ ! "${_param_mmu_version}" == "1.1" ]; then
-            _param_gate_parking_distance=23
-        else
-            _param_gate_parking_distance=13
-        fi
-    fi
-    if [ "${_param_gate_endstop_to_encoder}" == "" ]; then
-        _param_gate_endstop_to_encoder=0
-    fi
-    if [ ! "${_param_servo_up_angle}" == "" ]; then
-        _param_servo_up_angle=$(echo "$_param_servo_up_angle" | awk '{print int($1)}')
-    fi
-    if [ ! "${_param_servo_down_angle}" == "" ]; then
-        _param_servo_down_angle=$(echo "$_param_servo_down_angle" | awk '{print int($1)}')
-    fi
-    if [ ! "${_param_servo_move_angle}" == "" ]; then
-        _param_servo_move_angle=$(echo "$_param_servo_move_angle" | awk '{print int($1)}')
-    fi
-    if [ "${_param_servo_always_active}" == "" ]; then
-        _param_servo_always_active=0
-    fi
-    if [ "${_param_toolhead_post_load_tighten}" == "1" ]; then
-        # Old Boolean -> New Percent
-        _param_toolhead_post_load_tighten=60
-    fi
-    if [ "${_param_log_file_level}" -gt 2 ]; then
-        _param_log_file_level=2
-    fi
-    if [ ! "${_param_enable_spoolman}" == "" ]; then
-        if [ ! "${_param_enable_spoolman}" == "1" ]; then
-            _param_spoolman_support="readonly"
-        else
-            _param_spoolman_support="off"
-        fi
-    fi
-    if [ ! "${variable_enable_park}" == "" ]; then
-        variable_enable_park=$(convert_to_boolean_string ${variable_enable_park})
-    fi
-    if [ ! "${variable_ramming_volume}" == "" ]; then
-        variable_ramming_volume_standalone=${variable_ramming_volume}
-    fi
-    if [ ! "${variable_auto_home}" == "" ]; then
-        variable_auto_home=$(convert_to_boolean_string ${variable_auto_home})
-    fi
-    if [ ! "${variable_park_after_form_tip}" == "" ]; then
-        variable_park_after_form_tip=$(convert_to_boolean_string ${variable_park_after_form_tip})
-    fi
-    if [ ! "${variable_restore_position}" == "" ]; then
-        variable_restore_position=$(convert_to_boolean_string ${variable_restore_position})
-    fi
-    if [ ! "${variable_gantry_servo_enabled}" == "" ]; then
-        variable_gantry_servo_enabled=$(convert_to_boolean_string ${variable_gantry_servo_enabled})
-    fi
-    if [ ! "${variable_use_skinnydip}" == "" ]; then
-        variable_use_skinnydip=$(convert_to_boolean_string ${variable_use_skinnydip})
-    fi
-    if [ ! "${variable_use_fast_skinnydip}" == "" ]; then
-        variable_use_fast_skinnydip=$(convert_to_boolean_string ${variable_use_fast_skinnydip})
-    fi
-    if [ ! "${variable_pin_loc_x}" == "" ]; then
-        variable_pin_loc_xy="${variable_pin_loc_x}, ${variable_pin_loc_y}"
-    fi
-    if [ ! "${variable_safe_margin_x}" == "" ]; then
-        variable_safe_margin_xy="${variable_safe_margin_x}, ${variable_safe_margin_y}"
-    fi
-    if [ "${variable_restore_xy_pos}" == "True" ]; then
-        variable_restore_xy_pos="\"last\""
-    elif [ "${variable_restore_xy_pos}" == "False" ]; then
-        variable_restore_xy_pos="\"none\""
-    fi
-    if [ ! "${_param_mmu_num_gates}" == "{mmu_num_gates}" -a ! "${_param_mmu_num_gates}" == "" ] 2>/dev/null; then
-        mmu_num_gates=$_param_mmu_num_gates
-        mmu_num_leds=$(expr $mmu_num_gates + 1)
-    fi
-
-    # v2.7.1
-    if [ ! "${variable_pin_park_x_dist}" == "" ]; then
-        variable_pin_park_dist="${variable_pin_park_x_dist}"
-    fi
-    if [ ! "${variable_pin_loc_x_compressed}" == "" ]; then
-        variable_pin_loc_compressed="${variable_pin_loc_x_compressed}"
-    fi
-    if [ ! "${variable_park_xy}" == "" ]; then
-        variable_park_toolchange="${variable_park_xy}, ${_param_z_hop_height_toolchange:-0}, 0, 2"
-        variable_park_error="${variable_park_xy}, ${_param_z_hop_height_error:-0}, 0, 2"
-    fi
-    if [ ! "${variable_lift_speed}" == "" ]; then
-        variable_park_lift_speed="${variable_lift_speed}"
-    fi
-    if [ "${variable_enable_park}" == "False" ]; then
-        variable_enable_park_printing="'pause,cancel'"
-        if [ "${variable_enable_park_runout}" == "True" ]; then
-            variable_enable_park_printing="'toolchange,load,unload,runout,pause,cancel'"
-        fi
-    else
-        variable_enable_park_printing="'toolchange,load,unload,pause,cancel'"
-    fi
-    if [ "${variable_enable_park_standalone}" == "False" ]; then
-        variable_enable_park_standalone="'pause,cancel'"
-    else
-        variable_enable_park_standalone="'toolchange,load,unload,pause,cancel'"
-    fi
-
-    # v2.7.2
-    if [ "${_param_toolhead_residual_filament}" == "0" -a ! "${_param_toolhead_ooze_reduction}" == "0" ]; then
-        _param_toolhead_residual_filament=$_param_toolhead_ooze_reduction
-        _param_toolhead_ooze_reduction=0
-    fi
-
-    # Blobifer update - Oct 13th 20204
-    if [ ! "${variable_iteration_z_raise}" == "" ]; then
-        echo -e "${INFO}Setting Blobifier variable_z_raise and variable_purge_length_maximum from previous settings"
-        variable_z_raise=$(awk -v iter_z_raise="$variable_iteration_z_raise" -v max_iter="$variable_max_iterations_per_blob" -v z_change="$variable_iteration_z_change" 'BEGIN {
-            triangular_value = (max_iter - 1) * max_iter / 2;
-            print iter_z_raise * max_iter - triangular_value * z_change;
-        }')
-        variable_purge_length_maximum=$(awk -v max_len="$variable_max_iteration_length" -v max_iter="$variable_max_iterations_per_blob" 'BEGIN { print max_len * max_iter }')
-    fi
-}
-
-convert_to_boolean_string() {
-    if [ "$1" -eq 1 ] 2>/dev/null; then
-        echo "True"
-    elif [ "$1" -eq 0 ] 2>/dev/null; then
-        echo "False"
-    else
-        echo "$1"
-    fi
-}
-
-copy_config_files() {
-    mmu_dir="${KLIPPER_CONFIG_HOME}/mmu"
-    next_mmu_dir="$(nextfilename "${mmu_dir}")"
-
-    echo -e "${INFO}Copying configuration files into ${mmu_dir} directory..."
-    if [ ! -d "${mmu_dir}" ]; then
-        mkdir ${mmu_dir}
-        mkdir ${mmu_dir}/base
-        mkdir ${mmu_dir}/optional
-        mkdir ${mmu_dir}/addons
-    else
-        echo -e "${DETAIL}Config directory ${mmu_dir} already exists"
-        echo -e "${DETAIL}Backing up old config files to ${next_mmu_dir}"
-        mkdir ${next_mmu_dir}
-        (cd "${mmu_dir}"; cp -r * "${next_mmu_dir}")
-
-        # Ensure all new directories exist
-        mkdir -p ${mmu_dir}/base
-        mkdir -p ${mmu_dir}/optional
-        mkdir -p ${mmu_dir}/addons
-    fi
-
-    if [ ! "${_param_mmu_num_gates}" == "" ]; then
-        mmu_num_gates=${_param_mmu_num_gates}
-    fi 
-
-    for file in `cd ${SRCDIR}/config/base ; ls *.cfg`; do
-        src=${SRCDIR}/config/base/${file}
-        dest=${mmu_dir}/base/${file}
-        next_dest=${next_mmu_dir}/base/${file}
-
-        if [ -f "${dest}" ]; then
-            if [ "${file}" == "mmu_hardware.cfg" -a "${INSTALL}" -eq 0 ] || [ "${file}" == "mmu.cfg"  -a "${INSTALL}" -eq 0 ]; then
-                echo -e "${WARNING}Skipping copy of hardware config file ${file} because already exists"
-                continue
-            else
-                if [ "${file}" == "mmu_parameters.cfg" ] || [ "${file}" == "mmu_macro_vars.cfg" ]; then
-                    echo -e "${INFO}Upgrading configuration file ${file}"
-                else
-                    echo -e "${INFO}Installing configuration file ${file}"
-                fi
-                mv ${dest} ${next_dest}
-            fi
-        fi
-
-        # Hardware files: Special token substitution -----------------------------------------
-	if [ "${file}" == "mmu.cfg" -o "${file}" == "mmu_hardware.cfg" ]; then
-            cp ${src} ${dest}
-
-            # Correct shared uart_address for EASY-BRD
-            if [ "${brd_type}" == "EASY-BRD" ]; then
-                # Share uart_pin to avoid duplicate alias problem
-                cat ${dest} | sed -e "\
-                    s/^uart_pin: mmu:MMU_SEL_UART/uart_pin: mmu:MMU_GEAR_UART/; \
-                        " > ${dest}.tmp && mv ${dest}.tmp ${dest}
-            else
-                # Remove uart_address lines
-                cat ${dest} | sed -e "\
-                    /^uart_address:/ d; \
-                        " > ${dest}.tmp && mv ${dest}.tmp ${dest}
-            fi
-
-            if [ "${SETUP_SELECTOR_TOUCH}" -eq 1 ]; then
-                cat ${dest} | sed -e "\
-                    s/^#\(diag_pin: \^mmu:MMU_SEL_DIAG\)/\1/; \
-                    s/^#\(driver_SGTHRS: 75\)/\1/; \
-		    s/^#\(extra_endstop_pins: tmc2209_stepper_mmu_selector:virtual_endstop\)/\1/; \
-		    s/^#\(extra_endstop_names: mmu_sel_touch\)/\1/; \
-                    s/^uart_address:/${uart_comment}uart_address:/; \
-                        " > ${dest}.tmp && mv ${dest}.tmp ${dest}
-            fi
-
-            # Now substitute tokens given brd_type
-            cat ${dest} | sed -e "\
-                s/{brd_type}/${brd_type}/; \
-                s%{serial}%${serial}%; \
-                s/{mmu_num_gates}/${mmu_num_gates}/; \
-                s/{mmu_num_leds}/${mmu_num_leds}/; \
-                s/{gear_gear_ratio}/${gear_gear_ratio}/; \
-                s/{gear_run_current}/${gear_run_current}/; \
-                s/{gear_hold_current}/${gear_hold_current}/; \
-                s/{sel_run_current}/${sel_run_current}/; \
-                s/{sel_hold_current}/${sel_hold_current}/; \
-                s/{maximum_servo_angle}/${maximum_servo_angle}/; \
-                s/{minimum_pulse_width}/${minimum_pulse_width}/; \
-                s/{maximum_pulse_width}/${maximum_pulse_width}/; \
-                s/{toolhead_sensor_pin}/${PIN[toolhead_sensor_pin]}/; \
-                s/{extruder_sensor_pin}/${PIN[extruder_sensor_pin]}/; \
-                s/{gantry_servo_pin}/${PIN[gantry_servo_pin]}/; \
-                s/{sync_feedback_tension_pin}/${PIN[sync_feedback_tension_pin]}/; \
-                s/{sync_feedback_compression_pin}/${PIN[sync_feedback_compression_pin]}/; \
-                s/{gate_sensor_pin}/${PIN[$brd_type,gate_sensor_pin]}/; \
-                s/{pre_gate_0_pin}/${PIN[$brd_type,pre_gate_0_pin]}/; \
-                s/{pre_gate_1_pin}/${PIN[$brd_type,pre_gate_1_pin]}/; \
-                s/{pre_gate_2_pin}/${PIN[$brd_type,pre_gate_2_pin]}/; \
-                s/{pre_gate_3_pin}/${PIN[$brd_type,pre_gate_3_pin]}/; \
-                s/{pre_gate_4_pin}/${PIN[$brd_type,pre_gate_4_pin]}/; \
-                s/{pre_gate_5_pin}/${PIN[$brd_type,pre_gate_5_pin]}/; \
-                s/{pre_gate_6_pin}/${PIN[$brd_type,pre_gate_6_pin]}/; \
-                s/{pre_gate_7_pin}/${PIN[$brd_type,pre_gate_7_pin]}/; \
-                s/{pre_gate_8_pin}/${PIN[$brd_type,pre_gate_8_pin]}/; \
-                s/{pre_gate_9_pin}/${PIN[$brd_type,pre_gate_9_pin]}/; \
-                s/{pre_gate_10_pin}/${PIN[$brd_type,pre_gate_10_pin]}/; \
-                s/{pre_gate_11_pin}/${PIN[$brd_type,pre_gate_11_pin]}/; \
-                s/{gear_gear_ratio}/${gear_gear_ratio}/; \
-                s/{gear_uart_pin}/${PIN[$brd_type,gear_uart_pin]}/; \
-                s/{gear_step_pin}/${PIN[$brd_type,gear_step_pin]}/; \
-                s/{gear_dir_pin}/${PIN[$brd_type,gear_dir_pin]}/; \
-                s/{gear_enable_pin}/${PIN[$brd_type,gear_enable_pin]}/; \
-                s/{gear_diag_pin}/${PIN[$brd_type,gear_diag_pin]}/; \
-                s/{selector_uart_pin}/${PIN[$brd_type,selector_uart_pin]}/; \
-                s/{selector_step_pin}/${PIN[$brd_type,selector_step_pin]}/; \
-                s/{selector_dir_pin}/${PIN[$brd_type,selector_dir_pin]}/; \
-                s/{selector_enable_pin}/${PIN[$brd_type,selector_enable_pin]}/; \
-                s/{selector_diag_pin}/${PIN[$brd_type,selector_diag_pin]}/; \
-                s/{selector_endstop_pin}/${PIN[$brd_type,selector_endstop_pin]}/; \
-                s/{servo_pin}/${PIN[$brd_type,servo_pin]}/; \
-                s/{encoder_pin}/${PIN[$brd_type,encoder_pin]}/; \
-                s/{neopixel_pin}/${PIN[$brd_type,neopixel_pin]}/; \
-                    " > ${dest}.tmp && mv ${dest}.tmp ${dest}
-
-            # Handle LED option - Comment out if disabled
-	    if [ "${file}" == "mmu_hardware.cfg" -a "$SETUP_LED" -eq 0 ]; then
-                sed "/${LED_SECTION}/,\$s/^/#/" ${dest} > ${dest}.tmp && mv ${dest}.tmp ${dest}
-            fi
-
-        # Conifguration parameters -----------------------------------------------------------
-        elif [ "${file}" == "mmu_parameters.cfg" ]; then
-            update_copy_file "$src" "$dest" "" "_param_"
-
-            # Ensure that supplemental user added params are retained. These are those that are
-            # by default set internally in Happy Hare based on vendor and version settings but
-            # can be overridden.  This set also includes a couple of hidden test parameters.
-            echo "" >> $dest
-            echo "# SUPPLEMENTAL USER CONFIG retained after upgrade --------------------------------------------------------------------" >> $dest
-            echo "#" >> $dest
-            supplemental_params="cad_gate0_pos cad_gate_width cad_bypass_offset cad_last_gate_offset cad_block_width cad_bypass_block_width cad_bypass_block_delta cad_selector_tolerance gate_parking_distance variable_gate_ratios encoder_default_resolution gate_material gate_color gate_spool_id gate_status gate_filament_name gate_speed_override endless_spool_groups tool_to_gate_map"
-            hidden_params="virtual_selector homing_extruder test_random_failures test_random_failures test_disable_encoder test_force_in_print serious mitigate_ttc"
-            for var in $(set | grep '^_param_' | cut -d'=' -f1 | sort); do
-                param=${var#_param_}
-                for item in ${supplemental_params} ${hidden_params}; do
-                    if [ "$item" = "$param" ]; then
-                        value=$(eval echo "\$${var}")
-                        echo "${param}: ${value}"
-                        eval unset ${var}
-                    fi
-                done
-            done >> $dest
-
-            # If any params are still left worn the user because they will be lost (should have been upgraded)
-            for var in $(set | grep '^_param_' | cut -d= -f1); do
-                value=$(eval echo \$$var)
-                param=${var#_param_}
-                echo "Parameter: '$param: $value' is deprecated and has been removed"
-            done
-
-        # Variables macro ---------------------------------------------------------------------
-        elif [ "${file}" == "mmu_macro_vars.cfg" ]; then
-            tx_macros=""
-            if [ "$mmu_num_gates" -eq "$mmu_num_gates" ] 2>/dev/null; then
-                for (( i=0; i<=$(expr $mmu_num_gates - 1); i++ ))
-                do
-                    tx_macros+="[gcode_macro T${i}]\n"
-                    tx_macros+="gcode: MMU_CHANGE_TOOL TOOL=${i}\n"
-                done
-            else
-                # Skeleton config file case
-                for (( i=0; i<=11; i++ ))
-                do
-                    tx_macros+="#[gcode_macro T${i}]\n"
-                    tx_macros+="#gcode: MMU_CHANGE_TOOL TOOL=${i}\n"
-                done
-            fi
-
-            if [ "${INSTALL}" -eq 1 ]; then
-                cat ${src} | sed -e "\
-                    s%{tx_macros}%${tx_macros}%g; \
-                        " > ${dest}
-            else
-                cat ${src} | sed -e "\
-                    s%{tx_macros}%${tx_macros}%g; \
-                        " > ${dest}.tmp
-                update_copy_file "${dest}.tmp" "${dest}" "variable_|filename" && rm ${dest}.tmp
-            fi
-
-        # Everything else is read-only symlink ------------------------------------------------
-        else
-            ln -sf ${src} ${dest}
-	fi
-    done
-
-    # Handle deprecated files -----------------------------------------------------------------
-    for file in mmu_filametrix.cfg mmu_variables.cfg; do
-        dest=${mmu_dir}/base/${file}
-        if [ -f "${dest}" ]; then
-            echo -e "${WARNING}Removing deprecated config files ${file}"
-            rm -f ${dest}
-        fi
-    done
-
-    # Optional config are read-only symlinks --------------------------------------------------
-    for file in `cd ${SRCDIR}/config/optional ; ls *.cfg`; do
-        src=${SRCDIR}/config/optional/${file}
-        dest=${mmu_dir}/optional/${file}
-        ln -sf ${src} ${dest}
-    done
-
-    # Don't stompt on existing persisted state ------------------------------------------------
-    src=${SRCDIR}/config/mmu_vars.cfg
-    dest=${mmu_dir}/mmu_vars.cfg
-    if [ -f "${dest}" ]; then
-        echo -e "${WARNING}Skipping copy of mmu_vars.cfg file because already exists"
-    else
-        cp ${src} ${dest}
-    fi
-
-    # Addon config files are always copied (and updated) so they can be edited ----------------
-    # Skipping files with 'my_' prefix for development
-    for file in `cd ${SRCDIR}/config/addons ; ls *.cfg | grep -v "my_"`; do
-        src=${SRCDIR}/config/addons/${file}
-        dest=${mmu_dir}/addons/${file}
-        if [ -f "${dest}" ]; then
-            if ! echo "$file" | grep -E -q ".*_hw\.cfg.*"; then
-                echo -e "${INFO}Upgrading configuration file ${file}"
-                update_copy_file ${src} ${dest} "variable_"
-            else
-                echo -e "${WARNING}Skipping copy of ${file} file because already exists"
-            fi
-        else
-            echo -e "${INFO}Installing configuration file ${file}"
-            cp ${src} ${dest}
-        fi
-    done
-}
-
-uninstall_config_files() {
-    if [ -d "${KLIPPER_CONFIG_HOME}/mmu" ]; then
-        echo -e "${INFO}Removing MMU configuration files from ${KLIPPER_CONFIG_HOME}"
-        mv "${KLIPPER_CONFIG_HOME}/mmu" /tmp/mmu.uninstalled
-    fi
-}
-
-install_printer_includes() {
-    # Link in all includes if not already present
-    dest=${KLIPPER_CONFIG_HOME}/${PRINTER_CONFIG}
-    if test -f $dest; then
-
-        klippain_included=$(grep -c "\[include config/hardware/mmu.cfg\]" ${dest} || true)
-        if [ "${klippain_included}" -eq 1 ]; then
-            echo -e "${WARNING}This looks like a Klippain config installation - skipping automatic config install. Please add config includes by hand"
-        else
-            next_dest="$(nextfilename "$dest")"
-            echo -e "${INFO}Copying original ${PRINTER_CONFIG} file to ${next_dest}"
-            cp ${dest} ${next_dest}
-            if [ ${MENU_12864} -eq 1 ]; then
-                i='\[include mmu/optional/mmu_menu.cfg\]'
-                already_included=$(grep -c "${i}" ${dest} || true)
-                if [ "${already_included}" -eq 0 ]; then
-                    sed -i "1i ${i}" ${dest}
-                fi
-            fi
-            if [ ${ERCF_COMPAT} -eq 1 ]; then
-                i='\[include mmu/optional/mmu_ercf_compat.cfg\]'
-                already_included=$(grep -c "${i}" ${dest} || true)
-                if [ "${already_included}" -eq 0 ]; then
-                    sed -i "1i ${i}" ${dest}
-                fi
-            fi
-            if [ ${CLIENT_MACROS} -eq 1 ]; then
-                i='\[include mmu/optional/client_macros.cfg\]'
-                already_included=$(grep -c "${i}" ${dest} || true)
-                if [ "${already_included}" -eq 0 ]; then
-                    sed -i "1i ${i}" ${dest}
-                fi
-            fi
-            if [ ${ADDONS_EREC} -eq 1 ]; then
-                i='\[include mmu/addons/mmu_erec_cutter.cfg\]'
-                already_included=$(grep -c "${i}" ${dest} || true)
-                if [ "${already_included}" -eq 0 ]; then
-                    sed -i "1i ${i}" ${dest}
-                fi
-            fi
-            if [ ${ADDONS_BLOBIFIER} -eq 1 ]; then
-                i='\[include mmu/addons/blobifier.cfg\]'
-                already_included=$(grep -c "${i}" ${dest} || true)
-                if [ "${already_included}" -eq 0 ]; then
-                    sed -i "1i ${i}" ${dest}
-                fi
-            fi
-            for i in '\[include mmu/base/\*.cfg\]' ; do
-                already_included=$(grep -c "${i}" ${dest} || true)
-                if [ "${already_included}" -eq 0 ]; then
-                    sed -i "1i ${i}" ${dest}
-                fi
-            done
-        fi
-    else
-        echo -e "${WARNING}File ${PRINTER_CONFIG} file not found! Cannot include MMU configuration files"
-    fi
-}
-
-uninstall_printer_includes() {
-    echo -e "${INFO}Cleaning MMU references from ${PRINTER_CONFIG}"
-    dest=${KLIPPER_CONFIG_HOME}/${PRINTER_CONFIG}
-    if test -f $dest; then
-        next_dest="$(nextfilename "$dest")"
-        echo -e "${INFO}Copying original ${PRINTER_CONFIG} file to ${next_dest} before cleaning"
-        cp ${dest} ${next_dest}
-        cat "${dest}" | sed -e " \
-            /\[include mmu\/optional\/client_macros.cfg\]/ d; \
-            /\[include mmu\/optional\/mmu_menu.cfg\]/ d; \
-            /\[include mmu\/optional\/mmu_ercf_compat.cfg\]/ d; \
-            /\[include mmu\/mmu_software.cfg\]/ d; \
-            /\[include mmu\/mmu_parameters.cfg\]/ d; \
-            /\[include mmu\/mmu_hardware.cfg\]/ d; \
-            /\[include mmu\/mmu_filametrix.cfg\]/ d; \
-            /\[include mmu\/mmu_sequence.cfg\]/ d; \
-            /\[include mmu\/mmu_form_tip.cfg\]/ d; \
-            /\[include mmu\/mmu_cut_tip.cfg\]/ d; \
-            /\[include mmu\/mmu.cfg\]/ d; \
-            /\[include mmu\/base\/\*.cfg\]/ d; \
-            /\[include mmu\/addon\/\*.cfg\]/ d; \
-	        " > "${dest}.tmp" && mv "${dest}.tmp" "${dest}"
-    fi
-}
-
-install_update_manager() {
-    echo -e "${INFO}Adding update manager to moonraker.conf"
-    file="${KLIPPER_CONFIG_HOME}/moonraker.conf"
-    if [ -f "${file}" ]; then
-        restart=0
-
-        update_section=$(grep -c '\[update_manager happy-hare\]' ${file} || true)
-        if [ "${update_section}" -eq 0 ]; then
-            echo "" >> "${file}"
-            while read -r line; do
-                echo -e "${line}" >> "${file}"
-            done < "${SRCDIR}/moonraker_update.txt"
-            echo "" >> "${file}"
-            # The path for Happy-Hare on MIPS is /usr/data/Happy-Hare
-            if [ "$IS_MIPS" -eq 1 ]; then
-                sed -i 's|path: ~/Happy-Hare|path: /usr/data/Happy-Hare|' "${file}"
-                echo -e "${INFO}Update Happy-Hare path for MIPS architecture."
-            fi
-            restart=1
-        else
-            echo -e "${WARNING}[update_manager happy-hare] already exists in moonraker.conf - skipping install"
-        fi
-
-        # Quick "catch-up" update for new mmu_service
-        enable_preprocessor="True"
-        update_section=$(grep -c '\[mmu_server\]' ${file} || true)
-        if [ "${update_section}" -eq 0 ]; then
-            echo "" >> "${file}"
-            echo "[mmu_server]" >> "${file}"
-            echo "enable_file_preprocessor: ${enable_preprocessor}" >> "${file}"
-            echo "" >> "${file}"
-            restart=1
-        else
-            echo -e "${WARNING}[mmu_server] already exists in moonraker.conf - skipping install"
-        fi
-
-        # Quick "catch-up" update for new toolchange_next_pos pre-processing
-        update_section=$(grep -c 'enable_toolchange_next_pos' ${file} || true)
-        if [ "${update_section}" -eq 0 ]; then
-            awk '/^enable_file_preprocessor/ {print $0 "\nenable_toolchange_next_pos: True\n"; next} {print}' ${file} > ${file}.tmp && mv ${file}.tmp ${file}
-            restart=1
-            echo -e "${WARNING}Added new 'enable_toolchange_next_pos' to moonraker.conf"
-        fi
-
-        if [ "$restart" -eq 1 ]; then
-            restart_moonraker
-        fi
-    else
-        echo -e "${WARNING}moonraker.conf not found!"
-    fi
-}
-
-uninstall_update_manager() {
-    echo -e "${INFO}Removing update manager from moonraker.conf"
-    file="${KLIPPER_CONFIG_HOME}/moonraker.conf"
-    if [ -f "${file}" ]; then
-        restart=0
-
-        update_section=$(grep -c '\[update_manager happy-hare\]' ${file} || true)
-        if [ "${update_section}" -eq 0 ]; then
-            echo -e "${INFO}[update_manager happy-hare] not found in moonraker.conf - skipping removal"
-        else
-            cat "${file}" | sed -e " \
-                /\[update_manager happy-hare\]/,+6 d; \
-                    " > "${file}.new" && mv "${file}.new" "${file}"
-            restart=1
-        fi
-
-        update_section=$(grep -c '\[mmu_server\]' ${file} || true)
-        if [ "${update_section}" -eq 0 ]; then
-            echo -e "${INFO}[mmu_server] not found in moonraker.conf - skipping removal"
-        else
-            cat "${file}" | sed -e " \
-                /\[mmu_server\]/,+1 d; \
-                    " > "${file}.new" && mv "${file}.new" "${file}"
-            restart=1
-        fi
-
-        if [ "$restart" -eq 1 ]; then
-            restart_moonraker
-        fi
-    else
-        echo -e "${WARNING}moonraker.conf not found!"
-    fi
-}
-
-restart_klipper() {
-    if [ "$NOSERVICE" -ne 1 ]; then
-        echo -e "${INFO}Restarting Klipper..."
-
-        if [ "$IS_MIPS" -ne 1 ]; then
-            sudo systemctl restart ${KLIPPER_SERVICE}
-        else
-            set +e
-            /etc/init.d/*klipper_service restart
-            set -e
-        fi
-    else
-        echo -e "${WARNING}Klipper restart suppressed - Please restart ${KLIPPER_SERVICE} by hand"
-    fi
-}
-
-restart_moonraker() {
-    if [ "$NOSERVICE" -ne 1 ]; then
-        echo -e "${INFO}Restarting Moonraker..."
-
-        if [ "$IS_MIPS" -ne 1 ]; then
-            sudo systemctl restart moonraker
-        else
-            set +e
-            /etc/init.d/*moonraker_service restart
-            set -e
-        fi
-    else
-        echo -e "${WARNING}Moonraker restart suppressed - Please restart by hand"
-    fi
+ordinal() {
+    case "$1" in
+    *1[0-9] | *[04-9]) echo "$1"th ;;
+    *1) echo "$1"st ;;
+    *2) echo "$1"nd ;;
+    *3) echo "$1"rd ;;
+    esac
 }
 
 prompt_yn() {
+    if [ "${F_YES}" ]; then
+        printf "%s (y/n)? y\n" "$*"
+        return 1
+    fi
+
     while true; do
-        read -n1 -p "$@ (y/n)? " yn
+        printf "%s (y/n)? " "$*"
+        if ! read -r yn; then
+            echo
+            echo "${C_ERROR}Aborting: no answer available on stdin${C_OFF}" >&2
+            exit 1
+        fi
         case "${yn}" in
-            Y|y)
-                echo "y" 
-                break;;
-            N|n)
-                echo "n" 
-                break;;
-            *)
-                ;;
+        Y | y)
+            return 1
+            ;;
+        N | n)
+            return 0
+            ;;
         esac
     done
 }
 
-prompt_123() {
-    prompt=$1
-    max=$2
-    while true; do
-        read -p "${prompt} (1-${max})? " -n 1 number
-        if [[ "$number" =~ [1-${max}] ]]; then
-            echo ${number}
-            break
+prompt_n() {
+    max=$1
+    shift
+
+    while :; do
+        printf "%s (1-%s)? " "$*" "$max" >&2
+        read -r sel
+        case $sel in
+            ''|*[!0-9]*)
+                continue
+                ;;
+        esac
+        if [ "$sel" -ge 1 ] && [ "$sel" -le "$max" ]; then
+            printf "%s" "$sel"
+            return 0
         fi
     done
 }
 
-questionaire() {
-    # Set default substitution tokens
-    mmu_vendor="Other"
-    mmu_version="1.0"
-    extruder_homing_endstop="collision"
-    gate_homing_endstop="encoder"
-    gate_parking_distance=23.0
-    gate_endstop_to_encoder=0
-    servo_buzz_gear_on_down=0
-    servo_always_active=0
-    servo_duration=0.3
+trim() {
+    name=${1-}
+    name=${name#"${name%%[![:space:]]*}"} # Remove leading whitespace
+    name=${name%"${name##*[![:space:]]}"} # Remove trailing whitespace
+    echo "${name}"
+}
 
-    # mmu_hardware.cfg only...
-    gear_gear_ratio="80:20"
-    gear_run_current=0.5
-    gear_hold_current=0.1
-    sel_run_current=0.4
-    sel_hold_current=0.2
-    maximum_servo_angle=180
-    minimum_pulse_width=0.001
-    maximum_pulse_width=0.002
+# Run installer/unit_migration.py, which handles renamed, removed and reordered
+# multi-unit units. F_UNITS_BASELINE is the unit list before this run
+unit_migration() {
+    um_action=$1
+    shift
+    (cd "${SCRIPT_DIR}" &&
+        PYTHONPATH="${SCRIPT_DIR}:${SCRIPT_DIR}/installer/lib/kconfiglib:${PYTHONPATH:-}" \
+        "${INSTALLER_PY:-python3}" -m installer.unit_migration "${um_action}" \
+            --kconfig "${KCONFIG_CONFIG}" \
+            --config-home "${CONFIG_KLIPPER_CONFIG_HOME:-}" \
+            ${F_UNITS_BASELINE+"--baseline=${F_UNITS_BASELINE}"} "$@")
+}
 
-    echo
-    echo -e "${INFO}Let me see if I can get you started with initial configuration"
-    echo -e "You will still have some manual editing to perform but I will explain that later"
-    echo -e "(Note that all this script does is set a lot of the time consuming parameters in the config"
-    echo
-    echo -e "${PROMPT}${SECTION}What type of MMU are you running?${INPUT}"
-    echo -e "1) ERCF v1.1 (inc TripleDecky, Springy, Binky mods)"
-    echo -e "2) ERCF v2.0"
-    echo -e "3) Tradrack v1.0"
-    echo -e "4) Other (or just want starter config files)"
-    num=$(prompt_123 "MMU Type?" 4)
-    echo
-    case $num in
-        1)
-            HAS_ENCODER=yes
-            mmu_vendor="ERCF"
-            mmu_version="1.1"
-            servo_buzz_gear_on_down=3
-
-            echo
-            echo -e "${PROMPT}Some popular upgrade options for ERCF v1.1 can automatically be setup. Let me ask you about them...${INPUT}"
-            yn=$(prompt_yn "Are you using the 'Springy' sprung servo selector cart")
-            echo
-            case $yn in
-            y)
-                mmu_version+="s"
-                ;;
-            esac
-            yn=$(prompt_yn "Are you using the improved 'Binky' encoder")
-            echo
-            case $yn in
-            y)
-                mmu_version+="b"
-                ;;
-            esac
-            yn=$(prompt_yn "Are you using the wider 'Triple-Decky' filament blocks")
-            echo
-            case $yn in
-            y)
-                mmu_version+="t"
-                ;;
-            esac
-            ;;
-        2)
-            HAS_ENCODER=yes
-            mmu_vendor="ERCF"
-            mmu_version="2.0"
-            gate_parking_distance=13.0 # ThumperBlocks is 11.0
-            servo_buzz_gear_on_down=3
-            ;;
-        3)
-            HAS_ENCODER=no
-            mmu_vendor="Tradrack"
-            mmu_version="1.0"
-            extruder_homing_endstop="none"
-            gate_homing_endstop="mmu_gate"
-            gate_parking_distance=17.5
-            servo_buzz_gear_on_down=0
-
-            gear_gear_ratio="50:17"
-            gear_run_current=1.27
-            gear_hold_current=0.2
-            sel_run_current=0.63
-            sel_hold_current=0.2
-            echo -e "${PROMPT}Some popular upgrade options for Tradrack v1.0 can automatically be setup. Let me ask you about them...${INPUT}"
-            yn=$(prompt_yn "Are you using the 'Binky' encoder modification")
-            echo
-            case $yn in
-            y)
-                HAS_ENCODER=yes
-                mmu_version+="e"
-                extruder_homing_endstop="collision"
-                gate_homing_endstop="encoder"
-                gate_parking_distance=48.0
-                gate_endstop_to_encoder=31.0
-                ;;
-            esac
-            ;;
-        4)
-            HAS_ENCODER=yes
-            echo
-            echo -e "${WARNING}    IMPORTANT: Since you have a custom MMU you will need to setup some CAD dimensions and other key parameters... See doc"
-            ;;
+# Summarize any change to the multi-unit unit list and confirm a rename, removal
+# or reorder. Fails if the change isn't allowed in this upgrade mode or is declined
+review_unit_changes() {
+    um_status=0
+    unit_migration check --mode "${F_CFG_UPGRADE_MODE:-refresh}" || um_status=$?
+    case "${um_status}" in
+    0 | 10)
+        return 0
+        ;;
+    12)
+        # An unrecorded change outside Replace mode: carry on without migrating
+        F_UNITS_BASELINE=$(unit_migration current)
+        return 0
+        ;;
+    11)
+        F_UNITS_RESTRUCTURED=y
+        echo
+        if [ -n "${F_NO_SERVICE:-}" ] &&
+           prompt_yn "Service restarts are skipped so Klipper must be stopped first. Is it stopped"; then
+            return 1
+        fi
+        if prompt_yn "Apply these unit changes"; then
+            return 1
+        fi
+        echo
+        return 0
+        ;;
+    2)
+        return 1
+        ;;
+    *)
+        # The migration itself failed: install as before, without migrating
+        F_UNITS_BASELINE=
+        return 0
+        ;;
     esac
+}
 
-    mmu_num_gates=12
+# The installed unit list, before menuconfig can change it. If it can't be read,
+# renaming stays locked since nothing could be migrated
+capture_units_baseline() {
+    F_UNITS_BASELINE=$(unit_migration baseline) && set_units_restructure
+    export F_UNITS_BASELINE
+}
+
+# Renaming, deleting or reordering units needs Replace mode, unless nothing has been
+# installed or configured yet (e.g. a first './install.sh -i -n'), when there is
+# nothing to migrate
+set_units_restructure() {
+    if [ "${F_CFG_UPGRADE_MODE:-}" = replace ] || [ -z "${F_UNITS_BASELINE:-}" ]; then
+        export F_UNITS_RESTRUCTURE=y
+    fi
+}
+
+# The name a single unit has before menuconfig (unit0 when there is no config
+# yet), or nothing for multi-unit
+single_unit_name() {
+    (
+        unset CONFIG_MULTI_UNIT CONFIG_UNIT_NAME
+        [ -r "${KCONFIG_CONFIG}" ] && . "${KCONFIG_CONFIG}"
+        [ -z "${CONFIG_MULTI_UNIT:-}" ] && echo "${CONFIG_UNIT_NAME:-unit0}"
+    )
+}
+
+# True if a single unit was renamed in this run's menuconfig: its name differs
+# from the one before (F_UNIT_NAME_BEFORE) or from MCU_NAME, which keeps the old
+# name when menuconfig didn't re-parse after the rename
+single_unit_renamed() {
+    (
+        unset CONFIG_MULTI_UNIT CONFIG_UNIT_NAME CONFIG_MCU_NAME
+        [ -r "${KCONFIG_CONFIG}" ] && . "${KCONFIG_CONFIG}"
+        [ -z "${CONFIG_MULTI_UNIT:-}" ] && [ -n "${CONFIG_UNIT_NAME:-}" ] && {
+            [ "${CONFIG_UNIT_NAME}" != "${CONFIG_MCU_NAME:-}" ] ||
+                { [ -n "${F_UNIT_NAME_BEFORE:-}" ] && [ "${CONFIG_UNIT_NAME}" != "${F_UNIT_NAME_BEFORE}" ]; }
+        }
+    )
+}
+
+# A failed migration step only stops the install once a confirmed unit change is
+# underway, otherwise it is skipped so it can never block an ordinary install
+unit_migration_step() {
+    unit_migration "$@" && return 0
+    if [ -n "${F_UNITS_RESTRUCTURED:-}" ]; then
+        echo "${C_ERROR}MMU unit migration step '$1' failed, stopping${C_OFF}"
+        return 1
+    fi
+    echo "${C_WARNING}MMU unit migration step '$1' failed, continuing without it${C_OFF}"
+    return 0
+}
+
+time_elapsed() {
+    START_TIME=$("${INSTALLER_PY}" -c "import time; print(time.time())")
+    "${@}"
+    END_TIME=$("${INSTALLER_PY}" -c "import time; print(time.time())")
+    echo "${START_TIME} ${END_TIME}" | awk '{printf "Elapsed: %.1f seconds", $2 - $1}'
     echo
-    echo -e "${PROMPT}${SECTION}How many gates (selectors) do you have?${INPUT}"
-    while true; do
-        read -p "Number of gates? " mmu_num_gates
-        if ! [ "${mmu_num_gates}" -ge 1 ] 2> /dev/null ;then
-            echo -e "${INFO}Positive integer value only"
-      else
-           break
-       fi
+}
+
+
+##################################
+##### Config Backup/Recovery #####
+##################################
+
+# Best-effort guess at the printer config directory for early recovery and v3 checks,
+# before self-update/menuconfig have touched anything. Kconfig resolves this
+# authoritatively later in the script; this just needs to be good enough for these
+# preflight operations.
+guess_klipper_config_home() {
+    if [ -n "${TESTDIR}" ]; then
+        echo "${TESTDIR}/printer_data/config"
+    elif [ -n "${CONFIG_KLIPPER_CONFIG_HOME}" ]; then
+        echo "${CONFIG_KLIPPER_CONFIG_HOME}"
+    elif [ -d "/usr/data/printer_data/config" ]; then
+        echo "/usr/data/printer_data/config"
+    else
+        echo "${HOME}/printer_data/config"
+    fi
+}
+
+# Copy the base and any per-unit Kconfig files from the restored MMU directory
+# into Happy-Hare. Files ending in .old are prior Kconfig snapshots.
+copy_recovered_kconfigs() {
+    restored_config=$1
+    recovery_destination=${SCRIPT_DIR}
+    if [ -n "${TESTDIR}" ]; then
+        recovery_destination=${TESTDIR}
+        mkdir -p "${recovery_destination}"
+    fi
+
+    # A pending unit migration belongs to the config being replaced
+    rm -f "${recovery_destination}/.mmu_config.unit_migration" \
+        "${recovery_destination}"/.mmu_config.*.changes
+
+    recovered=n
+    for config_file in "${restored_config}"/.mmu_config*; do
+        [ -f "${config_file}" ] || continue
+        case "${config_file}" in
+        *.old) continue ;;
+        esac
+        echo "${C_INFO}Recovering '$(basename "${config_file}")' from '$(basename "${restored_config}")'${C_OFF}"
+        cp -p "${config_file}" "${recovery_destination}/$(basename "${config_file}")"
+        recovered=y
     done
-    mmu_num_leds=$(expr $mmu_num_gates + 1)
 
-    brd_type="unknown"
-    echo
-    echo -e "${PROMPT}${SECTION}Select mcu board type used to control MMU${INPUT}"
-    echo -e " 1) BTT MMB v1.0 (with CANbus)"
-    echo -e " 2) BTT MMB v1.1 (with CANbus)"
-    echo -e " 3) Fysetc Burrows ERB v1"
-    echo -e " 4) Fysetc Burrows ERB v2"
-    echo -e " 5) Standard EASY-BRD (with SAMD21)"
-    echo -e " 6) EASY-BRD with RP2040"
-    echo -e " 7) Mellow EASY-BRD v1.x (with CANbus)"
-    echo -e " 8) Mellow EASY-BRD v2.x (with CANbus)"
-    echo -e " 9) Not in list / Unknown"
-    num=$(prompt_123 "MCU type?" 9)
-    echo
-    case $num in
-        1)
-            brd_type="MMB10"
-            pattern="Klipper_stm32"
-            ;;
-        2)
-            brd_type="MMB11"
-            pattern="Klipper_stm32"
-            ;;
-        3)
-            brd_type="ERB"
-            pattern="Klipper_rp2040"
-            ;;
-        4)
-            brd_type="ERBv2"
-            pattern="Klipper_rp2040"
-            ;;
-        5)
-            brd_type="EASY-BRD"
-            pattern="Klipper_samd21"
-            ;;
-        6)
-            brd_type="EASY-BRD-RP2040"
-            pattern="Klipper_rp2040"
-            ;;
-        7)
-            brd_type="MELLOW-EASY-BRD-CAN"
-            pattern="Klipper_rp2040"
-            ;;
-        8)
-            brd_type="MELLOW-EASY-BRD-CANv2"
-            pattern="Klipper_rp2040"
-            ;;
-        9)
-            brd_type="unknown"
-            pattern="Klipper_"
-            ;;
-    esac
+    if [ "${recovered}" = n ]; then
+        echo "${C_WARNING}No recoverable .mmu_config files found in '${restored_config}'${C_OFF}"
+    fi
+}
 
-    serial=""
+# Preserve the current MMU directory with the installer's standard timestamped
+# backup naming, restore the selected directory wholesale, then recover its
+# active Kconfig files into Happy-Hare before normal install processing begins.
+restore_mmu_config() {
+    selected_config=$1
+    config_home=$(guess_klipper_config_home)
+    current_config="${config_home}/mmu"
+
+    # The installed config is already in the desired location. Only recover its
+    # Kconfig files into Happy-Hare; the normal install will make its usual backup.
+    if [ "${selected_config}" = "${current_config}" ]; then
+        copy_recovered_kconfigs "${current_config}"
+        return 0
+    fi
+
+    if [ -e "${current_config}" ]; then
+        backup_base="${config_home}/mmu.old-$(date +%Y%m%d-%H%M%S)"
+        current_backup=${backup_base}
+        backup_suffix=0
+        while [ -e "${current_backup}" ]; do
+            backup_suffix=$((backup_suffix + 1))
+            current_backup="${backup_base}-${backup_suffix}"
+        done
+
+        echo "${C_INFO}Backing up current MMU config to '$(basename "${current_backup}")'${C_OFF}"
+        mv "${current_config}" "${current_backup}"
+    fi
+
+    echo "${C_INFO}Restoring MMU config from '$(basename "${selected_config}")'${C_OFF}"
+    cp -R "${selected_config}" "${current_config}"
+    copy_recovered_kconfigs "${current_config}"
+    export F_NO_MMU_BACKUP=y
+}
+
+# Format the timestamp embedded in standard mmu.old-YYYYMMDD-HHMMSS backup names.
+format_recovery_choice() {
+    backup_name=$(basename "$1")
+    if [ "$2" = current ]; then
+        echo "${backup_name} (current config)"
+        return 0
+    fi
+
+    backup_timestamp=$(printf '%s\n' "${backup_name}" | sed -n \
+        's/^mmu\.old-\([0-9][0-9][0-9][0-9]\)\([0-9][0-9]\)\([0-9][0-9]\)-\([0-9][0-9]\)\([0-9][0-9]\)\([0-9][0-9]\)$/\1-\2-\3 \4:\5:\6/p')
+    if [ -n "${backup_timestamp}" ]; then
+        echo "${backup_name} (${backup_timestamp})"
+    else
+        echo "${backup_name}"
+    fi
+}
+
+# Recover entry 1 from the same ordering shown by --prev: the current installed
+# config when available, otherwise the newest timestamped backup.
+recover_last_config() {
+    config_home=$(guess_klipper_config_home)
+    current_config="${config_home}/mmu"
+
+    if [ -d "${current_config}" ] && [ -f "${current_config}/.mmu_config" ]; then
+        restore_mmu_config "${current_config}"
+        return 0
+    fi
+
+    last_backup=
+    for backup_dir in "${config_home}"/mmu*; do
+        [ -d "${backup_dir}" ] || continue
+        [ "${backup_dir}" != "${current_config}" ] || continue
+        [ -f "${backup_dir}/.mmu_config" ] || continue
+        last_backup=${backup_dir}
+    done
+
+    if [ -z "${last_backup}" ]; then
+        echo "${C_WARNING}No MMU configuration containing .mmu_config found in '${config_home}'${C_OFF}"
+        return 0
+    fi
+
+    restore_mmu_config "${last_backup}"
+}
+
+# List the current config first, when available, followed by every eligible backup
+# in reverse lexical order. Standard backup timestamps make that newest-to-oldest.
+recover_previous_config() {
+    config_home=$(guess_klipper_config_home)
+    current_config="${config_home}/mmu"
+
+    # Build the ordered choice list in this function's positional parameters.
+    # Prepending each glob match reverses the normal oldest-to-newest ordering.
+    set --
+    for backup_dir in "${config_home}"/mmu*; do
+        [ -d "${backup_dir}" ] || continue
+        [ "${backup_dir}" != "${current_config}" ] || continue
+        [ -f "${backup_dir}/.mmu_config" ] || continue
+        set -- "${backup_dir}" "$@"
+    done
+    if [ -d "${current_config}" ] && [ -f "${current_config}/.mmu_config" ]; then
+        set -- "${current_config}" "$@"
+    fi
+
     echo
-    for line in `ls /dev/serial/by-id 2>/dev/null | grep -E "Klipper_"`; do
-        if echo ${line} | grep --quiet "${pattern}"; then
-            echo -e "${PROMPT}${SECTION}This looks like your ${EMPHASIZE}${brd_type}${PROMPT} controller serial port. Is that correct?${INPUT}"
-            yn=$(prompt_yn "/dev/serial/by-id/${line}")
-            echo
-            case $yn in
-                y)
-                    serial="/dev/serial/by-id/${line}"
-                    break
-                    ;;
-                n)
-                    ;;
-            esac
+    echo "${C_INFO}Available MMU configuration backups:${C_OFF}"
+    backup_count=0
+    for backup_dir in "$@"; do
+        backup_count=$((backup_count + 1))
+        if [ "${backup_dir}" = "${current_config}" ]; then
+            echo "  ${backup_count}) $(format_recovery_choice "${backup_dir}" current)"
+        else
+            echo "  ${backup_count}) $(format_recovery_choice "${backup_dir}" backup)"
         fi
     done
-    if [ "${serial}" == "" ]; then
-        echo
-        echo -e "${WARNING}    Couldn't find your serial port, but no worries - I'll configure the default and you can manually change later"
-        serial='/dev/ttyACM1 # Config guess. Run ls -l /dev/serial/by-id and set manually'
-    fi
 
-    # Avoid pin duplication
-    if [ "${HAS_ENCODER}" == "yes" ]; then
-        eval PIN[${brd_type},gate_sensor_pin]=""
-    else
-        eval PIN[${brd_type},encoder_pin]=""
+    if [ "${backup_count}" -eq 0 ]; then
+        echo "${C_WARNING}No MMU configuration containing .mmu_config found in '${config_home}'${C_OFF}"
+        return 0
     fi
 
     echo
-    echo -e "${PROMPT}${SECTION}Touch selector operation using TMC Stallguard? This allows for additional selector recovery steps but is difficult to tune"
-    echo -e "Not recommend if you are new to MMU/Happy Hare & MCU must have DIAG output for steppers. Can configure later${INPUT}"
-    yn=$(prompt_yn "Enable selector touch operation")
-    echo
-    case $yn in
-        y)
-            if [ "${brd_type}" == "EASY-BRD" ]; then
-                echo
-                echo -e "${WARNING}    IMPORTANT: Set the J6 jumper pins to 2-3 and 4-5, i.e. .[..][..]  MAKE A NOTE NOW!!"
-            fi
-            SETUP_SELECTOR_TOUCH=1
-            ;;
-        n)
-            if [ "${brd_type}" == "EASY-BRD" ]; then
-                echo
-                echo -e "${WARNING}    IMPORTANT: Set the J6 jumper pins to 1-2 and 4-5, i.e. [..].[..]  MAKE A NOTE NOW!!"
-            fi
-            SETUP_SELECTOR_TOUCH=0
-            ;;
-    esac
-
-    echo
-    echo -e "${PROMPT}${SECTION}Would you like to have neopixel LEDs setup now for your MMU?${INPUT}"
-    yn=$(prompt_yn "Enable LED support?")
-    echo
-    case $yn in
-        y)
-            SETUP_LED=1
-            ;;
-        n)
-            SETUP_LED=0
-            ;;
-    esac
-
-    if [ "${mmu_vendor}" == "ERCF" ]; then
-        maximum_servo_angle=180
-        minimum_pulse_width=0.00085
-        maximum_pulse_width=0.00215
-
-        echo
-        echo -e "${PROMPT}${SECTION}Which servo are you using?"
-        echo -e "1) MG-90S"
-        echo -e "2) Savox SH0255MG"
-        echo -e "3) GDW DS041MG"
-        echo -e "4) Not listed / Other${INPUT}"
-        num=$(prompt_123 "Servo?" 4)
-        echo
-        case $num in
-            1)
-                # MG-90S
-                servo_up_angle=30
-                if [ "${mmu_version}" == "2.0" ]; then
-                    servo_move_angle=61
-                else
-                    servo_move_angle=${servo_up_angle}
-                fi
-                servo_down_angle=140
-                ;;
-            2)
-                # Savox SH0255MG
-                servo_up_angle=140
-                if [ "${mmu_version}" == "2.0" ]; then
-                    servo_move_angle=109
-                else
-                    servo_move_angle=${servo_up_angle}
-                fi
-                servo_down_angle=30
-                ;;
-            3)
-                # GDW DS041MG
-                servo_always_active=1
-                maximum_servo_angle=180
-                minimum_pulse_width=0.00050
-                maximum_pulse_width=0.00250
-                servo_up_angle=30
-                if [ "${mmu_version}" == "2.0" ]; then
-                    servo_move_angle=50
-                else
-                    servo_move_angle=${servo_up_angle}
-                fi
-                servo_down_angle=100
-        esac
-
-    elif [ "${mmu_vendor}" == "Tradrack" ]; then
-        maximum_servo_angle=131
-        minimum_pulse_width=0.00070
-        maximum_pulse_width=0.00220
-
-        echo
-        echo -e "${PROMPT}${SECTION}Which servo are you using?"
-        echo -e "1) PS-1171MG or FT1117M (Tradrack)"
-        echo -e "2) Not listed / Other${INPUT}"
-        num=$(prompt_123 "Servo?" 2)
-        echo
-        case $num in
-            1)
-                servo_up_angle=145
-                servo_move_angle=${servo_up_angle}
-                servo_down_angle=1
-                ;;
-        esac
-
-    else
-        servo_up_angle=0
-        servo_move_angle=0
-        servo_down_angle=0
-    fi
-
-    if [ "${mmu_vendor}" == "ERCF" -o "${HAS_ENCODER}" == "yes" ]; then
-        echo
-        echo -e "${PROMPT}${SECTION}Clog detection? This uses the MMU encoder movement to detect clogs and can call your filament runout logic${INPUT}"
-        yn=$(prompt_yn "Enable clog detection")
-        echo
-        case $yn in
-            y)
-                enable_clog_detection=1
-                echo -e "${PROMPT}    Would you like MMU to automatically adjust clog detection length (recommended)?${INPUT}"
-                yn=$(prompt_yn "    Automatic")
-                echo
-                if [ "${yn}" == "y" ]; then
-                    enable_clog_detection=2
-                fi
-                ;;
-            n)
-                enable_clog_detection=0
-                ;;
-        esac
-    else
-        enable_clog_detection=0
-    fi
-
-    echo
-    echo -e "${PROMPT}${SECTION}EndlessSpool? This uses filament runout detection to automate switching to new spool without interruption${INPUT}"
-    yn=$(prompt_yn "Enable EndlessSpool")
-    echo
-    case $yn in
-        y)
-            enable_endless_spool=1
-            ;;
-        n)
-            enable_endless_spool=0
-            ;;
-    esac
-
-    echo
-    MENU_12864=0
-    ERCF_COMPAT=0
-    echo -e "${PROMPT}${SECTION}Finally, would you like me to include all the MMU config files into your ${PRINTER_CONFIG} file${INPUT}"
-    yn=$(prompt_yn "Add include?")
-    echo
-    case $yn in
-        y)
-            INSTALL_PRINTER_INCLUDES=1
-            echo -e "${PROMPT}    Would you like to include Mini 12864 menu configuration extension for MMU${INPUT}"
-            yn=$(prompt_yn "    Include menu")
+    selected=$(prompt_n "${backup_count}" "Choose backup to restore from")
+    current=0
+    for backup_dir in "$@"; do
+        current=$((current + 1))
+        if [ "${current}" -eq "${selected}" ]; then
             echo
-            case $yn in
-                y)
-                    MENU_12864=1
-                    ;;
-                n)
-                    MENU_12864=0
-                    ;;
-            esac
-
-            echo -e "${PROMPT}    Would you like to include subset of the legacy ERCF_ command set compatibility module${INPUT}"
-            yn=$(prompt_yn "    Include legacy ERCF command set (not recommended)")
-            echo
-            case $yn in
-                y)
-                    ERCF_COMPAT=1
-                    ;;
-                n)
-                    ERCF_COMPAT=0
-                    ;;
-            esac
-
-            echo -e "${PROMPT}    Would you like to include the default pause/resume macros supplied with Happy Hare${INPUT}"
-            yn=$(prompt_yn "    Include client_macros.cfg")
-            echo
-            case $yn in
-                y)
-                    CLIENT_MACROS=1
-                    ;;
-                n)
-                    CLIENT_MACROS=0
-                    ;;
-            esac
-
-            echo -e "${PROMPT}    Addons: Would you like to include the EREC filament cutter macro (requires EREC servo installation)${INPUT}"
-            yn=$(prompt_yn "    Include mmu_erec_cutter.cfg")
-            echo
-            case $yn in
-                y)
-                    ADDONS_EREC=1
-                    ;;
-                n)
-                    ADDONS_EREC=0
-                    ;;
-            esac
-
-            echo -e "${PROMPT}    Addons: Would you like to include the Blobifier purge system (requires Blobifier servo installation)${INPUT}"
-            yn=$(prompt_yn "    Include blobifier.cfg")
-            echo
-            case $yn in
-                y)
-                    ADDONS_BLOBIFIER=1
-                    ;;
-                n)
-                    ADDONS_BLOBIFIER=0
-                    ;;
-            esac
-	    ;;
-        n)
-            INSTALL_PRINTER_INCLUDES=0
-            ;;
-    esac
-
-    echo -e "${WARNING}"
-    echo -e "mmu_vendor: ${mmu_vendor}"
-    echo -e "mmu_version: ${mmu_version}"
-    echo -e "mmu_num_gates: ${mmu_num_gates}"
-    echo -e "servo_up_angle: ${servo_up_angle}"
-    echo -e "servo_move_angle: ${servo_move_angle}"
-    echo -e "servo_down_angle: ${servo_down_angle}"
-    echo -e "enable_clog_detection: ${enable_clog_detection}"
-    echo -e "enable_endless_spool: ${enable_endless_spool}"
-
-    echo
-    echo -e "${INFO}"
-    echo "    vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv"
-    echo
-    echo "    NOTES:"
-    echo "     What still needs to be done:"
-    if [ "${brd_type}" == "unknown" ]; then
-        echo "         * Edit *.cfg files and substitute all missing pins"
-    else
-        echo "         * Review all pin configuration and change to match your mcu"
-    fi
-    echo "         * Verify motor current, especially if using non BOM motors"
-    echo "         * Adjust motor direction with '!' on pin if necessary. No way to know here"
-    echo "         * Adjust your config for loading and unloading preferences"
-    echo 
-    echo "    Later:"
-    echo "         * Tweak configurations like speed and distance in mmu/base/mmu_parameter.cfg"
-    echo 
-    echo "    Good luck! MMU is complex to setup. Remember Discord is your friend.."
-    echo
-    echo "    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
-    echo
+            restore_mmu_config "${backup_dir}"
+            return 0
+        fi
+    done
 }
 
-usage() {
-    echo -e "${EMPHASIZE}"
-    echo "Usage: $0 [-a <kiauh_alternate_klipper>] [-k <klipper_home_dir>] [-c <klipper_config_dir>] [-m <moonraker_home_dir>] [-b <branch>] [-r <repetier_server stub>] [-i] [-d] [-z]"
-    echo
-    echo "-i for interactive install"
-    echo "-d for uninstall"
-    echo "-b to switch to specified feature branch (sticky)"
-    echo "-z skip github check (nullifies -b <branch>)"
-    echo "-r specify Repetier-Server <stub> to override printer.cfg and klipper.service names"
-    echo "-a <name> to specify alternative klipper-service-name when installed with Kiauh"
-    echo "-c <dir> to specify location of non-default klipper config directory"
-    echo "-k <dir> to specify location of non-default klipper home directory"
-    echo "(no flags for safe re-install / upgrade)"
-    echo
-    exit 1
+# Point Moonraker's update manager at a specific branch, so future automatic updates
+# keep tracking it instead of drifting back to whatever primary_branch was there before.
+# Scoped to the [update_manager happy-hare] section only - other [update_manager ...]
+# sections (for other repos) must not be touched.
+set_moonraker_primary_branch() {
+    branch="$1"
+    moonraker_conf="$(guess_klipper_config_home)/moonraker.conf"
+    if [ -f "${moonraker_conf}" ] && grep -q '^\[update_manager happy-hare\]' "${moonraker_conf}"; then
+        echo "${C_INFO}Pointing Moonraker's update manager at the '${branch}' branch...${C_OFF}"
+        awk -v branch="${branch}" '
+            /^\[update_manager happy-hare\]/ { in_section=1; print; next }
+            /^\[/ { in_section=0 }
+            in_section && /^primary_branch:/ { print "primary_branch: " branch; next }
+            { print }
+        ' "${moonraker_conf}" >"${moonraker_conf}.tmp" && mv "${moonraker_conf}.tmp" "${moonraker_conf}"
+    fi
 }
 
-# Find SRCDIR from the pathname of this script
-SRCDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/ && pwd )"
-SETUP_TOOLHEAD_SENSOR=0
-SETUP_SELECTOR_TOUCH=0
-SETUP_LED=0
 
-INSTALL=0
-UNINSTALL=0
-NOSERVICE=0
-INSTALL_KLIPPER_SCREEN_ONLY=0
-PRINTER_CONFIG=printer.cfg
-KLIPPER_SERVICE=klipper.service
+##### V3 Upgrade support vvv ##################################################################
 
-while getopts "a:b:k:c:m:r:idsz" arg; do
-    case $arg in
-        a) KLIPPER_SERVICE=${OPTARG}.service;;
-        b) N_BRANCH=${OPTARG};;
-        k) KLIPPER_HOME=${OPTARG};;
-        m) MOONRAKER_HOME=${OPTARG};;
-        c) KLIPPER_CONFIG_HOME=${OPTARG};;
-        r) PRINTER_CONFIG=${OPTARG}.cfg
-	   KLIPPER_SERVICE=klipper_${OPTARG}.service
-           echo "Repetier-Server <stub> specified. Over-riding printer.cfg to [${PRINTER_CONFIG}] & klipper.service to [${KLIPPER_SERVICE}]"
-	   ;;
-        i) INSTALL=1;;
-        d) UNINSTALL=1;;
-        s) NOSERVICE=1;;
-        z) SKIP_UPDATE=1;;
-        *) usage;;
+# Detect a v3 install: no v4 Kconfig file yet, but a v3-era mmu_parameters.cfg already
+# on disk with a "happy_hare_version: 3.x" stamp (the value Happy Hare itself writes
+# and trusts for exactly this purpose).
+v3_detected() {
+    guessed_kconfig="${KCONFIG_CONFIG:-${SCRIPT_DIR}/.mmu_config}"
+    v3_cfg="$(guess_klipper_config_home)/mmu/base/mmu_parameters.cfg"
+    [ ! -e "${guessed_kconfig}" ] \
+        && [ -f "${v3_cfg}" ] \
+        && grep -qE '^[[:space:]]*happy_hare_version[[:space:]]*[:=][[:space:]]*3\.' "${v3_cfg}"
+}
+
+# The v3 -> v4 choice ("blue pill" stay on v3 / "red pill" upgrade to v4) has to be
+# settled before anything else in this script touches git, the filesystem, or Klipper/
+# Moonraker config - including self-update's own git pull, -f's symlink fix, and
+# uninstall. Runs for any invocation (default, -i, -u, -f, ...); the only exemptions
+# are -h/usage (already exited by then) and the internal re-exec after self-update or
+# after switching branches below (F_SKIP_UPDATE=force), so this never re-prompts itself
+# in a loop.
+offer_v3_v4_choice() {
+    echo
+    echo "${C_WARNING}------------------------------------------------------------------------${C_OFF}"
+    echo "${C_WARNING}Happy Hare v4 is a major rework with breaking changes, and your existing${C_OFF}"
+    echo "${C_WARNING}install looks like the previous (v3) release.${C_OFF}"
+    echo "${C_WARNING}Much like The Matrix you have a choice..${C_OFF}"
+    echo
+    echo "${C_WARNING}1) Take the Blue 'ignorance' pill and stay on v3${C_OFF}"
+    echo "   This switches this checkout to the 'v3' branch and points Moonraker's update"
+    echo "   manager at it, so future updates keep tracking v3 instead of v4."
+    echo "   You are free to upgrade at a later date."
+    echo
+    echo "${C_WARNING}2) Take the Red 'awakening' pill and upgrade to v4${C_OFF}"
+    echo "   Your whole v3 'mmu' config directory is renamed to 'mmu.V3' (untouched, not"
+    echo "   deleted), old includes are removed from printer.cfg and moonraker.conf, and"
+    echo "   you're walked through a FRESH v4 setup via menuconfig. Nothing from mmu.V3"
+    echo "   is carried over automatically - it's there for you to copy values back out of."
+    echo
+    echo "More details: https://moggieuk.github.io/Happy-Hare-Doc/Upgrade-v3-v4/"
+    echo "${C_WARNING}------------------------------------------------------------------------${C_OFF}"
+    echo
+
+    sel=$(prompt_n 2 "Choose your pill (option)")
+    echo
+
+    if [ "${sel}" = "1" ]; then
+        set_moonraker_primary_branch v3
+        echo "${C_INFO}Switching to the 'v3' branch...${C_OFF}"
+        export BRANCH=v3
+        "$SCRIPT_DIR/installer/self_update.sh" || exit 1
+        # The branch switch above already fetched and pulled v3. Its installer uses
+        # SKIP_UPDATE (rather than v4's F_SKIP_UPDATE) to suppress a redundant update.
+        SKIP_UPDATE=YES F_SKIP_UPDATE=force exec "$0" "$@"
+    else
+        echo "${C_WARNING}Proceeding with the v4 upgrade. Your v3 'mmu' config directory will be${C_OFF}"
+        echo "${C_WARNING}renamed to 'mmu.V3' for reference - nothing is deleted.${C_OFF}"
+        echo
+        # Consulted once Kconfig has resolved real paths (see v3_upgrade_cleanup),
+        # since CONFIG_KLIPPER_CONFIG_HOME etc. don't exist yet at this point in the
+        # script. export, not just assignment, so it survives the self-update re-exec.
+        export F_V3_UPGRADE=y
+    fi
+}
+
+# Give a completely clean start to a v3 -> v4 upgrade ("red pill", F_V3_UPGRADE=y):
+# back up the whole old 'mmu' config directory (never delete it), then strip HH's old
+# includes/sections from printer.cfg and moonraker.conf so the imminent `make install`
+# rebuilds them fresh rather than merging into stale v3 content.
+#
+# Must run AFTER Kconfig has resolved real paths (menuconfig/olddefconfig, just above
+# this function's call site) - CONFIG_KLIPPER_CONFIG_HOME and friends do not exist
+# before that, and guess_klipper_config_home()'s best-effort guess is not good enough
+# to risk a mv/rm against. Every path used below is guarded for exactly this reason:
+# an unresolved variable here would turn a directory move into an operation on the
+# filesystem root.
+v3_upgrade_cleanup() {
+    unset CONFIG_KLIPPER_CONFIG_HOME CONFIG_PRINTER_CONFIG_FILE CONFIG_MOONRAKER_CONFIG_FILE
+    # shellcheck source=.mmu_config
+    . "${KCONFIG_CONFIG}"
+
+    case "${CONFIG_KLIPPER_CONFIG_HOME:-}" in
+        "~"*) CONFIG_KLIPPER_CONFIG_HOME="${HOME}${CONFIG_KLIPPER_CONFIG_HOME#\~}" ;;
+    esac
+    case "${CONFIG_PRINTER_CONFIG_FILE:-}" in
+        "~"*) CONFIG_PRINTER_CONFIG_FILE="${HOME}${CONFIG_PRINTER_CONFIG_FILE#\~}" ;;
+    esac
+    case "${CONFIG_MOONRAKER_CONFIG_FILE:-}" in
+        "~"*) CONFIG_MOONRAKER_CONFIG_FILE="${HOME}${CONFIG_MOONRAKER_CONFIG_FILE#\~}" ;;
+    esac
+
+    if [ -z "${CONFIG_KLIPPER_CONFIG_HOME:-}" ]; then
+        echo "${C_ERROR}Could not resolve the printer config directory from '${KCONFIG_CONFIG}' -" \
+            "skipping v3 cleanup to be safe. Your old 'mmu' directory is untouched;" \
+            "clean it up by hand once you've confirmed the new install works.${C_OFF}"
+        return 0
+    fi
+
+    printer_cfg="${CONFIG_KLIPPER_CONFIG_HOME}/${CONFIG_PRINTER_CONFIG_FILE:-printer.cfg}"
+    moonraker_conf="${CONFIG_KLIPPER_CONFIG_HOME}/${CONFIG_MOONRAKER_CONFIG_FILE:-moonraker.conf}"
+    mmu_dir="${CONFIG_KLIPPER_CONFIG_HOME}/mmu"
+    backup_dir="${CONFIG_KLIPPER_CONFIG_HOME}/mmu.V3"
+
+    if [ -d "${mmu_dir}" ]; then
+        if [ -e "${backup_dir}" ]; then
+            backup_dir="${backup_dir}-$(date +%Y%m%d-%H%M%S)"
+        fi
+        echo "${C_INFO}Backing up your v3 config: '$(basename "${mmu_dir}")' -> '$(basename "${backup_dir}")'${C_OFF}"
+        mv "${mmu_dir}" "${backup_dir}"
+    fi
+
+    echo "${C_INFO}Removing old v3 includes from '$(basename "${printer_cfg}")' and" \
+        "'$(basename "${moonraker_conf}")'...${C_OFF}"
+    # -m installer.build needs SCRIPT_DIR on PYTHONPATH so it resolves regardless of the
+    # caller's cwd (unlike `make -C`, a bare `python -m` doesn't take a directory to run
+    # from). installer.build also imports the vendored kconfiglib at module scope
+    # regardless of which function is called, so that needs to be on PYTHONPATH too,
+    # matching what the Makefile exports for its own installer.build invocations.
+    PYTHONPATH="${SCRIPT_DIR}:${SCRIPT_DIR}/installer/lib/kconfiglib:${PYTHONPATH}" \
+        "${INSTALLER_PY}" -m installer.build --uninstall-includes "${printer_cfg}"
+    PYTHONPATH="${SCRIPT_DIR}:${SCRIPT_DIR}/installer/lib/kconfiglib:${PYTHONPATH}" \
+        "${INSTALLER_PY}" -m installer.build --uninstall-moonraker "${moonraker_conf}"
+
+    echo "${C_INFO}Cleaning up stale v3 Klipper/Moonraker symlinks...${C_OFF}"
+    time_elapsed run_make F_NO_SERVICE=y fix_links
+}
+
+##### V3 Upgrade support ^^^ ##################################################################
+
+
+# Resolve embedded layouts before any operation that could write to the checkout or config.
+detect_platform() {
+    os_type=""
+    machine_arch=$(uname -m 2>/dev/null || true)
+    os_release_name=$(awk -F= '
+        $1 == "NAME" {
+            value = substr($0, index($0, "=") + 1)
+            sub(/^"/, "", value)
+            sub(/"$/, "", value)
+            print value
+            exit
+        }
+    ' /etc/os-release 2>/dev/null || true)
+
+    if [ "${machine_arch}" = "mips" ] && [ -d "/usr/data/creality" ]; then
+        os_type="creality-k1"
+        [ -n "${CONFIG_KLIPPER_HOME:-}" ]        || CONFIG_KLIPPER_HOME=/usr/share/klipper
+        [ -n "${CONFIG_MOONRAKER_HOME:-}" ]      || CONFIG_MOONRAKER_HOME=/usr/data/moonraker/moonraker
+        [ -n "${CONFIG_KLIPPER_CONFIG_HOME:-}" ] || CONFIG_KLIPPER_CONFIG_HOME=/usr/data/printer_data/config
+    elif [ "${os_release_name}" = "FlyOS-Fast" ]; then
+        os_type="flyos-fast"
+        [ -n "${CONFIG_KLIPPER_HOME:-}" ]        || CONFIG_KLIPPER_HOME=/data/klipper
+        [ -n "${CONFIG_MOONRAKER_HOME:-}" ]      || CONFIG_MOONRAKER_HOME=/data/moonraker
+        [ -n "${CONFIG_KLIPPER_CONFIG_HOME:-}" ] || CONFIG_KLIPPER_CONFIG_HOME=/usr/share/printer_data/config
+    elif [ "${machine_arch}" = "mips" ] && [ "$(id -u)" -eq 0 ] && [ -d "/root/printer_software" ]; then
+        os_type="guppy-k1"
+        [ -n "${CONFIG_KLIPPER_HOME:-}" ]        || CONFIG_KLIPPER_HOME=/root/printer_software/klipper
+        [ -n "${CONFIG_MOONRAKER_HOME:-}" ]      || CONFIG_MOONRAKER_HOME=/root/printer_software/moonraker/moonraker
+        [ -n "${CONFIG_KLIPPER_CONFIG_HOME:-}" ] || CONFIG_KLIPPER_CONFIG_HOME=/root/printer_data/config
+    elif [ "${machine_arch}" = "mips" ] &&
+         { [ -z "${CONFIG_KLIPPER_HOME:-}" ] ||
+           [ -z "${CONFIG_KLIPPER_CONFIG_HOME:-}" ] ||
+           [ -z "${CONFIG_MOONRAKER_HOME:-}" ]; }; then
+        if [ "${F_OVERRIDE_CHECKS:-n}" = "y" ]; then
+            echo "${C_WARNING}WARNING: Unknown MIPS layout; continuing without platform-specific path defaults.${C_OFF}" >&2
+        else
+            echo "${C_ERROR}ERROR: Unknown MIPS layout. Specify all required paths with -k, -c and -m, or use -o to continue without platform defaults.${C_OFF}" >&2
+            if [ "$(id -u)" -ne 0 ]; then
+                echo "${C_INFO}Logging in as root may also allow ${SCRIPT_NAME} to identify the platform.${C_OFF}" >&2
+            fi
+            exit 1
+        fi
+    fi
+
+    export CONFIG_KLIPPER_HOME CONFIG_KLIPPER_CONFIG_HOME CONFIG_MOONRAKER_HOME
+}
+
+enforce_root_policy() {
+    if [ -n "${SUDO_COMMAND:-}" ]; then
+        echo "${C_ERROR}ERROR: Do not run ${SCRIPT_NAME} with sudo. Use the Klipper user, or log in as root on an embedded system.${C_OFF}" >&2
+        exit 1
+    fi
+
+    case "${os_type}" in
+    creality-k1 | flyos-fast | guppy-k1)
+        if [ "$(id -u)" -ne 0 ]; then
+            echo "${C_ERROR}ERROR: ${SCRIPT_NAME} must be run while logged in as root for ${os_type}.${C_OFF}" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        if [ "$(id -u)" -eq 0 ] && [ "${F_ALLOW_ROOT:-n}" != "y" ]; then
+            echo "${C_ERROR}ERROR: Running ${SCRIPT_NAME} as root is not recommended. Run it as the user that installed Klipper.${C_OFF}" >&2
+            echo "${C_INFO}Use -r to allow execution from a root login (not through sudo).${C_OFF}" >&2
+            exit 1
+        fi
+        ;;
+    esac
+}
+
+# Unit tests source the real installer functions, then exercise them against
+# temporary filesystem fixtures without entering the installer main routine.
+if [ "${INSTALL_SH_SOURCE_ONLY:-}" = y ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+
+# Convert long options to short options
+for arg in "$@"; do
+    shift
+    case "$arg" in
+        --emu) set -- "$@" -e ;;
+        --help) set -- "$@" -h ;;
+        --yes) set -- "$@" -y ;;
+        --last) set -- "$@" -l ;;
+        --prev) set -- "$@" -p ;;
+        *)     set -- "$@" "$arg" ;;
     esac
 done
 
-if [ "${INSTALL}" -eq 1 -a "${UNINSTALL}" -eq 1 ]; then
-    echo -e "${ERROR}Can't install and uninstall at the same time!"
+while getopts "rehfiudylpzsb:nk:c:m:a:toqv" arg; do
+    case $arg in
+    f)
+        FIX_LINKS=y
+        F_SKIP_UPDATE=y
+        ;;
+    i) F_MENUCONFIG=y ;;
+    u | d) F_UNINSTALL=y ;;
+    y) export F_YES=y ;;
+    l) F_RECOVER_LAST=y ;;
+    p) F_RECOVER_PREVIOUS=y ;;
+    z) export F_SKIP_UPDATE="${F_SKIP_UPDATE:=y}" ;;
+    s) export F_NO_SERVICE=y ;;
+    b) export BRANCH="${OPTARG}" ;;
+    n) export F_MULTI_UNIT=y ;;
+    k) export CONFIG_KLIPPER_HOME="${OPTARG}" ;;
+    c) export CONFIG_KLIPPER_CONFIG_HOME="${OPTARG}" ;;
+    m) export CONFIG_MOONRAKER_HOME="${OPTARG}" ;;
+    # TODO: Repetier-Server stub support
+    # R)
+    #     PRINTER_CONFIG=${OPTARG}.cfg
+    #     KLIPPER_SERVICE=klipper_${OPTARG}.service
+    #     echo "Repetier-Server <stub> specified. Over-riding printer.cfg to [${PRINTER_CONFIG}] & klipper.service to [${KLIPPER_SERVICE}]"
+    #     ;;
+    a) export CONFIG_KLIPPER_SERVICE="${OPTARG}.service" ;;
+    t) export TESTDIR=/tmp/mmu_test ;;
+    r) export F_ALLOW_ROOT=y ;;
+    o) export F_OVERRIDE_CHECKS=y ;;
+    q) export Q= ;;   # Developer: Disable quiet mode in Makefile
+    v) export V=-v ;; # Developer: Enable verbose mode in builder and debug in Makefile
+    e) export F_PER_GATE_MCU=y ;; # Allows multiple MCU selection but menuconfig startup time is increased
+    h) usage ;;
+    *) usage ;;
+    esac
+done
+
+# This must precede the v3 migration and self-update: both can write files, so a mistaken
+# sudo/root invocation needs to fail before either one runs.
+detect_platform
+enforce_root_policy
+
+if [ "${F_RECOVER_LAST}" ] && [ "${F_RECOVER_PREVIOUS}" ]; then
+    echo "${C_ERROR}Can't use --last and --prev at the same time!${C_OFF}"
+    exit 1
+fi
+
+if { [ "${F_RECOVER_LAST}" ] || [ "${F_RECOVER_PREVIOUS}" ]; } && [ "${F_UNINSTALL}" ]; then
+    echo "${C_ERROR}Can't recover a configuration and uninstall at the same time!${C_OFF}"
+    exit 1
+fi
+
+# Settle v3 vs v4 before recovery, self-update, or installation work. Detection
+# only inspects the existing v3 files and does not source a .mmu_config file.
+if [ "${F_SKIP_UPDATE}" != "force" ] && v3_detected; then
+    offer_v3_v4_choice
+fi
+
+# Recovery must remain in this early preflight position. In particular, it must
+# run before self-update, KCONFIG_CONFIG setup, or any code that sources a
+# .mmu_config file. Only option/platform/root checks and the v3 choice precede it.
+if { [ "${F_RECOVER_LAST}" ] || [ "${F_RECOVER_PREVIOUS}" ]; } && [ ! "${F_CONFIG_RECOVERED}" ]; then
+    if [ "${F_RECOVER_PREVIOUS}" ]; then
+        recover_previous_config
+    else
+        recover_last_config
+    fi
+    export F_CONFIG_RECOVERED=y
+fi
+
+# Handle git self update or branch change
+if [ "${F_SKIP_UPDATE}" = "force" ]; then
+    : # If we just restarted with a forced skip, do nothing
+elif [ ! "${F_SKIP_UPDATE}" ] && [ ! "${F_UNINSTALL}" ]; then
+    [ -t 1 ] && clear
+    # -b <branch> is what self_update.sh is about to act on below - pin Moonraker's
+    # update manager to match, or it silently drifts back to the old primary_branch on
+    # its next check. Skipped by -z, exactly as -b itself is (see usage: "-z ... nullifies
+    # -b <branch>") since self_update.sh never runs to consult BRANCH in that case either.
+    [ -n "${BRANCH}" ] && set_moonraker_primary_branch "${BRANCH}"
+    "$SCRIPT_DIR/installer/self_update.sh" || exit 1
+    F_SKIP_UPDATE=force exec "$0" "$@"
+else
+    [ -t 1 ] && clear
+    echo "${C_NOTICE}Skipping (git) self update${C_OFF}"
+fi
+
+shift $((OPTIND - 1))
+if [ "$1" ]; then
+    KCONFIG_CONFIG="$1"
+fi
+
+export KCONFIG_CONFIG="${KCONFIG_CONFIG-.mmu_config}"
+export PATH="${SCRIPT_DIR}:${PATH}"
+
+case "${os_type}" in
+creality-k1) echo "${C_INFO}Detected Creality K1 series printer${C_OFF}" ;;
+flyos-fast)  echo "${C_INFO}Detected FlyOS-Fast${C_OFF}" ;;
+guppy-k1)    echo "${C_INFO}Detected Guppy K1 Mod${C_OFF}" ;;
+esac
+
+# Summarize directory overrides
+[ -n "${CONFIG_KLIPPER_HOME:-}" ]        && echo "${C_INFO}KLIPPER_HOME=${CONFIG_KLIPPER_HOME}${C_OFF}"
+[ -n "${CONFIG_KLIPPER_CONFIG_HOME:-}" ] && echo "${C_INFO}KLIPPER_CONFIG_HOME=${CONFIG_KLIPPER_CONFIG_HOME}${C_OFF}"
+[ -n "${CONFIG_MOONRAKER_HOME:-}" ]      && echo "${C_INFO}MOONRAKER_HOME=${CONFIG_MOONRAKER_HOME}${C_OFF}"
+
+
+
+########################
+##### Python setup #####
+########################
+
+INSTALLER_PY=""
+checked_summary=""
+klipper_parent=""
+repo_venv=${VENV:-${SCRIPT_DIR}/venv}
+[ -z "${CONFIG_KLIPPER_HOME:-}" ] || klipper_parent=$(dirname -- "${CONFIG_KLIPPER_HOME}")
+
+# Prefer the environment adjacent to the selected Klipper checkout, then the conventional
+# environments under HOME. Keep the executable explicit instead of sourcing activate: the
+# same interpreter is passed to make and used by this script's direct Python calls.
+for python_path in \
+    "${klipper_parent:+${klipper_parent}/klipper-env/bin/python}" \
+    "${klipper_parent:+${klipper_parent}/klippy-env/bin/python}" \
+    "${HOME}/klipper-env/bin/python" \
+    "${HOME}/klippy-env/bin/python" \
+    "${repo_venv}/bin/python"; do
+    [ -n "${python_path}" ] || continue
+
+    if [ ! -x "${python_path}" ]; then
+        checked_summary="${checked_summary}${python_path}: not found
+"
+        continue
+    fi
+
+    case "$("${python_path}" --version 2>&1)" in
+        Python\ 3.*)
+            INSTALLER_PY=${python_path}
+            echo "${C_INFO}Using Python 3 from ${python_path%/bin/python}${C_OFF}"
+            break
+            ;;
+        *)
+            checked_summary="${checked_summary}${python_path}: Python 3 unavailable
+"
+            ;;
+    esac
+done
+
+# Fall back to python, or python3 on systems which do not provide the python alias.
+if [ -z "${INSTALLER_PY}" ]; then
+    for python_cmd in python python3; do
+        if ! command -v "${python_cmd}" >/dev/null 2>&1; then
+            checked_summary="${checked_summary}System ${python_cmd}: not found
+"
+            continue
+        fi
+
+        case "$("${python_cmd}" --version 2>&1)" in
+            Python\ 3.*)
+                INSTALLER_PY=${python_cmd}
+                echo "${C_WARNING}No suitable Klipper Python 3 venv found; continuing with ${python_cmd}${C_OFF}"
+                break
+                ;;
+            *)
+                checked_summary="${checked_summary}System ${python_cmd}: Python 3 unavailable
+"
+                ;;
+        esac
+    done
+fi
+
+if [ -z "${INSTALLER_PY}" ]; then
+    echo "${C_ERROR}ERROR: No suitable Python 3 environment found.${C_OFF}"
+    echo "${C_INFO}Checked:${C_OFF}"
+    printf '%s\n' "${checked_summary}" | while IFS= read -r entry; do
+        [ -n "${entry}" ] || continue
+        echo "  - ${entry}"
+    done
+    exit 1
+fi
+
+run_make() {
+    make --no-print-directory -C "${SCRIPT_DIR}" PY="${INSTALLER_PY}" "$@"
+}
+
+# Handle PEP 668 "externally managed" python environments that refuse pip installs without a venv, so installer's deps
+# (installer/requirements.txt) can never be resolved. Ask the Makefile to create and populate
+# the repo venv, then use that explicit interpreter for both shell and make commands.
+if [ -z "${PIP_ARGS}" ] && \
+   ! "${INSTALLER_PY}" -c 'import os, sys, sysconfig; sys.exit(0 if sys.prefix != sys.base_prefix or not os.path.exists(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED")) else 1)' 2>/dev/null; then
+    export VENV="${VENV:-${SCRIPT_DIR}/venv}"
+    echo "${C_INFO}System python is externally managed (PEP 668), using virtualenv '${VENV}'${C_OFF}"
+    run_make installer_venv
+    INSTALLER_PY="${VENV}/bin/python"
+fi
+
+
+
+if [ "${F_MENUCONFIG}" ] && [ "${F_UNINSTALL}" ]; then
+    echo "${C_ERROR}Can't install and uninstall at the same time!${C_OFF}"
     usage
 fi
 
-verify_not_root
-[ -z "${SKIP_UPDATE}" ] && {
-    self_update # Make sure the repo is up-to-date on correct branch
-}
-check_octoprint
-verify_home_dirs
-check_klipper
-cleanup_old_klippy_modules
-if [ "$UNINSTALL" -eq 0 ]; then
-
-    # Set in memory parameters from default file
-    set_default_tokens
-
-    if [ "${INSTALL}" -eq 1 ]; then
-        # Update in memory parameters from questionaire
-        questionaire
-        read_default_config
-
-        if [ "${INSTALL_PRINTER_INCLUDES}" -eq 1 ]; then
-            install_printer_includes
-        fi
+if [ "${TESTDIR}" ]; then
+    # Test mode redirects installation into a synthetic Klipper tree. Preserve the
+    # operational Klipper checkout so menuconfig can still run its CAN discovery tool.
+    if [ -n "${CONFIG_KLIPPER_HOME:-}" ]; then
+        export REAL_KLIPPER_HOME="${CONFIG_KLIPPER_HOME}"
+    elif [ -d "/usr/share/klipper" ]; then
+        export REAL_KLIPPER_HOME="/usr/share/klipper"
     else
-        read_default_config
-        read_previous_config # Update in memory parameters from previous install
+        export REAL_KLIPPER_HOME="${HOME}/klipper"
     fi
-
-    # Important to update version
-    FROM_VERSION=${_param_happy_hare_version}
-    if [ ! "${FROM_VERSION}" == "" ]; then
-        result=$(awk -v n1="$VERSION" -v n2="$FROM_VERSION" 'BEGIN {print (n1<n2) ? "1" : "0"}')
-        if [ "$result" -eq 1 ]; then
-            echo -e "${WARNING}Trying to update from version ${FROM_VERSION} to ${VERSION}"
-            echo -e "${ERROR}Automatic 'downgrade' to earlier version is not garanteed. If you encounter startup problems you may"
-            echo -e "${ERROR}need to manually compare the backed-up 'mmu_parameters.cfg' with current one to restore differences"
-#            echo -e "${ERROR}Cannot automatically 'upgrade' to earlier version. You must do this by hand"
-#            exit 1
-        elif [ ! "${FROM_VERSION}" == "${VERSION}" ]; then
-            echo -e "${WARNING}Upgrading from version ${FROM_VERSION} to ${VERSION}..."
-        fi
-    fi
-    _param_happy_hare_version=${VERSION}
-
-    copy_config_files
-
-    # Temp upgrades
-    upgrade_mmu_sensors
-    upgrade_led_effects
-
-    # Link in new components
-    link_mmu_plugins
-    install_update_manager
-
-else
+    export CONFIG_KLIPPER_HOME="${TESTDIR}/klipper"
+    export CONFIG_KLIPPER_CONFIG_HOME="${TESTDIR}/printer_data/config"
+    export CONFIG_MOONRAKER_HOME="${TESTDIR}/moonraker"
+    export F_NO_SERVICE=y
+    export KCONFIG_CONFIG="${TESTDIR}/.mmu_config"
     echo
-    echo -e "${WARNING}You have asked me to remove Happy Hare and cleanup"
-    echo
-    yn=$(prompt_yn "Are you sure you want to proceed with deleting Happy Hare?")
-    echo
-    case $yn in
-        y)
-            unlink_mmu_plugins
-            uninstall_update_manager
-            uninstall_printer_includes
-            uninstall_config_files
-            echo -e "${INFO}Uninstall complete except for the Happy-Hare directory - you can now safely delete that as well"
-            ;;
-        n)
-            echo -e "${INFO}Well that was a close call!  Everything still intact"
+    echo "${C_WARNING}Running in test mode to simulate without changing real configuration${C_OFF}"
+    echo "${C_WARNING}Forcing flags '-s -c ${CONFIG_KLIPPER_CONFIG_HOME} -k ${CONFIG_KLIPPER_HOME} -m ${CONFIG_MOONRAKER_HOME} ${TESTDIR}/.mmu_config' ${C_OFF}"
+    mkdir -p "${CONFIG_KLIPPER_HOME}/klippy/extras"
+    mkdir -p "${CONFIG_KLIPPER_CONFIG_HOME}"
+    mkdir -p "${CONFIG_MOONRAKER_HOME}/moonraker/components"
+    touch "${CONFIG_KLIPPER_CONFIG_HOME}/moonraker.conf"
+    touch "${CONFIG_KLIPPER_CONFIG_HOME}/printer.cfg"
+    if [ ! "${F_UNINSTALL}" ]; then
+        echo "${C_INFO}When complete look in ${TESTDIR} for results${C_OFF}"
+        echo
+        if prompt_yn "Continue"; then
             echo
-	    exit 0
-            ;;
-    esac
-fi
-
-if [ "$INSTALL" -eq 0 ]; then
-    if [ "$VERSION" == "2.70" -a "$FROM_VERSION" != "2.70" ]; then
-        restart_moonraker
+            exit 0
+        fi
+        echo
     fi
-    restart_klipper
-else
-    echo -e "${WARNING}Klipper not restarted automatically because you need to validate and complete config first"
 fi
 
-if [ "$UNINSTALL" -eq 0 ]; then
-    echo -e "${TITLE}Done."
-    echo -e "${INFO}"
-    echo '(\_/)'
-    echo '( *,*)'
-    echo '(")_(") Happy Hare Ready'
+if [ -n "${CONFIG_KLIPPER_HOME+x}" ] && [ ! -d "${CONFIG_KLIPPER_HOME}" ]; then
+    echo "${C_ERROR}Klipper config directory not found: ${CONFIG_KLIPPER_HOME}${C_OFF}"
+    exit 1
+fi
+
+if [ -n "${CONFIG_KLIPPER_CONFIG_HOME+x}" ] && [ ! -d "${CONFIG_KLIPPER_CONFIG_HOME}" ]; then
+    echo "${C_ERROR}Klipper config directory not found: ${CONFIG_KLIPPER_CONFIG_HOME}${C_OFF}"
+    exit 1
+fi
+
+if [ -n "${CONFIG_MOONRAKER_HOME+x}" ] && [ ! -d "${CONFIG_MOONRAKER_HOME}" ]; then
+    echo "${C_ERROR}Moonraker home directory not found: ${CONFIG_MOONRAKER_HOME}${C_OFF}"
+    exit 1
+fi
+
+
+
+# Fix links only
+# Restore klipper/moonraker symlinks
+# (users delete them if they "hard" update klipper/moonraker)
+if [ "${FIX_LINKS}" ]; then
+    echo "${C_INFO}Restoring Happy Hare klipper extras and moonraker components links${C_OFF}"
+    time_elapsed run_make fix_links
+    echo "${C_INFO}Run ~Happy-Hare/install.sh -i to (re)configure${C_OFF}"
+    exit 0
+fi
+
+
+#####################
+##### Uninstall #####
+#####################
+
+if [ "${F_UNINSTALL}" ]; then
+    echo "\n${C_WARNING}This will uninstall Happy Hare and cleanup prior config${C_OFF}"
+    if prompt_yn "Are you sure you want to continue"; then
+        echo
+        exit 0
+    fi
     echo
-else
-    echo -e "${EMPHASIZE}"
-    echo "Done.  Sad to see you go (but maybe you'll be back)..."
-    echo -e "${INFO}"
-    echo '(\_/)'
-    echo '( v,v)'
-    echo '(")^(") Very Unhappy Hare'
+    time_elapsed run_make uninstall &&
+        [ "${TESTDIR}" ] && rm -rf "${TESTDIR}"
+    exit 0
+fi
+
+
+
+################################
+##### Menuconfig / Refresh #####
+################################
+
+# Force F_PER_GATE_MCU if existing config already enables per-gate MCU support.
+# This preserves the expanded menuconfig behavior on later runs without needing -e.
+if [ -r "${KCONFIG_CONFIG}" ] && grep -q '^CONFIG_MMU_HAS_PER_GATE_MCU=y' "${KCONFIG_CONFIG}"; then
+    export F_PER_GATE_MCU=y
+fi
+
+# Decide whether interactive configuration is required.
+if [ ! -e "${KCONFIG_CONFIG}" ] && [ -z "${F_MENUCONFIG:-}" ]; then
+    echo "${C_INFO}No '${KCONFIG_CONFIG}' found, forcing interactive menu${C_OFF}"
+    echo
+    F_MENUCONFIG=y
+elif [ -r "${KCONFIG_CONFIG}" ] && [ -z "${F_MENUCONFIG:-}" ] && [ -n "${F_MULTI_UNIT:-}" ]; then
+    #shellcheck source=.mmu_config
+    . "${KCONFIG_CONFIG}"
+
+    if [ -z "${CONFIG_MULTI_UNIT:-}" ]; then
+        echo "${C_NOTICE}Current '${KCONFIG_CONFIG}' is not a multi-unit configuration, updating and forcing interactive menu${C_OFF}"
+        echo
+        F_MENUCONFIG=y
+    fi
+fi
+
+# If re-running with -i give the choice of refreshing from Kconfig or retaining custom .cfg modifications
+if [ -r "${KCONFIG_CONFIG}" ] && [ -n "${F_MENUCONFIG:-}" ]; then
+    echo "${C_WARNING}You are running an interactive install with existing menuconfig ('${KCONFIG_CONFIG}').${C_OFF}"
+    echo
+    echo "${C_WARNING}Read carefully, you have three options:${C_OFF}"
+    echo
+    echo "${C_WARNING}1) Refresh (select 1)${C_OFF} (Default upgrade path)"
+    echo "   This will NEVER CHANGE any manually edited .cfg parameter value and thus is limited"
+    echo "   to only ADDING NEW or missing config sections/options. Note that parameter values shown"
+    echo "   in menuconfig may be stale and not reflect your actual .cfg config"
+    echo
+    echo "${C_WARNING}2) Replace (select 2)${C_OFF} (Recommended)"
+    echo "   This will OVERWRITE changes made directly to your .cfg files and create new default"
+    echo "   configuration based on choices made in menuconfig (which initializes to your previous config)."
+    echo "   This is RECOMMENDED if you make ALL your configuration changes via menuconfig. It is also"
+    echo "   useful if you get into trouble and want to reset your starting position or change MMU."
+    echo
+    echo "${C_WARNING}3) Merge (select 3)${C_OFF}"
+    echo "   This will MERGE simple parameter values set in menuconfig but will retain other changes made"
+    echo "   directly to your .cfg files. This is useful if you manage most parameters via menuconfig but"
+    echo "   don't want, for example, to accidentally overwrite your carefully tweaked hardware configuration"
+    echo
+    echo "(Note that in all cases a BACKUP of your existing .cfg files will be made for reference)"
+    echo
+
+    sel=$(prompt_n 3 "Choose upgrade mode")
+    case "$sel" in
+        2) export F_CFG_UPGRADE_MODE=replace ;;
+        3) export F_CFG_UPGRADE_MODE=merge ;;
+        *) export F_CFG_UPGRADE_MODE=refresh ;;
+    esac
+
+    echo "${C_INFO}Launching menuconfig (${F_CFG_UPGRADE_MODE} mode)...${C_OFF}"
+    if [ -n "${F_PER_GATE_MCU:-}" ]; then
+        echo "${C_INFO}Per-gate MCU support enabled. Menuconfig startup will be slower.${C_OFF}"
+    fi
     echo
 fi
+
+
+# Helpers to run a Kconfig action (menuconfig or olddefconfig) across all relevant
+# relevant configuration files using the correct installation context.
+#
+# The traversal logic for top-level and per-unit configurations is centralized
+# here because multi-unit setups require additional context (UNIT_NAME,
+# UNIT_INDEX, MCU_NAME, sensor configuration, etc.) that Make alone does not
+# have. This ensures menuconfig and olddefconfig always operate on the same set
+# of configs with identical context.
+#
+# For olddefconfig, the Makefile's kconfig_needs_update target is used to detect
+# whether a config is stale by comparing its timestamp against the Kconfig
+# source files. Stale configs are automatically refreshed so that newly added
+# Kconfig options receive their default values.
+#
+# This is particularly important when running "./install.sh -i". If the user
+# enters menuconfig but exits without saving, the config timestamp remains
+# unchanged. A subsequent olddefconfig pass can therefore still detect that the
+# config is older than the Kconfig sources and update it with any new defaults.
+#
+# Expected behavior:
+#   - Interactive install (-i):
+#       * Run menuconfig for all applicable configs.
+#       * Run olddefconfig only on configs that are stale.
+#   - Non-interactive install/upgrade:
+#       * Skip menuconfig.
+#       * Run olddefconfig only on configs that are stale.
+#
+# This guarantees that new Kconfig defaults are always propagated to existing
+# installations while avoiding duplicate traversal logic and preserving the
+# correct context for multi-unit configurations.
+#
+run_kconfig_top() {
+    action=$1
+    only_if_stale=${2:-n}
+
+    unset CONFIG_MULTI_UNIT CONFIG_MMU_UNITS
+    [ -r "${KCONFIG_CONFIG}" ] && . "${KCONFIG_CONFIG}"
+
+    if [ -n "${F_MULTI_UNIT:-}" ] || [ -n "${CONFIG_MULTI_UNIT:-}" ]; then
+        run_kconfig_one "${KCONFIG_CONFIG}" "${action}" "${only_if_stale}" \
+            F_MULTI_UNIT_ENTRY_POINT=y \
+            F_MULTI_UNIT=y
+    else
+        run_kconfig_one "${KCONFIG_CONFIG}" "${action}" "${only_if_stale}"
+    fi
+}
+
+run_kconfig_units() {
+    action=$1
+    only_if_stale=${2:-n}
+
+    [ -r "${KCONFIG_CONFIG}" ] || return 0
+
+    unset CONFIG_MULTI_UNIT CONFIG_MMU_UNITS
+    . "${KCONFIG_CONFIG}"
+
+    if [ -n "${CONFIG_MULTI_UNIT:-}" ]; then
+        i=0
+        saved_ifs=$IFS
+        IFS=,
+        set -f
+        for name in ${CONFIG_MMU_UNITS:-}; do
+            name=$(trim "$name")
+            [ -n "$name" ] || continue
+
+            run_kconfig_one "${KCONFIG_CONFIG}_${name}" "${action}" "${only_if_stale}" \
+                KCONFIG_PARENT="${KCONFIG_CONFIG}" \
+                F_MULTI_UNIT=y \
+                UNIT_INDEX="$i" \
+                UNIT_NAME="$name" \
+                MCU_NAME="$name"
+
+            i=$((i + 1))
+        done
+        set +f
+        IFS=$saved_ifs
+    fi
+}
+
+run_kconfig_one() {
+    cfg=$1
+    action=$2
+    only_if_stale=$3
+    shift 3
+
+    if [ "${only_if_stale}" = "y" ]; then
+        needs=$(run_make \
+            KCONFIG_CONFIG="${cfg}" \
+            "$@" \
+            kconfig_needs_update)
+
+        [ "${needs}" = "y" ] || return 0
+        echo "${C_INFO}Updating Kconfig defaults in '${cfg}'${C_OFF}"
+    fi
+
+    run_make \
+        KCONFIG_CONFIG="${cfg}" \
+        "$@" \
+        "${action}"
+}
+
+
+
+################################
+##### Menuconfig / Refresh #####
+################################
+
+capture_units_baseline
+export F_UNIT_NAME_BEFORE="$(single_unit_name)"
+
+if [ -n "${F_MENUCONFIG:-}" ]; then
+    tmpconfig=
+
+    [ -r "${KCONFIG_CONFIG}" ] && . "${KCONFIG_CONFIG}"
+
+    if [ -r "${KCONFIG_CONFIG}" ] &&
+       [ -n "${F_MULTI_UNIT:-}" ] &&
+       [ -z "${CONFIG_MULTI_UNIT:-}" ]; then
+        tmpconfig="$(mktemp -t tmpconfig.XXXXXX)"
+        cp -- "${KCONFIG_CONFIG}" "${tmpconfig}"
+    fi
+
+    run_kconfig_top menuconfig n
+
+    if [ ! -e "${KCONFIG_CONFIG}" ]; then
+        echo "${C_ERROR}Config '${KCONFIG_CONFIG}' has not been saved, exiting.${C_OFF}"
+        exit 1
+    fi
+
+    # The single-unit config becomes that unit's file, which the unit migration then
+    # renames or sets aside to follow the edited unit list
+    if [ -n "${tmpconfig:-}" ]; then
+        first_unit=${F_UNITS_BASELINE%%,*}
+        mv "${tmpconfig}" "${KCONFIG_CONFIG}_${first_unit:-unit0}"
+    fi
+
+    review_unit_changes || exit 1
+    single_unit_renamed && F_UNIT_RENAMED=y
+    unit_migration_step kconfig || exit 1
+
+    run_kconfig_units menuconfig n
+else
+    review_unit_changes || exit 1
+    single_unit_renamed && F_UNIT_RENAMED=y
+    unit_migration_step kconfig || exit 1
+fi
+
+# Always refresh stale configs after any optional menuconfig pass. Renamed or moved
+# units must recompute their defaults (e.g. pin prefixes) even though not stale
+if [ -n "${F_UNIT_RENAMED:-}" ]; then
+    run_kconfig_top olddefconfig n
+else
+    run_kconfig_top olddefconfig y
+fi
+if [ -n "${F_UNITS_RESTRUCTURED:-}" ]; then
+    run_kconfig_units olddefconfig n
+else
+    run_kconfig_units olddefconfig y
+fi
+# A unit sharing a component owned by a unit refreshed after it reads the owner again
+run_kconfig_units olddefconfig y
+
+# Give the v3 -> v4 upgrade a clean start now that Kconfig has resolved real paths -
+# see v3_upgrade_cleanup for why this can't happen any earlier.
+if [ -n "${F_V3_UPGRADE:-}" ]; then
+    v3_upgrade_cleanup
+fi
+
+
+
+###########################
+##### Install/Upgrade #####
+###########################
+
+install_and_clean() {
+    run_make install
+    if [ -z "${TESTDIR}" ]; then
+        run_make clean
+    fi
+}
+
+unit_migration_step prepare || exit 1
+time_elapsed install_and_clean

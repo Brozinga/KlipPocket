@@ -24,6 +24,11 @@ MAX_SAMPLE_PERIOD = 0.5
 HISTORY_SECONDS = 20.
 # Extra time a queued move is assumed to still need after its print_time
 EXECUTED_MARGIN = 0.3
+# Happy Hare: filament_pos of a filament that is loaded up to the nozzle or
+# parked in its gate, ACTION_IDLE, and "no tool" (unknown / bypass)
+MMU_POS_UNLOADED = 0
+MMU_POS_LOADED = 10
+MMU_ACTION_IDLE = 0
 OBJECT_SCAN_LIMIT = 4 * 1024 * 1024
 
 # Texts shown in the Fluidd/Mainsail prompt and console, by UI language.
@@ -52,6 +57,10 @@ TEXTS = {
         'back': "returning to the print",
         'resumed': "resumed %(name)s from byte %(pos)d",
         'mesh_fail': "WARNING the bed mesh could not be restored",
+        'mmu_check': "checking the MMU filament",
+        'mmu_tool': "loading T%d",
+        'mmu_off': "WARNING Happy Hare is off: the MMU filament was not "
+                   "checked",
     },
     'pt': {
         'discard_lift': "subindo o bico %.0f mm",
@@ -77,6 +86,10 @@ TEXTS = {
         'back': "voltando para a impressão",
         'resumed': "%(name)s retomado a partir do byte %(pos)d",
         'mesh_fail': "AVISO: não foi possível restaurar a malha da mesa",
+        'mmu_check': "verificando o filamento da MMU",
+        'mmu_tool': "carregando T%d",
+        'mmu_off': "AVISO: o Happy Hare está desligado: o filamento da MMU "
+                   "não foi verificado",
     },
     'ru': {
         'discard_lift': "подъём сопла на %.0f мм",
@@ -103,6 +116,9 @@ TEXTS = {
         'back': "возврат к печати",
         'resumed': "%(name)s продолжен с байта %(pos)d",
         'mesh_fail': "ВНИМАНИЕ: не удалось восстановить карту стола",
+        'mmu_check': "проверка филамента MMU",
+        'mmu_tool': "загрузка T%d",
+        'mmu_off': "ВНИМАНИЕ: Happy Hare выключен: филамент MMU не проверялся",
     },
     'zh': {
         'discard_lift': "抬高喷嘴 %.0f mm",
@@ -125,6 +141,9 @@ TEXTS = {
         'back': "返回打印位置",
         'resumed': "已从字节 %(pos)d 继续 %(name)s",
         'mesh_fail': "警告：无法恢复热床网格",
+        'mmu_check': "检查 MMU 耗材",
+        'mmu_tool': "加载 T%d",
+        'mmu_off': "警告：Happy Hare 已关闭，未检查 MMU 耗材",
     },
     'zh-TW': {
         'discard_lift': "抬高噴嘴 %.0f mm",
@@ -147,6 +166,9 @@ TEXTS = {
         'back': "返回列印位置",
         'resumed': "已從位元組 %(pos)d 繼續 %(name)s",
         'mesh_fail': "警告：無法恢復熱床網格",
+        'mmu_check': "檢查 MMU 線材",
+        'mmu_tool': "載入 T%d",
+        'mmu_off': "警告：Happy Hare 已關閉，未檢查 MMU 線材",
     },
 }
 LANG_CACHE_SECONDS = 30.
@@ -196,6 +218,7 @@ class PrintRecovery:
         self.state_file = os.path.expanduser(state_file)
         self.history = collections.deque()
         self.mesh_cache = (None, None)
+        self.mmu_map_cache = (None, None)
         self.lang_cache = (0., 'en')
         self.pending = None
         self.recording = False
@@ -352,6 +375,31 @@ class PrintRecovery:
                 saved[macro] = values
         return saved
 
+    def _mmu_state(self):
+        # Happy Hare keeps the gate, the tool and where the filament is in its
+        # own save_variables; what a restart loses is the slicer's tool map
+        # and the toolchange count, and which tool a running change was for.
+        mmu = self.printer.lookup_object('mmu', None)
+        if mmu is None or not getattr(mmu, 'is_enabled', False):
+            return None
+        tool = getattr(mmu, 'tool_selected', -1)
+        target = getattr(mmu, '_next_tool', -1)
+        if getattr(mmu, 'action', MMU_ACTION_IDLE) != MMU_ACTION_IDLE \
+           and isinstance(target, int) and target >= 0:
+            tool = target
+        state = {'tool': tool,
+                 'num_toolchanges': getattr(mmu, 'num_toolchanges', 0)}
+        smap = getattr(getattr(mmu, 'gate_maps', None), 'slicer_tool_map',
+                       None)
+        try:
+            text = json.dumps(smap, sort_keys=True)
+            if self.mmu_map_cache[0] != text:
+                self.mmu_map_cache = (text, json.loads(text))
+            state['slicer_tool_map'] = self.mmu_map_cache[1]
+        except (TypeError, ValueError):
+            pass
+        return state
+
     def _take_sample(self, eventtime, sd, stats):
         toolhead = self.printer.lookup_object('toolhead')
         th = toolhead.get_status(eventtime)
@@ -391,6 +439,7 @@ class PrintRecovery:
             'excluded_objects': list(excl.get('excluded_objects', [])),
             'current_object': excl.get('current_object'),
             'macro_variables': self._macro_state(),
+            'mmu': self._mmu_state(),
         }
         return sample
 
@@ -712,6 +761,8 @@ class PrintRecovery:
         if ext:
             script.append("M109 S%.1f" % (ext,))
         self._run("\n".join(script))
+        # The filament has to be in place (and the gear synced) before purging
+        self._resume_mmu(gcmd, p)
         retract = p_retract = 0.
         # Purging in place would drop filament on the part: only when parked
         if park and purge and purge_len > 0.:
@@ -739,6 +790,47 @@ class PrintRecovery:
         self.recording = True
         info("print_recovery: " + self._t('resumed')
              % {'name': p['filename'], 'pos': p['file_position']})
+
+    def _resume_mmu(self, gcmd, p):
+        saved = p.get('mmu')
+        if not saved:
+            return
+        info = gcmd.respond_info
+        mmu = self.printer.lookup_object('mmu', None)
+        if mmu is None or not getattr(mmu, 'is_enabled', False):
+            info("print_recovery: " + self._t('mmu_off'))
+            return
+        tool = saved.get('tool', -1)
+        info("print_recovery: " + self._t('mmu_check'))
+        # The nozzle is hot here, so Happy Hare may test the filament by
+        # moving it. A power cut in the middle of a move leaves it unsure.
+        if getattr(mmu, 'filament_pos', None) not in (MMU_POS_LOADED,
+                                                      MMU_POS_UNLOADED):
+            self._run("MMU_RECOVER STRICT=1")
+        # Wrong tool, or nothing in the nozzle: T<n> unloads what is there
+        # and loads the tool the print was using (T<n> does nothing more
+        # when it is already loaded). A bypass or unknown tool is left alone.
+        if tool >= 0 and (getattr(mmu, 'tool_selected', -1) != tool
+                          or getattr(mmu, 'filament_pos', None)
+                          != MMU_POS_LOADED):
+            info("print_recovery: " + self._t('mmu_tool') % (tool,))
+            self._run("T%d" % (tool,))
+            if getattr(mmu, 'filament_pos', None) != MMU_POS_LOADED:
+                raise gcmd.error("print_recovery: T%d is not loaded, the "
+                                 "print was not resumed" % (tool,))
+        # Same as the slicer's start: Happy Hare enters its printing state
+        # and syncs the gear to the extruder. Done by hand, because the
+        # automatic detection would reset the state restored below.
+        self._run("MMU_PRINT_START")
+        gate_maps = getattr(mmu, 'gate_maps', None)
+        if isinstance(saved.get('slicer_tool_map'), dict) \
+           and gate_maps is not None:
+            keep = getattr(gate_maps, 'slicer_tool_map', {})
+            gate_maps.slicer_tool_map = dict(
+                saved['slicer_tool_map'],
+                skip_automap=keep.get('skip_automap', False))
+        if saved.get('num_toolchanges') is not None:
+            mmu.num_toolchanges = saved['num_toolchanges']
 
     def _restore_mesh(self, p):
         mesh = p.get('mesh')

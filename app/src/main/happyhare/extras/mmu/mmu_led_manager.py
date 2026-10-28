@@ -56,7 +56,7 @@ class MmuLedManager:
         self.pending_update = [False] * num_units
         self.deferred = [None] * num_units         # Per-unit last _set_led request blocked by a timed effect, replayed when it ends
         self.led_timers = [None] * num_units       # Per-unit "return to default" timers (registered at ready)
-        self.effect_state = {} # Current state used to minimise updates {unit: {segment: effect}}
+        self.effect_state = {} # Current state used to minimize updates {unit: {segment: effect}}
         self.transient_flash = {}  # Active transient flash per (unit, segment): {'prior', 'flash', 'gate'}
         self.transient_timers = {} # Lazily registered restore timer per (unit, segment)
         self.transient_pending = {} # Optional queued flash per (unit, segment), promoted when the active flash ends
@@ -539,7 +539,7 @@ class MmuLedManager:
         return self.mmu.reactor.NEVER
 
 
-    # Make the necessary configuration changes to LED accross all mmu_units
+    # Make the necessary configuration changes to LED across all mmu_units
     #
     # Effects for LED segments when not providing "action status feedback" can be:
     # any effect name, "r,g,b" color, or built-in functional effects:
@@ -556,7 +556,7 @@ class MmuLedManager:
             'logo': logo_effect,
         }
 
-        # Helper functions to make core logic simplier...
+        # Helper functions to make core logic simpler...
 
         # Iteration wrapper to easily detect the last loop
         def with_last(iterable):
@@ -576,13 +576,15 @@ class MmuLedManager:
             num_leds = mmu_unit.leds.get_status()[segment]
             if gate is None or gate < 0:
                 return list(range(1, num_leds + 1))
+            if segment in MmuLeds.PER_GATE_SEGMENTS:
+                return mmu_unit.leds.gate_led_indexes(segment, gate)
             leds_per_gate = num_leds // mmu_unit.num_gates
             index0 = (gate - mmu_unit.first_gate) * leds_per_gate + 1
             return list(range(index0, index0 + leds_per_gate))
 
         # Get raw "LEDS=" spec to stop an effect on virtual chain for given segment
         def led_chain_spec(unit, segment):
-            return 'unit%d_mmu_%s_leds' % (unit, segment)
+            return '%s_mmu_%s_leds' % (self.mmu_machine.get_mmu_unit_by_index(unit).name, segment)
 
         # Get specific LEDS=" spec to stop an effect on whole segment or gate part of segment
         def effect_leds_spec(unit, segment, gate):

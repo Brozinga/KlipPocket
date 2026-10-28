@@ -74,6 +74,7 @@ KlipPocket 提供三种 APK：
 - [SimplyPrint](docs/zh-Hans/simplyprint.md) —— 使用 SimplyPrint 远程监控和 AI 故障检测
 - [Kalico](docs/zh-Hans/kalico.md) —— 切换到 Kalico 引擎，哪些可用、哪些不可用
 - [多 MCU](docs/zh-Hans/multi-mcu.md) —— 使用额外的 USB 板（工具头、传感器、扩展接口），附 `printer.cfg` 示例
+- [Happy Hare](docs/zh-Hans/happy-hare.md) —— 多耗材（MMU）设置：生成配置、复制并指向主板
 - [Klipper 附加组件](docs/zh-Hans/mods/klipper-addons.md) —— KAMP、LED Effect、Z Calibration、Auto Speed、TMC Autotune
 - [无加速度计的 Input Shaper](docs/zh-Hans/mods/input-shaper-manual.md) —— 振铃塔方法和宏
 - [构建 APK](docs/zh-Hans/build-app.md) —— 自己编译应用

@@ -32,7 +32,7 @@ from .mmu.unit.mmu_leds import MmuLeds
 # E.g. You define "my_flash" like this:
 #   [mmu_led_effect my_flash]
 #
-# This will create effects on each of these segments elements without laborous
+# This will create effects on each of these segments elements without laborious
 # error prone repetition:
 #   "unit0_mmu_flash_exit" on 'exit' portion of the strip (leds 1,2,3,4)
 #   "unit0_mmu_flash_status" on the status LED (led 5)
@@ -41,9 +41,10 @@ from .mmu.unit.mmu_leds import MmuLeds
 #   "unit0_mmu_flash_exit_3" for gate 2 (led 3)
 #   "unit0_mmu_flash_exit_4" for gate 3 (led 4)
 #
-# Created effects can be restricted with by specifing 'define_on' and a let of segment
-# names or 'gates' to indicate creation on exit/entry gates. If ommitted all possible
-# effects will be created
+# Created effects can be restricted by specifying 'define_on' and a list of segment
+# names or 'gates' to indicate creation on exit/entry gates. If omitted all possible
+# effects will be created. Optional "unit: <name>" restricts a definition to one
+# unit; omitted, it creates effects on every LED-equipped unit as before.
 #
 # Then you can set effects with commands like:
 #   _MMU_SET_LED_EFFECT EFFECT=my_flash_exit     # apply effect to all exit leds
@@ -64,11 +65,17 @@ class MmuLedEffect:
         if mmu_machine is None:
             raise config.error("[mmu_led_effect] requires [mmu_machine] to be loaded first")
 
+        # Unscoped definitions retain the shared, all-unit behavior.
+        unit = config.get('unit', None)
+        if unit is not None and unit not in mmu_machine.unit_names:
+            raise config.error("Unknown MMU unit '%s' in [%s]" % (unit, config.get_name()))
         define_on_str = config.get('define_on', "").strip()
         _ = config.get('layers')
 
         for unit_index, mmu_unit in enumerate(mmu_machine.units):
             unit_name = mmu_unit.name
+            if unit is not None and unit_name != unit:
+                continue
             mmu_leds = self.printer.lookup_object('mmu_leds %s' % unit_name, None)
             if mmu_leds:
                 frame_rate = mmu_leds.frame_rate
@@ -85,7 +92,6 @@ class MmuLedEffect:
                     if not led_chain:
                         raise config.error("Led chain %s not found!" % led_chain)
                     num_leds = led_chain.led_helper.led_count
-                    leds_per_gate = num_leds // mmu_unit.num_gates
 
                     if num_leds > 0:
                         # Full segment effects
@@ -96,10 +102,10 @@ class MmuLedEffect:
                         # Per gate
                         if segment in MmuLeds.PER_GATE_SEGMENTS and (not define_on or 'gates' in define_on):
                             for idx in range(mmu_unit.first_gate, mmu_unit.first_gate + mmu_unit.num_gates):
-                                led0 = (idx - mmu_unit.first_gate) * leds_per_gate + 1
-                                led_spec = str(led0)
-                                if leds_per_gate > 1:
-                                    led_spec = "%d-%d" % (led0, led0 + leds_per_gate - 1)
+                                gate_leds = mmu_leds.gate_led_indexes(segment, idx)
+                                led_spec = str(gate_leds[0])
+                                if len(gate_leds) > 1:
+                                    led_spec = "%d-%d" % (gate_leds[0], gate_leds[-1])
                                 section_to = "_led_effect %s_%s_%d" % (led_effect_section, segment, idx)
                                 self._add_led_effect(config, section_to, "%s (%s)" % (led_segment_name, led_spec))
 
@@ -107,7 +113,7 @@ class MmuLedEffect:
         config.fileconfig.add_section(section_to)
         config.fileconfig.set(section_to, 'leds', leds)
         items = config.fileconfig.items(config.get_name())
-        for item in (i for i in items if i[0] != 'define_on'):
+        for item in (i for i in items if i[0] not in ('define_on', 'unit')):
             config.fileconfig.set(section_to, item[0], item[1])
  
         c = config.getsection(section_to)
@@ -115,7 +121,7 @@ class MmuLedEffect:
         #logging.info("MMU: Created: %s on %s" % (c.get_name(), leds))
 
         # Register _led_effect with klipper
-        # NOTE: Not currently registering to reduce printer variables and unecessary get status() calls
+        # NOTE: Not currently registering to reduce printer variables and unnecessary get status() calls
         #self.printer.add_object(c.get_name(), led_effect)
 
 def load_config_prefix(config):
@@ -396,7 +402,7 @@ class ledFrameHandler:
         filament_color / slicer_color / explicit-(r,g,b) branches all do
         "_MMU_STOP_LED_EFFECTS, then SET_LED per gate" (stop_effect_and_set_gate_rgb), and
         SET_LED applies synchronously - ToolHead.register_lookahead_callback calls straight
-        through when the move queue is empty, which it is for an idle printer. So the colours
+        through when the move queue is empty, which it is for an idle printer. So the colors
         landed, the timer fired, and the segment went black. It only looked right from the
         SECOND repaint onwards, because by then the effect had latched nextEventTime = NEVER
         and no longer emitted the blank.

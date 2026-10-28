@@ -18,6 +18,7 @@ from typing                import Any, Dict, Sequence
 # Happy Hare imports
 from ..mmu_constants       import *
 from ..mmu_base_parameters import TunableParametersBase, ParamSpec
+from .mmu_fan_manager      import FAN_TEMPERATURE_SOURCES
 
 
 class MmuUnitParameters(TunableParametersBase):
@@ -42,8 +43,34 @@ class MmuUnitParameters(TunableParametersBase):
     def _guard_has_heater(self):
         return self._mmu_unit.has_heater()
 
+    def _guard_has_td1(self):
+        return self._mmu_unit.has_td1()
+
+    def _guard_has_fan(self):
+        return self._mmu_unit.has_fan()
+
     def _guard_has_flowguard(self):
         return self._guard_has_encoder or self._guard_has_buffer
+
+    def _validate_gate_homing_endstop(self, value):
+        if value == SENSOR_EXTRUDER_ENTRY and self._mmu_unit.require_bowden_move:
+            raise ValueError(
+                "gate_homing_endstop '%s' requires require_bowden_move to be 0"
+                % SENSOR_EXTRUDER_ENTRY)
+        if value != SENSOR_EXTRUDER_ENTRY and not self._mmu_unit.require_bowden_move:
+            raise ValueError(
+                "gate_homing_endstop must be '%s' when require_bowden_move is 0 (got '%s')"
+                % (SENSOR_EXTRUDER_ENTRY, value))
+
+    def _validate_gate_preload_endstop(self, value):
+        # On a no-bowden unit mmu_shared_exit is only an alias for the extruder sensor, and
+        # only within the per-gate sensor map. _shared_gate_path_occupied() resolves against
+        # the global registry and so cannot see it, leaving that guard silently dead. Same
+        # switch either way, so require the name that resolves.
+        if value == SENSOR_SHARED_EXIT and not self._mmu_unit.require_bowden_move:
+            raise ValueError(
+                "gate_preload_endstop must be '%s' rather than '%s' when require_bowden_move "
+                "is 0 (they are the same sensor)" % (SENSOR_EXTRUDER_ENTRY, SENSOR_SHARED_EXIT))
 
     def _guard_sync_tunable(self):
         return not self._mmu_unit.filament_always_gripped
@@ -63,9 +90,10 @@ class MmuUnitParameters(TunableParametersBase):
 
     def _on_encoder_change(self, old, new):
         if new != old:
-            if self._mmu_unit.sync_feedback.flowguard_active:
-                # If we are currently active make sure config change gets to encoder immediately
-                self._mmu_unit.encoder.enable_flowguard(self._mmu_unit)
+            u = self._mmu_unit
+            if u.sync_feedback.flowguard_active and u.encoder.active_mmu_unit is u:
+                # If we own the active encoder make sure config change gets to it immediately
+                u.encoder.enable_flowguard(u)
 
     def _on_gate_homing_endstop(self, old, new):
         if new != old:
@@ -112,8 +140,41 @@ class MmuUnitParameters(TunableParametersBase):
         if new != old:
             self._mmu_unit.sync_feedback.apply_extrude_threshold()
 
+    def _on_fan_threshold_change(self, old, new):
+        manager = getattr(self._mmu_unit, 'fan_manager', None)
+        if new != old and manager is not None:
+            manager.reset_thresholds()
+
+    def _on_fan_polling_change(self, old, new):
+        manager = getattr(self._mmu_unit, 'fan_manager', None)
+        if new != old and manager is not None:
+            manager.refresh()
+
+    def _on_default_fan_temperature_source_change(self, old, new):
+        manager = getattr(self._mmu_unit, 'fan_manager', None)
+        if new != old and manager is not None:
+            manager.reset_temperature_sources()
+
+    def _on_fan_control_enabled(self, old, new):
+        manager = getattr(self._mmu_unit, 'fan_manager', None)
+        if new != old and manager is not None:
+            manager.set_enabled(bool(new))
+
+    def _on_fan_forced(self, old, new):
+        manager = getattr(self._mmu_unit, 'fan_manager', None)
+        if new != old and manager is not None:
+            manager.set_mode(new)
+
 
     # ---- Validators ----
+
+    def _validate_default_fan_on_temp(self, value):
+        if hasattr(self, 'default_fan_off_temp') and value < self.default_fan_off_temp:
+            raise ValueError("default_fan_on_temp must be greater than or equal to default_fan_off_temp")
+
+    def _validate_default_fan_off_temp(self, value):
+        if hasattr(self, 'default_fan_on_temp') and value > self.default_fan_on_temp:
+            raise ValueError("default_fan_off_temp must be less than or equal to default_fan_on_temp")
 
     def _validate_nfc_gate_jog_scan_window(self, value):
         # empty disables MMU_NFC_SCAN; values are targets from the homing datum, not park
@@ -249,13 +310,13 @@ class MmuUnitParameters(TunableParametersBase):
 
     _SPECS: Sequence[ParamSpec] = (
         # Gate loading
-        ParamSpec('gate_homing_endstop',              'choice', SENSOR_ENCODER, section="GATE HOMING", choices={o: o for o in GATE_ENDSTOPS}, on_change=_on_gate_homing_endstop),
+        ParamSpec('gate_homing_endstop',              'choice', SENSOR_ENCODER, section="GATE HOMING", choices={o: o for o in GATE_ENDSTOPS}, validator=_validate_gate_homing_endstop, on_change=_on_gate_homing_endstop),
         ParamSpec('gate_homing_max',                  'float', 100.0, section="GATE HOMING", limits=dict(minval=10), on_change=_on_gate_homing_max),
         ParamSpec('gate_parking_distance',            'float', -10.0, section="GATE HOMING", validator=_validate_gate_parking_distance, on_change=_on_gate_parking_distance),
         ParamSpec('gate_load_attempts',               'int',       1, section="GATE HOMING", limits=dict(minval=1, maxval=20)),
 
         # Gate preloading
-        ParamSpec('gate_preload_endstop',             'choice',   '', section="GATE HOMING", choices={o: o for o in (GATE_ENDSTOPS + [SENSOR_GATE_NONE, ''])}, on_change=_on_gate_preload_endstop),
+        ParamSpec('gate_preload_endstop',             'choice',   '', section="GATE HOMING", choices={o: o for o in (GATE_ENDSTOPS + [SENSOR_GATE_NONE, ''])}, validator=_validate_gate_preload_endstop, on_change=_on_gate_preload_endstop),
         ParamSpec('gate_preload_homing_max',          'float', lambda self: self.gate_homing_max, section="GATE HOMING", on_change=_on_gate_preload_homing_max),
         ParamSpec('gate_preload_parking_distance',    'float', -10.0, section="GATE HOMING", validator=_validate_gate_preload_parking_distance, on_change=_on_gate_preload_parking_distance),
         ParamSpec('gate_preload_attempts',            'int',       2, section="GATE HOMING", limits=dict(minval=1, maxval=20)),
@@ -265,20 +326,26 @@ class MmuUnitParameters(TunableParametersBase):
         ParamSpec('gate_final_eject_distance',        'float',   0.0, section="GATE HOMING"),
 
         # NFC / RFID reading
-        ParamSpec('nfc_gate_jog_scan_window',         'floatlist', [0.0, 0.0], section="NFC", validator=_validate_nfc_gate_jog_scan_window),
-        ParamSpec('nfc_preload_jog_scan_window',      'floatlist', lambda self: self.nfc_gate_jog_scan_window, section="NFC", validator=_validate_nfc_preload_jog_scan_window),
-        ParamSpec('nfc_neighbor_check',                'int',    0,    section="NFC", limits=dict(minval=0, maxval=1)),
-        ParamSpec('nfc_neighbor_evict_distance',       'float',  0.0,  section="NFC", validator=_validate_nfc_neighbor_evict_distance),
-        ParamSpec('nfc_gate_clear_distance',           'float',  0.0,  section="NFC", validator=_validate_nfc_gate_clear_distance),
-        ParamSpec('nfc_preload_clear_distance',        'float',  lambda self: self.nfc_gate_clear_distance, section="NFC", validator=_validate_nfc_preload_clear_distance),
-        ParamSpec('nfc_field_probe_reads',              'int',    3,    section="NFC", limits=dict(minval=1, maxval=10)),
-        ParamSpec('nfc_deep_read',                    'int',    0,    section="NFC", limits=dict(minval=0, maxval=1)),
+        ParamSpec('nfc_gate_jog_scan_window',         'floatlist', [0.0, 0.0], section="NFC",                                   validator=_validate_nfc_gate_jog_scan_window),
+        ParamSpec('nfc_preload_jog_scan_window',      'floatlist', lambda self: self.nfc_gate_jog_scan_window, section="NFC",   validator=_validate_nfc_preload_jog_scan_window),
+        ParamSpec('nfc_neighbor_check',               'int',       0, section="NFC", limits=dict(minval=0, maxval=1)),
+        ParamSpec('nfc_neighbor_evict_distance',      'float',   0.0, section="NFC",                                           validator=_validate_nfc_neighbor_evict_distance),
+        ParamSpec('nfc_gate_clear_distance',          'float',   0.0, section="NFC",                                           validator=_validate_nfc_gate_clear_distance),
+        ParamSpec('nfc_preload_clear_distance',       'float', lambda self: self.nfc_gate_clear_distance, section="NFC",      validator=_validate_nfc_preload_clear_distance),
+        ParamSpec('nfc_field_probe_reads',            'int',       3, section="NFC", limits=dict(minval=1, maxval=10)),
+        ParamSpec('nfc_deep_read',                    'int',       0, section="NFC", limits=dict(minval=0, maxval=1)),
         ParamSpec('nfc_led_segment',                  'str',  'auto', section="NFC"),
+
+        # TD-1 filament measurement
+        ParamSpec('td1_capture_timeout',              'float',  5.0,  section="TD-1", limits=dict(above=0.0),                   guard=_guard_has_td1),
+        ParamSpec('td1_auto_update',                  'int',    0,    section="TD-1", limits=dict(minval=0, maxval=1),          guard=_guard_has_td1),
+        ParamSpec('td1_capture_on_load',              'int',    0,    section="TD-1", limits=dict(minval=0, maxval=1),          guard=_guard_has_td1),
+        ParamSpec('td1_led_segment',                  'str',  'auto', section="TD-1",                                           guard=_guard_has_td1),
 
         # Bowden
         ParamSpec('bowden_homing_max',                'float',2000.0, section="BOWDEN MOVE", limits=dict(minval=100.0)),
-        ParamSpec('bowden_load_homing_buffer',        'float',  20.0, section="BOWDEN MOVE", limits=dict(minval=0, maxval=500)),
-        ParamSpec('bowden_unload_homing_buffer',      'float',  40.0, section="BOWDEN MOVE", limits=dict(minval=0, maxval=500)),
+        ParamSpec('bowden_load_homing_buffer',        'float',  20.0, section="BOWDEN MOVE", limits=dict(minval=0.0, maxval=500)),
+        ParamSpec('bowden_unload_homing_buffer',      'float',  40.0, section="BOWDEN MOVE", limits=dict(minval=0.0, maxval=500)),
         ParamSpec('bowden_apply_correction',          'int',       0, section="BOWDEN MOVE", limits=dict(minval=0, maxval=1),   guard=_guard_has_encoder),
         ParamSpec('bowden_allowable_encoder_delta',   'float',  20.0, section="BOWDEN MOVE", limits=dict(minval=1.0),           guard=_guard_has_encoder),
         ParamSpec('bowden_pre_unload_test',           'int',       0, section="BOWDEN MOVE", limits=dict(minval=0, maxval=1),   guard=_guard_has_encoder),
@@ -307,8 +374,8 @@ class MmuUnitParameters(TunableParametersBase):
         # Filament motion
         ParamSpec('gear_load_speed',                  'float', 100.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0)),
         ParamSpec('gear_load_accel',                  'float', 100.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0)),
-        ParamSpec('gear_from_filament_buffer_speed',  'float', 150.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0), guard=_guard_has_filament_buffer),
-        ParamSpec('gear_from_filament_buffer_accel',  'float', 400.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0), guard=_guard_has_filament_buffer),
+        ParamSpec('gear_from_filament_buffer_speed',  'float', 150.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0),   guard=_guard_has_filament_buffer),
+        ParamSpec('gear_from_filament_buffer_accel',  'float', 400.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0),   guard=_guard_has_filament_buffer),
         ParamSpec('gear_unload_speed',                'float', lambda self: self.gear_load_speed, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0)),
         ParamSpec('gear_unload_accel',                'float', lambda self: self.gear_load_accel, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=10.0)),
         ParamSpec('gear_short_move_speed',            'float',  80.0, section="FILAMENT MOVEMENT SPEEDS", limits=dict(minval=1.0)),
@@ -366,6 +433,19 @@ class MmuUnitParameters(TunableParametersBase):
         ParamSpec('heater_vent_macro',                'str',      '', section="HEATER",                             guard=_guard_has_heater),
         ParamSpec('heater_vent_interval',             'float',   0.0, section="HEATER",    limits=dict(minval=0.0), guard=_guard_has_heater, fmt="%.1f"),
         ParamSpec('heater_rotate_interval',           'float',   5.0, section="HEATER",    limits=dict(minval=1.0), guard=_guard_has_heater, fmt="%.1f"),
+        ParamSpec('heater_vent_duration',             'float',  10.0, section="HEATER",    limits=dict(above=0.0),  guard=_guard_has_heater, fmt="%.1f"),
+        ParamSpec('heater_vent_run_fan',              'int',       1, section="HEATER",    limits=dict(minval=0, maxval=1), guard=_guard_has_heater),
+        ParamSpec('heater_vent_open_angle',           'float',  90.0, section="HEATER",    limits=dict(minval=0.0, maxval=360.0), guard=_guard_has_heater, fmt="%.1f"),
+        ParamSpec('heater_vent_close_angle',          'float',   0.0, section="HEATER",    limits=dict(minval=0.0, maxval=360.0), guard=_guard_has_heater, fmt="%.1f"),
+        ParamSpec('heater_vent_servo_duration',       'float',   1.0, section="HEATER",    limits=dict(minval=0.0), guard=_guard_has_heater, fmt="%.1f"),
+
+        # Fan
+        ParamSpec('default_fan_temperature_source',   'choice', 'environment', section="FAN", choices={o: o for o in ('',) + FAN_TEMPERATURE_SOURCES}, guard=_guard_has_fan, on_change=_on_default_fan_temperature_source_change),
+        ParamSpec('default_fan_on_temp',              'float',  49.0, section="FAN", limits=dict(minval=20.0, maxval=80.0), guard=_guard_has_fan, validator=_validate_default_fan_on_temp, on_change=_on_fan_threshold_change, fmt="%.1f"),
+        ParamSpec('default_fan_off_temp',             'float',  47.0, section="FAN", limits=dict(minval=20.0, maxval=80.0), guard=_guard_has_fan, validator=_validate_default_fan_off_temp, on_change=_on_fan_threshold_change, fmt="%.1f"),
+        ParamSpec('fan_polling_time',                 'float',   5.0, section="FAN", limits=dict(minval=1.0, maxval=30.0),  guard=_guard_has_fan, on_change=_on_fan_polling_change, fmt="%.1f"),
+        ParamSpec('fan_control_enabled',              'int',       1, section="FAN", limits=dict(minval=0, maxval=1),       guard=_guard_has_fan, on_change=_on_fan_control_enabled, fmt="%d"),
+        ParamSpec('fan_forced',                       'int',       2, section="FAN", limits=dict(minval=0, maxval=2),       guard=_guard_has_fan, on_change=_on_fan_forced, fmt="%d"),
 
         # Automatic calibration / tuning options
         ParamSpec('autocal_selector',                 'int',       0, section="AUTOTUNE", limits=dict(minval=0, maxval=1)),

@@ -1,0 +1,143 @@
+config BOARD_TYPE_MMB_1_0
+  bool "BTT MMB v1.0 with CANbus"
+
+if BOARD_TYPE_MMB_1_0
+  config PARAM_BOARD_TYPE
+    default "BTT MMB v1"
+
+  choice CHOICE_MMU_CONNECTION_TYPE
+    default CHOICE_MMU_CONNECTION_TYPE_SERIAL
+  endchoice
+  choice CHOICE_MMU_SERIAL_CONNECTION
+    default $(mmu_serial_config,1,stm32)
+  endchoice
+
+  config PIN_GEAR_UART 
+    default "$(MCU_NAME):PA10" 
+  config PIN_GEAR_STEP
+    default "$(MCU_NAME):PB15" 
+  config PIN_GEAR_DIR
+    default "$(MCU_NAME):PB14" 
+  config PIN_GEAR_ENABLE
+    default "!$(MCU_NAME):PA8" 
+  # Diag pins share headers with sensors; a fitted sensor keeps the header
+  config PIN_GEAR_DIAG
+    default "$(MCU_NAME):PA3" if !(MULTIGEAR && MMU_HAS_SENSOR_ENTRY && PIN_ENTRY_SENSOR_1 = "$(MCU_NAME):PA3") && \
+        !(MMU_HAS_SENSOR_SHARED_EXIT && PIN_SHARED_EXIT_SENSOR = "^$(MCU_NAME):PA3")
+
+  if MULTIGEAR
+    config PIN_GEAR_UART_1 
+      default "$(MCU_NAME):PC7" 
+    config PIN_GEAR_STEP_1
+      default "$(MCU_NAME):PD2" 
+    config PIN_GEAR_DIR_1
+      default "$(MCU_NAME):PB13" 
+    config PIN_GEAR_ENABLE_1
+      default "!$(MCU_NAME):PD1" 
+    config PIN_GEAR_DIAG_1
+      default "$(MCU_NAME):PA4" 
+
+    config PIN_GEAR_UART_2 
+      default "$(MCU_NAME):PC6" 
+    config PIN_GEAR_STEP_2
+      default "$(MCU_NAME):PD0" 
+    config PIN_GEAR_DIR_2
+      default "$(MCU_NAME):PD3" 
+    config PIN_GEAR_ENABLE_2
+      default "!$(MCU_NAME):PA15" 
+    config PIN_GEAR_DIAG_2
+      default "$(MCU_NAME):PB9" if !(MMU_HAS_SENSOR_ENTRY && PIN_ENTRY_SENSOR_2 = "$(MCU_NAME):PB9")
+
+    config PIN_GEAR_UART_3 
+      default "$(MCU_NAME):PA9" 
+    config PIN_GEAR_STEP_3
+      default "$(MCU_NAME):PB6" 
+    config PIN_GEAR_DIR_3
+      default "$(MCU_NAME):PB7" 
+    config PIN_GEAR_ENABLE_3
+      default "!$(MCU_NAME):PB5" 
+    config PIN_GEAR_DIAG_3
+      default "$(MCU_NAME):PB8" if !(MMU_HAS_SENSOR_ENTRY && PIN_ENTRY_SENSOR_3 = "$(MCU_NAME):PB8")
+
+    config PIN_ENTRY_SENSOR_0
+      default "$(MCU_NAME):PB11" 
+    config PIN_ENTRY_SENSOR_1
+      default "$(MCU_NAME):PA3" 
+    config PIN_ENTRY_SENSOR_2
+      default "$(MCU_NAME):PB9" 
+    config PIN_ENTRY_SENSOR_3
+      default "$(MCU_NAME):PB8" 
+
+    config PIN_EXIT_SENSOR_0
+      default "$(MCU_NAME):PC15"
+    config PIN_EXIT_SENSOR_1
+      default "$(MCU_NAME):PC13"
+    config PIN_EXIT_SENSOR_2
+      default "$(MCU_NAME):PC14"
+    config PIN_EXIT_SENSOR_3
+      default "$(MCU_NAME):PB12"
+    
+    config PIN_ESPOOLER_RWD_0
+      default "$(MCU_NAME):PA0"
+    config PIN_ESPOOLER_RWD_1
+      default "$(MCU_NAME):PA1" if !(MMU_HAS_ENCODER && PIN_ENCODER = "^$(MCU_NAME):PA1")
+    config PIN_ESPOOLER_RWD_2
+      default "$(MCU_NAME):PB10"
+    config PIN_ESPOOLER_RWD_3
+      default "$(MCU_NAME):PB2"
+  endif
+
+  if !MULTIGEAR
+    config PIN_SELECTOR_UART
+      default "$(MCU_NAME):PC7" 
+    config PIN_SELECTOR_STEP
+      default "$(MCU_NAME):PD2" 
+    config PIN_SELECTOR_DIR
+      default "$(MCU_NAME):PB13" 
+    config PIN_SELECTOR_ENABLE
+      default "!$(MCU_NAME):PD1" 
+    config PIN_SELECTOR_DIAG
+      default "$(MCU_NAME):PA4" 
+    config PIN_SELECTOR_ENDSTOP
+      default "^$(MCU_NAME):PB2" 
+    config PIN_SELECTOR_SERVO
+      default "$(MCU_NAME):PA0" 
+
+    config PIN_ENTRY_SENSOR_0
+      default "^$(MCU_NAME):PB9" 
+    config PIN_ENTRY_SENSOR_1
+      default "^$(MCU_NAME):PB8" 
+    config PIN_ENTRY_SENSOR_2
+      default "^$(MCU_NAME):PC15" 
+    config PIN_ENTRY_SENSOR_3
+      default "^$(MCU_NAME):PC13" 
+    config PIN_ENTRY_SENSOR_4
+      default "^$(MCU_NAME):PC14"
+    config PIN_ENTRY_SENSOR_5
+      default "^$(MCU_NAME):PB12"
+    config PIN_ENTRY_SENSOR_6
+      default "^$(MCU_NAME):PB11"
+    config PIN_ENTRY_SENSOR_7
+      default "^$(MCU_NAME):PB10"
+  endif
+
+  config PIN_ENCODER
+    default "^$(MCU_NAME):PA1" if MMU_HAS_ENCODER
+  config PIN_NEOPIXEL
+    default "$(MCU_NAME):PA2" 
+  config PIN_SHARED_EXIT_SENSOR
+    default "^$(MCU_NAME):PA3" if !MMU_HAS_ENCODER && !(MULTIGEAR && MMU_HAS_SENSOR_ENTRY && PIN_ENTRY_SENSOR_1 = "$(MCU_NAME):PA3")
+
+# No fan headers (the MOT header is a 5V servo output)
+
+  # I2C header: hardware i2c3, SCL PB3 / SDA PB4 (BTT's schematic notes call it I2C2)
+  i2c_board       := BOARD_TYPE_MMB_1_0
+  i2c_tag         := MMB_1_0_I2C3
+  i2c_bus         := i2c3_PB3_PB4
+  i2c_label       := i2c3_PB3_PB4 [[DIM]]/ I2C header[[/DIM]]
+  i2c_env         := y
+  i2c_env_default := y
+  i2c_nfc         := y
+  i2c_nfc_default := n
+  source "components/Kconfig.i2c_board_bus"
+endif

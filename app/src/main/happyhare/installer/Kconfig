@@ -1,0 +1,373 @@
+# Happy Hare MMU Software
+#
+# Copyright (C) 2022-2026  moggieuk#6538 (discord)
+#                          moggieuk@hotmail.com
+#
+# IMPORTANT: Happy Hare TOKEN naming convention and kconfig features:
+#   PARAM_*                Symbols of various types used in template rendering
+#   VAR_*                  String symbols for macro variables; written as '' rather than empty
+#   PIN_*                  Used for string symbols representing pins
+#   BOOL_*                 Boolean symbols often used to set prompt-less int PARAMS
+#   MMU_HAS_*              Used for MMU hardware components like encoder
+#   CHOICE_X, CHOICE_X_*   Named choice "X" or boolean selection config
+#   UNSELECT_*             Special boolean symbol used to implement forced "unselect"
+#
+# The above list is special in that default values will be stored in the .mmu_config but will not
+# force setting on subsequent runs. They therefore remain as modifiable defaults until user explicitly
+# changes them. Also when they are changed from default values menuconfig will mark as
+# "(NOT DEFAULT)" and allow the "r" keystroke to reset back to default value
+#   
+# Other names are stored and handled as normal Kconfig variables. Unlike the special names
+# above, their saved values are always loaded as explicit assignments.
+#
+# Some Happy Hare augmented features:
+# Kconfig:
+# 1. Dynamic defaults 'generated_default'
+#
+#   Syntax:
+#     generated_default "<template>" "<args>" [<separator>] [[<start>] <stop>]
+#
+#   <args> is a space-separated list of Kconfig symbols. Inside <template>:
+#     %s, %d    - next arg from <args>, filled in left-to-right wherever it appears
+#                 (list a symbol twice in <args> to fill two placeholders with it)
+#     %i        - the current iterator value (only valid when <start>/<stop> given)
+#     %%        - a literal '%'
+#     {...}     - a basic arithmetic expression (+ - * / // % ** and parens),
+#                 evaluated AFTER %s/%d/%i substitution -- reference them by
+#                 writing the token inside the braces, e.g. "{%i % %d}"
+#   Without <start>/<stop>, the template is rendered once. With them, it's
+#   rendered once per value in range(start, stop) (start defaults to 0) and
+#   the results joined with <separator> (defaults to ", ").
+#
+# Examples:
+#   generated_default "%s_%d" "PARAM_ONE PARAM_TWO"
+#   generated_default "%i_%s" "PARAM_ONE" PARAM_STOP
+#   generated_default "%s_%i" "PARAM_VENDOR PARAM_VERSION" PARAM_START PARAM_STOP
+#   generated_default "neopixel:$(UNIT_NAME)_gate%i_leds (1-%d)" "PARAM_NUM_GATES" PARAM_NUM_GATES
+#   generated_default "{(%i + 1) % %d}" "PARAM_NUM_GATES" ", " 0 PARAM_NUM_GATES
+#
+# 2. Added float type
+# 3. Option 'forceshow' to force symbols or menus to display even if their dependency isn't met.
+#    'forceshow if <expr>' does so only while <expr> holds
+# 4. Recording of default value with #~DEFAULT~# magic token
+# 5. Preprocessor function 'saved-config-value' to read a symbol's previous assignment from
+#    KCONFIG_CONFIG before normal config loading, including lines marked with #~DEFAULT~#
+# 6. repeat expansion macro to avoid multiple lines (can be nested); min/max may also be
+#    preprocessor variables or functions, e.g. max=$(owner-max,buffer):
+#      @repeat var=i min=0 max=3@
+#        config PARAM_MMU_CANBUS_UNIT_$(i)
+#          string "CANbus UUID for MMU unit $(i)"
+#      @endrepeat@
+#    A 'source' in the body works; $(i) is substituted only in the body, so pass
+#    it to the sourced file in a variable assigned on the line before
+# 7. help added to menus
+# 8. "if XX" construct is allowed on comment lines
+# 9. Added 'array_editor <separator> [size]' option for strings that represent lists
+#    E.g. `array_editor ";" PARAM_NUM_GATES
+# 10. Added 'boolint' and 'defboolint' types: Boolean UI/logic with numeric 0/1 output
+# 11. Font manipulators like [[B]]xx[[/B]] can be used in prompts, comments and help
+#    and include: B,BOLD,DIM,U,UNDERLINE,REV,REVERSE,C:n,COLOR:n (color), RESET
+# 12. Derived array-size mismatch checks for warnings:
+#      config WARN_ARRAY_LENGTH
+#        bool
+#        array_size_mismatch PARAM_ARRAY
+# 13. $(macro) references expand in a named choice, not just a config name.
+#     This is what lets a shared fragment under components/ be sourced once
+#     per consumer and still declare its own choices:
+#       prefix := GEAR
+#       source "components/Kconfig.tmc_driver_types"
+#     Re-assign every variable immediately before each source - they are
+#     global for the whole parse.
+# 14. HH_RENAMED_SYMBOLS in kconfiglib.py carries a saved .mmu_config value
+#     from a renamed symbol to its replacement at load time. Add an entry in
+#     the same commit as the rename. Cannot be used for a symbol that make or
+#     install.sh reads by name, since both read the file before this runs.
+#     HH_MCU_PREFIXED_RENAMES adds the MCU to a carried pin, and
+#     HH_REMOVED_I2C_BUSES keeps a v4.0 environment sensor i2c bus
+# 15. 'default_when_hidden' on a menuconfig/menu (or symbol) saves a symbol
+#     under it whose prompt is hidden as a #~DEFAULT~# value, so turning the
+#     entry off reverts any customization to the (still tracked) default.
+# 16. 'validator "<regexp>"' on a string symbol makes menuconfig reject an edit whose value
+#     (or, with array_editor, any element) doesn't fullmatch the regexp, ignoring surrounding
+#     whitespace. Kconfig strings drop backslashes, so write '\\d' for \d, or prefer
+#     classes like [0-9] and [(]. A $(macro) can hold a shared pattern (see Kconfig.leds)
+# 17. $(macro) references are expanded in help text, e.g. the shared $(pin_help).
+#     $(nl) is a newline, so one variable can hold several help lines
+#     [[VALUE:SYM]] (or [[VALUE:SYM:width]]) in a prompt, comment or help shows SYM's
+#     live value in menuconfig; $(pad,...) counts it as 'width' and other markup as 0
+# 18. 'sequence_editor <separator> [baseline]' on a string symbol holding unique names edits
+#     it as a list that tracks adds, renames, removals and moves relative to the baseline,
+#     recorded in a '<config>.<SYMBOL>.changes' sidecar on save. 'append_only_unless <expr>'
+#     limits it to appending while <expr> is n
+# 19. 'reparse_env "<VAR> [<VAR>...]"' on a symbol whose value the tree is built from via
+#     those env vars (UNIT_NAME): changing it in menuconfig re-parses with the new value
+#     so every default derived from them is recomputed in the same session
+# 20. Shared components: 'owner-*' preprocessor functions (shared_components.py) let a unit
+#     parse read the OTHER units' saved configs via KCONFIG_PARENT: the names of the units'
+#     own encoders/buffers and an owner's capabilities, for a sharer naming it. Used through
+#     the components/Kconfig.shared_export fragment.
+#     $(printer-flag,SYM) reads a printer-level flag from the top-level config
+# 21. 'range' accepts multiple low/high pairs: 'range 0 0 5 200' allows 0 or 5-200.
+# 22. 'dim' on a comment draws its whole row dimmed, including the "***" decoration:
+#       comment "Note" if COND
+#         dim
+# 23. A $(macro) in a symbol position whose expansion holds whitespace or starts with '!'
+#     or '(' is lexed as that expression, so a component can take a condition from its
+#     caller (anything else stays one symbol name, as upstream):
+#       servo_visible := MMU_HAS_BLOBIFIER && CHOICE_BLOBIFIER_TYPE_SERVO
+#       prompt "..." if $(servo_visible)
+#
+# Menuconfig:
+# 1. 'r' to reset value to default
+# 2. Flexible comment lines and section separator using "_" and "_comment"
+# 3. Lots of formatting changes and style options
+# 4. Variable input dialogs with better parsing
+# 5. Added array editor - used on "," or ";" separated strings
+# 6. Edited strings are checked against their 'validator' regexp
+# 7. Added sequence editor - list editor with explicit add/rename/remove/move
+#
+#
+# Capability params:
+#   MMU_HAS_BUFFER_MCU
+#   MMU_HAS_EJECT_BUTTONS
+#   MMU_HAS_ENCODER
+#   MMU_HAS_ENVIRONMENT_SENSOR
+#   MMU_HAS_ESPOOLER
+#   MMU_HAS_FILAMENT_BUFFER
+#   MMU_HAS_HEATER
+#   MMU_HAS_HEATER_FANS
+#   MMU_HAS_CONTROLLER_FAN
+#   MMU_HAS_LEDS
+#   MMU_HAS_FANS
+#   MMU_HAS_PER_GATE_CONFIG
+#   MMU_HAS_PER_GATE_MCU (currently only EMU design)
+#   MMU_HAS_PER_GATE_NFC_READERS
+#   MMU_HAS_SELECTOR
+#   MMU_HAS_SELECTOR_SERVO
+#   MMU_HAS_SELECTOR_STEPPER
+#   MMU_HAS_SENSOR_ENTRY
+#   MMU_HAS_SENSOR_EXIT
+#   MMU_HAS_SENSOR_GEAR_TOUCH
+#   MMU_HAS_SENSOR_SHARED_EXIT
+#   MMU_HAS_SYNC_FEEDBACK_BUFFER
+#     MMU_HAS_SENSOR_BUFFER_COMPRESSION
+#     MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+#     MMU_HAS_SENSOR_BUFFER_TENSION
+#
+# These will only be in shared config on multi-unit because they are on printer and not per-unit
+#   MMU_HAS_SENSOR_EXTRUDER
+#   MMU_HAS_SENSOR_TOOLHEAD
+#   MMU_HAS_TOOLHEAD_CUTTER
+#   MMU_HAS_SERVO_CUTTER
+#   MMU_HAS_GANTRY_BUMPER_SERVO
+#   MMU_HAS_BLOBIFIER
+
+
+# IMPORTANT keep version string up-to-date and consistent with git tag
+happy_hare_version := $(HH_VERSION)
+
+hh_message  := Happy Hare v$(happy_hare_version)
+unit_suffix := $(unit-suffix,$(UNIT_NAME))
+title       := $(menu-title,$(F_MULTI_UNIT_ENTRY_POINT),$(hh_message),$(unit_suffix))
+caption     := $(menu-caption,$(F_MULTI_UNIT_ENTRY_POINT),$(hh_message),$(unit-suffix,$(UNIT_NAME),20))
+caption_pad := 50
+
+# Printer-level capabilities each unit takes from the top-level config (KCONFIG_PARENT)
+mmu_has_sensor_toolhead := $(printer-flag,MMU_HAS_SENSOR_TOOLHEAD)
+mmu_has_sensor_extruder := $(printer-flag,MMU_HAS_SENSOR_EXTRUDER)
+mmu_has_toolhead_cutter := $(printer-flag,MMU_HAS_TOOLHEAD_CUTTER)
+
+# Used to dynamically get the serial device paths
+all_serial_devices  := $(shell, ls /dev/serial/by-id/* 2>/dev/null || true)
+serial_device        = $(serial-device,$(all_serial_devices),$(1),$(2))
+
+serial_exists        = $(nonempty,$(serial_device,$(1),$(2)))
+mmu_serial_config    = $(mmu-serial-choice,$(serial_device,$(1),$(2)))
+mmu_serial_config_pg = $(mmu-serial-gate-choice,$(1),$(serial_device,$(2),$(3)))
+buffer_serial_config = $(buffer-serial-choice,$(serial_device,$(1),$(2)))
+
+# Grab UUIDs that are not in use by Klipper from all available CAN interfaces.
+# Keep each interface attached to its UUID, e.g. "can0:43a8... vlan1:25ff...".
+real_klipper_home   := $(first-nonempty,$(REAL_KLIPPER_HOME),$(KLIPPER_HOME))
+canbus_query        := $(real_klipper_home)/../klippy-env/bin/python $(real_klipper_home)/scripts/canbus_query.py
+canbus_interfaces   := $(shell, (ip -o link show type can | awk -F': ' '{print $2}') 2>/dev/null || true)
+canbus_connections  := $(shell, (for interface in $(canbus_interfaces); do $(canbus_query) "$interface" | sed -n 's/.*canbus_uuid=\([0-9a-fA-F][0-9a-fA-F]*\).*/\1/p' | while IFS= read -r uuid; do printf '%s:%s\n' "$interface" "$uuid"; done; done) 2>/dev/null || true)
+canbus_uuid_count   := $(word-count,$(canbus_connections))
+canbus_connection    = $(word-at,$(canbus_connections),$(1))
+canbus_interface     = $(connection-interface,$(canbus_connection,$(1)))
+canbus_uuid          = $(connection-uuid,$(canbus_connection,$(1)))
+saved_canbus_interface = $(saved-interface,$(saved-config-value,$(1)))
+saved_canbus_connection = $(saved_canbus_interface,$(1)):$(saved-config-value,$(2))
+mmu_canbus_config    = $(mmu-canbus-choice,$(canbus_connection,$(1)))
+mmu_canbus_config_pg = $(mmu-canbus-gate-choice,$(1),$(canbus_connection,$(2)))
+buffer_canbus_config = $(buffer-canbus-choice,$(canbus_connection,$(1)))
+
+# Used for comment padding
+pad = $(hh-pad,$(1),$(2))
+
+# Validator and help syntax shared by every PIN_ prompt. An empty pin is valid.
+# $(nl) is a real newline, so help text can span lines
+nl            := $(hh-newline)
+pin_item           := [~^]?!?([A-Za-z0-9_-]+:)?[A-Za-z0-9_./-]+
+pin_validator      := ($(pin_item))?
+pin_list_validator := ($(pin_item)( *, *$(pin_item))*)?
+
+# A Klipper object name (as for a unit), or empty
+object_name_validator := ([a-z][a-z0-9_-]*)?
+pin_syntax    := Syntax:  [[REV]][^|~] [!] [chip_name:] pin_or_alias_name[[/REV]]
+pin_example   := $(hh-pin-example,$(F_MULTI_UNIT_ENTRY_POINT))
+pin_help      := $(pin_syntax)$(nl)$(pin_example)
+
+# To allow multiline config strings.
+# Important: Use $(comma) & $(quote) instead of real comma's or double quotes in multiline strings
+# The Python preprocessor keeps this portable without launching awk for every board.
+comma := ,
+
+# Shown under a feature whose hardware a board supplies itself (CUSTOM_* flag)
+misc_hardware_hint := Defined and fixed by design/mcu
+quote := "
+ml = $(hh-multiline,$(1))
+
+
+### Start of configuration
+mainmenu "$(title)"
+
+config HAPPY_HARE_VERSION
+  string
+  default "$(happy_hare_version)"
+
+config MULTI_UNIT
+  bool
+  default "$(F_MULTI_UNIT)"
+
+config MULTI_UNIT_ENTRY_POINT
+  bool
+  default "$(F_MULTI_UNIT_ENTRY_POINT)"
+
+config PER_GATE_MCU
+  bool
+  default "$(F_PER_GATE_MCU)"
+
+if MULTI_UNIT_ENTRY_POINT || !MULTI_UNIT
+  config MMU_UNITS
+    string
+    default "$(UNIT_NAME)"
+endif
+
+if !MULTI_UNIT_ENTRY_POINT
+  config UNIT_NAME
+    string
+    default "$(UNIT_NAME)"
+
+  config MCU_NAME
+    string
+    default "$(MCU_NAME)"
+
+  config UNIT_INDEX
+    int
+    default $(env-default,UNIT_INDEX,0)
+endif
+
+# Important to let individual units know of important printer features
+if MULTI_UNIT && !MULTI_UNIT_ENTRY_POINT
+  config MMU_HAS_SENSOR_TOOLHEAD
+    default "$(mmu_has_sensor_toolhead)"
+  config MMU_HAS_SENSOR_EXTRUDER
+    default "$(mmu_has_sensor_extruder)"
+  config MMU_HAS_TOOLHEAD_CUTTER
+    default "$(mmu_has_toolhead_cutter)"
+endif
+
+comment "$(pad,50,)"
+comment "$(pad,50,(\_/))"
+comment "$(pad,50,( *,*))"
+comment "$(pad,$(caption_pad),($(quote))_($(quote)) $(caption))"
+comment "$(pad,50,)"
+comment "_"
+
+config SHOW_HIDDEN
+  def_bool n
+
+# -------------------------------------
+# Initial menuconfig for multi-unit
+# -------------------------------------
+
+if MULTI_UNIT_ENTRY_POINT
+  config MMU_UNITS
+    prompt "MMU units"
+    sequence_editor "," "$(env-default,F_UNITS_BASELINE,)"
+    append_only_unless "$(env-default,F_UNITS_RESTRUCTURE,n)"
+    validator "[a-z][a-z0-9_-]*"
+    help
+      Units in gate order. Names: lowercase letters, digits, "_" and "-".
+      [a] add a unit at the end. [r] rename, [d] delete and [K/J] move keep
+      each unit's settings and saved state, but once installed are only
+      allowed in the installer's [[REV]]Replace[[/REV]] mode (option 2). Moving or
+      removing a unit renumbers the gates of the units after it.
+      Each unit is configured on its own screen after this one is closed
+
+  comment "_"
+  comment "_Shared System Options"
+  source "toolheads/Kconfig"        # Toolhead Selection menu
+  source "Kconfig.toolhead"         # Toolhead Sensors/Settings
+  source "Kconfig.options"          # Main software options
+  source "Kconfig.tip_shaping"
+  source "Kconfig.purging"
+  source "Kconfig.speeds"           # Access to extruder speeds
+  source "macro_vars/Kconfig"       # Variables for all macros
+
+  # These are duplicated settings that are excluded from units when MULTI_UNIT
+  menu "Pins"
+    help
+      Here you can configure per-printer pins such as toolhead sensors and
+      additional gantry servo for filament cutter
+
+    source "Kconfig.shared_pins"    # Pins on components shared across units
+  endmenu
+
+  source "Kconfig.paths_services"   # Advanced install options
+endif
+
+
+# -------------------------------------
+# Per unit config
+# -------------------------------------
+
+if !MULTI_UNIT_ENTRY_POINT
+  source "mmu_types/Kconfig"        # Base MMU type menu
+  source "boards/Kconfig"           # MCU Selection menu
+  source "Kconfig.name"             # Simple display name
+  source "Kconfig.mmu_additions"    # MMU Additions/Customization menu
+  comment "_"
+  source "connection/Kconfig"       # MCU Connection
+  source "Kconfig.pins"             # Raw pin editing
+  if !MULTI_UNIT
+    comment "_"
+    source "toolheads/Kconfig"      # Toolhead Selection menu
+    source "Kconfig.toolhead"       # Toolhead Sensors/Settings
+  endif
+  comment "_"
+  source "Kconfig.endstops"         # Important endstops and load/unload distances
+  source "Kconfig.preload_eject"    # Gate preloading/ejection
+  comment "_"
+  if !MULTI_UNIT
+    source "Kconfig.options"        # Main software options
+    source "Kconfig.tip_shaping"
+    source "Kconfig.purging"
+  endif
+  source "Kconfig.speeds"           # All speeds
+  if !MULTI_UNIT
+    source "macro_vars/Kconfig"     # Variables for all macros
+  endif
+  source "Kconfig.other"            # Raw access to other parameters
+  if !MULTI_UNIT
+    comment "_"
+    source "Kconfig.paths_services" # Advanced install options
+  endif
+endif
+
+
+# -------------------------------------
+# Warning - works for single and multi-unit
+# -------------------------------------
+source "Kconfig.warnings"

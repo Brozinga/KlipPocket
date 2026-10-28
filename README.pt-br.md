@@ -74,6 +74,7 @@ Todos os guias ficam em [`docs/`](docs/pt-br/index.md) (também em English e 简
 - [SimplyPrint](docs/pt-br/simplyprint.md) — monitoramento remoto e detecção de falhas por IA com SimplyPrint
 - [Kalico](docs/pt-br/kalico.md) — trocar o motor para o Kalico, o que funciona e o que não funciona
 - [Multi-MCU](docs/pt-br/multi-mcu.md) — usar placas USB extras (cabeçote, sensores, portas extras) com exemplos de `printer.cfg`
+- [Happy Hare](docs/pt-br/happy-hare.md) — multifilamento (MMU): gerar a configuração, copiá-la e apontar para a placa
 - [Complementos do Klipper](docs/pt-br/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper sem acelerômetro](docs/pt-br/mods/input-shaper-manual.md) — método da torre de ringing e macros
 - [Compilando o APK](docs/pt-br/build-app.md) — compile o app você mesmo

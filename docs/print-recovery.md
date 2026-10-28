@@ -125,6 +125,30 @@ saved and put back before the file is reopened. Only plain values (numbers,
 text, `True`/`False`, lists) are kept. This does not undo what a macro did
 outside its variables. Use `macro_variables` to save only some macros or none.
 
+## Happy Hare (MMU)
+
+With [Happy Hare](happy-hare.md) running, the snapshot also keeps the tool the
+print was using (the one being loaded, if the power went off in the middle of a
+tool change), the slicer's tool map and the number of tool changes. Happy Hare
+itself keeps the gate, the tool and where the filament is, and works them out
+again when Klipper starts.
+
+On **Resume**, once the nozzle is hot and before the purge:
+
+1. If Happy Hare is not sure where the filament is, it runs `MMU_RECOVER
+   STRICT=1` (the nozzle is hot, so it may test the filament by moving it).
+2. If the saved tool is not the one loaded, or nothing is loaded, it runs `T<n>`
+   to unload what is there and load the right tool. If that tool does not end
+   up loaded, the resume stops with an error and the interrupted print is kept,
+   so you can fix the MMU and try again.
+3. It runs `MMU_PRINT_START`, so Happy Hare is in its printing state and the
+   gear is synced to the extruder, and puts back the slicer's tool map and the
+   tool-change count.
+
+A bypass filament is left alone. If Happy Hare is off when you resume, a
+warning is shown and the resume goes on without checking the filament.
+Not tried on a physical MMU yet.
+
 ## Commands
 
 | Command | What it does |
@@ -155,8 +179,8 @@ outside its variables. Use `macro_variables` to save only some macros or none.
 - **Custom `G28`:** if your config overrides homing (for example a
   `homing_override` that also homes Z), the X/Y homing step of the resume can
   misbehave. Check that `G28 X Y` only homes X and Y.
-- **Multi-filament and multi-tool setups** (MMU/Happy Hare, IDEX, tool
-  changers) are not handled: only the active extruder is saved and restored.
+- **Multi-tool setups** (IDEX, tool changers) are not handled: only the active
+  extruder is saved and restored. **Happy Hare (MMU)** is handled, see above.
 - **Fans:** only the part-cooling fan (`[fan]`) is restored. Other fans
   (`fan_generic`, controller or auxiliary fans) go back to what your config or
   macros set.

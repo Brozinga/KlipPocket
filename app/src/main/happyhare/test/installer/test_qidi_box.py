@@ -1,0 +1,352 @@
+# QIDI Box Kconfig profile and rendering tests.
+
+import re
+import unittest
+
+from test.hh import cfg, profiles, session
+
+
+class TestQidiBoxProfile(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.profile = profiles.Profile(
+            "qidi_box",
+            syms={"MMU_TYPE_QIDI_BOX_1_0": True},
+        )
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            cls.kconfig = cfg._kconfig(cls.profile.name, cls.profile.syms)
+            cls.other_kconfig = cfg._kconfig(
+                "non-qidi-driver-check",
+                {"MMU_TYPE_BOX_TURTLE_1_0": True},
+            )
+        cls.rendered = cfg.render(cls.profile)
+
+    def test_nfc_custom_flag_is_set_beside_its_misc_hardware(self):
+        self.assertTrue(self.kconfig.is_enabled("CUSTOM_NFC_READER_SETUP"))
+        self.assertTrue(any(
+            node.filename.endswith("boards/custom/Kconfig.qidi_box")
+            for node in self.kconfig.syms["CUSTOM_NFC_READER_SETUP"].nodes))
+
+    def test_machine_and_motion_defaults(self):
+        expected = {
+            "PARAM_VENDOR": "QIDI",
+            "PARAM_VERSION": "1.0",
+            "PARAM_NUM_GATES": "4",
+            "PARAM_BOARD_TYPE": "QIDI Box v2 (STM32F401xC)",
+            "PARAM_SELECTOR_TYPE": "VirtualSelector",
+            "PARAM_VARIABLE_BOWDEN_LENGTHS": "0",
+            "PARAM_VARIABLE_ROTATION_DISTANCES": "0",
+            "PARAM_REQUIRE_BOWDEN_MOVE": "1",
+            "PARAM_FILAMENT_ALWAYS_GRIPPED": "1",
+            "PARAM_HAS_BYPASS": "0",
+            "PARAM_GEAR_ROTATION_DISTANCE": "13.6",
+            "PARAM_GEAR_MICROSTEPS": "16",
+            "PARAM_GEAR_GEAR_RATIO": "1:1",
+            "PARAM_TOOLHEAD_TYPE": "QIDI Q2 Extruder",
+            "PARAM_GATE_HOMING_ENDSTOP": "mmu_shared_exit",
+            "PARAM_GATE_HOMING_MAX": "1500",
+            "PARAM_GATE_PRELOAD_ENDSTOP": "",
+            "PARAM_GATE_PRELOAD_HOMING_MAX": "1500",
+            "PARAM_GATE_PRELOAD_ATTEMPTS": "2",
+            "PARAM_GATE_LOAD_ATTEMPTS": "1",
+            "PARAM_GATE_PARKING_DISTANCE": "-80",
+            "PARAM_GATE_FINAL_EJECT_DISTANCE": "1500",
+            "PARAM_EXTRUDER_HOMING_ENDSTOP": "extruder",
+        }
+        for symbol, value in expected.items():
+            with self.subTest(symbol=symbol):
+                self.assertEqual(self.kconfig.get(symbol), value)
+
+        self.assertTrue(self.kconfig.is_enabled("BOARD_TYPE_QIDI_BOX_2_0"))
+        self.assertFalse(self.kconfig.is_enabled("BOARD_TYPE_OTHER"))
+        self.assertTrue(
+            self.kconfig.is_enabled("TOOLHEAD_TYPE_QIDI_Q2"))
+        self.assertFalse(self.kconfig.is_enabled("CHOICE_TOOLHEAD_TYPE_OTHER"))
+        self.assertEqual(
+            self.kconfig.syms["PARAM_GATE_LOAD_ATTEMPTS"].visibility, 0)
+
+    def test_path_variation_and_bypass_defaults_can_be_overridden(self):
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            customized = cfg._kconfig(
+                "qidi_box_customized",
+                {
+                    "MMU_TYPE_QIDI_BOX_1_0": True,
+                    "PARAM_VARIABLE_BOWDEN_LENGTHS": True,
+                    "PARAM_VARIABLE_ROTATION_DISTANCES": True,
+                    "PARAM_HAS_BYPASS": True,
+                },
+            )
+        self.assertEqual(customized.get("PARAM_VARIABLE_BOWDEN_LENGTHS"), "1")
+        self.assertEqual(customized.get("PARAM_VARIABLE_ROTATION_DISTANCES"), "1")
+        self.assertEqual(customized.get("PARAM_HAS_BYPASS"), "1")
+
+    def test_toolhead_without_forced_homing_keeps_extruder_method(self):
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            kconfig = cfg._kconfig(
+                "qidi_box_toolhead_without_extruder_homing",
+                {
+                    "MMU_TYPE_QIDI_BOX_1_0": True,
+                    "MMU_HAS_SENSOR_TOOLHEAD": True,
+                    "PARAM_EXTRUDER_FORCE_HOMING": False,
+                },
+            )
+
+        choice = kconfig.named_choices["CHOICE_EXTRUDER_HOMING_ENDSTOP"]
+        self.assertGreater(choice.visibility, 0)
+        self.assertEqual(kconfig.get("PARAM_EXTRUDER_HOMING_ENDSTOP"), "extruder")
+        self.assertEqual(kconfig.syms["PARAM_EXTRUDER_HOMING_MAX"].visibility, 0)
+        self.assertEqual(
+            kconfig.syms["PARAM_EXTRUDER_COLLISION_HOMING_CURRENT"].visibility,
+            0,
+        )
+
+    def test_dryer_capabilities_are_recommended_but_can_be_disabled(self):
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            without_dryer = cfg._kconfig(
+                "qidi_box_without_dryer",
+                {
+                    "MMU_TYPE_QIDI_BOX_1_0": True,
+                    "MMU_HAS_ENVIRONMENT_SENSOR": False,
+                    "MMU_HAS_HEATER": False,
+                },
+            )
+        self.assertFalse(without_dryer.is_enabled("MMU_HAS_ENVIRONMENT_SENSOR"))
+        self.assertFalse(without_dryer.is_enabled("MMU_HAS_HEATER"))
+
+    def test_stock_sensors_buffer_and_standard_dryer_setup_are_enabled(self):
+        for symbol in (
+            "MMU_HAS_SENSOR_ENTRY",
+            "MMU_HAS_SENSOR_SHARED_EXIT",
+            "MMU_HAS_SENSOR_EXTRUDER",
+            "MMU_HAS_SYNC_FEEDBACK_BUFFER",
+            "MMU_HAS_SENSOR_BUFFER_TENSION",
+            "MMU_HAS_ENVIRONMENT_SENSOR",
+            "MMU_HAS_HEATER",
+        ):
+            with self.subTest(symbol=symbol):
+                self.assertTrue(self.kconfig.is_enabled(symbol))
+        self.assertFalse(self.kconfig.is_enabled("MMU_HAS_SENSOR_EXIT"))
+        self.assertFalse(self.kconfig.is_enabled("CUSTOM_ENVIRONMENT_SENSOR_SETUP"))
+        self.assertFalse(self.kconfig.is_enabled("CUSTOM_HEATER_SETUP"))
+        self.assertGreater(self.kconfig.syms["PARAM_ENVIRONMENT_SENSOR"].visibility, 0)
+        self.assertGreater(self.kconfig.syms["PARAM_FILAMENT_HEATER"].visibility, 0)
+
+        hardware = self.rendered["config/base/mmu_hardware.cfg"]
+        self.assertNotIn("mmu_exit_switch_pin_0", hardware)
+        self.assertIn("environment_sensor       : unit0_Env", hardware)
+        self.assertIn("filament_heater          : unit0_heater", hardware)
+        self.assertIn("[temperature_sensor unit0_Env]", hardware)
+        self.assertNotIn("max_concurrent_heaters", hardware)
+        self.assertIn("buffer_range            : 8", hardware)
+        self.assertIn("buffer_maxrange         : 12", hardware)
+
+        parameters = self.rendered["config/base/mmu_parameters.cfg"]
+        self.assertIn("gate_preload_endstop          : " + chr(9), parameters)
+        self.assertIn("gate_preload_homing_max       : 1500", parameters)
+        self.assertIn("sync_feedback_enabled           : 1", parameters)
+        self.assertIn("sync_feedback_speed_multiplier  : 5", parameters)
+        self.assertIn("gear_load_speed             : 120", parameters)
+
+    def test_hardware_controlled_drivers_do_not_render_tmc_sections(self):
+        self.assertEqual(self.kconfig.get("PARAM_GEAR_TMC"), "")
+        self.assertEqual(self.other_kconfig.get("PARAM_GEAR_TMC"), "tmc2209")
+        self.assertTrue(self.kconfig.is_enabled("CHOICE_GEAR_TMC_NONE"))
+        self.assertFalse(self.other_kconfig.is_enabled("CHOICE_GEAR_TMC_NONE"))
+        self.assertGreater(
+            self.kconfig.named_choices["CHOICE_GEAR_TMC"].visibility, 0)
+        for symbol in ("PIN_GEAR_UART", "PIN_GEAR_DIAG",
+                       "PIN_GEAR_UART_1", "PIN_GEAR_DIAG_1"):
+            with self.subTest(hidden_prompt=symbol):
+                self.assertEqual(self.kconfig.syms[symbol].visibility, 0)
+        self.assertFalse(self.other_kconfig.is_enabled("BOARD_TYPE_QIDI_BOX_2_0"))
+        hardware = self.rendered["config/base/mmu_hardware.cfg"]
+        self.assertIsNone(re.search(
+            r"^\[tmc\w+ mmu_stepper unit0_gear(?:_\d+)?\]$",
+            hardware,
+            re.MULTILINE,
+        ))
+        for suffix in ("", "_1", "_2", "_3"):
+            self.assertIn("[mmu_stepper unit0_gear%s]" % suffix, hardware)
+
+    def test_hardware_controlled_driver_option_is_available_to_other_mmus(self):
+        profile = profiles.Profile(
+            "boxturtle_hardware_drivers",
+            syms={
+                "MMU_TYPE_BOX_TURTLE_1_0": True,
+                "CHOICE_GEAR_TMC_NONE": True,
+            },
+        )
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            kconfig = cfg._kconfig(profile.name, profile.syms)
+        hardware = cfg.render(profile)["config/base/mmu_hardware.cfg"]
+
+        self.assertTrue(kconfig.is_enabled("CHOICE_GEAR_TMC_NONE"))
+        self.assertEqual(kconfig.get("PARAM_GEAR_TMC"), "")
+        self.assertEqual(kconfig.syms["PIN_GEAR_UART"].visibility, 0)
+        self.assertEqual(kconfig.syms["PIN_GEAR_DIAG"].visibility, 0)
+        self.assertIsNone(re.search(
+            r"^\[tmc\w+ mmu_stepper unit0_gear(?:_\d+)?\]$",
+            hardware,
+            re.MULTILINE,
+        ))
+
+    def test_fixed_board_pinout(self):
+        hardware = self.rendered["config/base/mmu_hardware.cfg"]
+        for expected in (
+            "step_pin                 : unit0:PC14",
+            "dir_pin                  : unit0:PC13",
+            "enable_pin               : !unit0:PC15",
+            "step_pin                 : unit0:PB9",
+            "dir_pin                  : unit0:PB8",
+            "enable_pin               : !unit0:PC0",
+            "step_pin                 : unit0:PC12",
+            "dir_pin                  : unit0:PC11",
+            "enable_pin               : !unit0:PD2",
+            "step_pin                 : unit0:PC8",
+            "dir_pin                  : unit0:PB2",
+            "enable_pin               : !unit0:PC10",
+            "mmu_entry_switch_pin_0     : !unit0:PA0",
+            "mmu_entry_switch_pin_1     : !unit0:PB3",
+            "mmu_entry_switch_pin_2     : !unit0:PA13",
+            "mmu_entry_switch_pin_3     : !unit0:PA7",
+            "mmu_shared_exit_switch_pin : ^!unit0:PB1",
+            "tension_pin             : ^unit0:PB0",
+        ):
+            with self.subTest(config=expected):
+                self.assertIn(expected, hardware)
+
+        machine = self.rendered["config/base/mmu.cfg"]
+        self.assertIn("extruder_switch_pin         : !THR:PA1", machine)
+
+    def test_qidi_q2_toolhead_dimensions_and_sensor(self):
+        machine = self.rendered["config/base/mmu.cfg"]
+        self.assertIn("toolhead_extruder_to_nozzle : 72", machine)
+        self.assertIn("toolhead_sensor_to_nozzle   : 62", machine)
+        self.assertIn("toolhead_entry_to_extruder  : 8", machine)
+        self.assertIn("extruder_switch_pin         : !THR:PA1", machine)
+
+    def test_qidi_q2_implies_cutter_with_tuned_defaults(self):
+        self.assertTrue(self.kconfig.is_enabled("MMU_HAS_TOOLHEAD_CUTTER"))
+        expected = {
+            "VAR_CUT_TIP_PIN_LOC_XY": "15, 0.5",
+            "VAR_CUT_TIP_PIN_LOC_COMPRESSED_XY": "-0.5, 0.5",
+            "VAR_CUT_TIP_RETRACT_LENGTH": "15",
+            "VAR_CUT_TIP_SIMPLE_TIP_FORMING": "False",
+            "VAR_CUT_TIP_PUSHBACK_LENGTH": "0",
+        }
+        for symbol, value in expected.items():
+            with self.subTest(symbol=symbol):
+                self.assertEqual(self.kconfig.get(symbol), value)
+
+    def test_qidi_q2_cutter_can_be_disabled(self):
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            without_cutter = cfg._kconfig(
+                "qidi_box_without_cutter",
+                {
+                    "MMU_TYPE_QIDI_BOX_1_0": True,
+                    "MMU_HAS_TOOLHEAD_CUTTER": False,
+                },
+            )
+        self.assertFalse(without_cutter.is_enabled("MMU_HAS_TOOLHEAD_CUTTER"))
+
+    def test_qidi_q2_cutter_defaults_do_not_apply_to_q1(self):
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            q1_with_cutter = cfg._kconfig(
+                "qidi_box_q1_with_cutter",
+                {
+                    "MMU_TYPE_QIDI_BOX_1_0": True,
+                    "TOOLHEAD_TYPE_QIDI_Q1_PRO": True,
+                    "MMU_HAS_TOOLHEAD_CUTTER": True,
+                },
+            )
+        self.assertEqual(q1_with_cutter.get("VAR_CUT_TIP_PIN_LOC_XY"),
+                         "14, 250")
+
+    def test_qidi_q2_cutter_defaults_can_be_overridden(self):
+        with cfg._env(cfg._SINGLE_UNIT_ENV):
+            customized = cfg._kconfig(
+                "qidi_box_custom_cutter",
+                {
+                    "MMU_TYPE_QIDI_BOX_1_0": True,
+                    "VAR_CUT_TIP_PIN_LOC_XY": "20, 1",
+                    "VAR_CUT_TIP_PIN_LOC_COMPRESSED_XY": "1, 1",
+                    "VAR_CUT_TIP_RETRACT_LENGTH": 12,
+                    "BOOL_CUT_TIP_SIMPLE_TIP_FORMING": True,
+                    "VAR_CUT_TIP_PUSHBACK_LENGTH": 2,
+                },
+            )
+
+        expected = {
+            "VAR_CUT_TIP_PIN_LOC_XY": "20, 1",
+            "VAR_CUT_TIP_PIN_LOC_COMPRESSED_XY": "1, 1",
+            "VAR_CUT_TIP_RETRACT_LENGTH": "12",
+            "VAR_CUT_TIP_SIMPLE_TIP_FORMING": "True",
+            "VAR_CUT_TIP_PUSHBACK_LENGTH": "2",
+        }
+        for symbol, value in expected.items():
+            with self.subTest(symbol=symbol):
+                self.assertEqual(customized.get(symbol), value)
+
+
+class TestQidiBoxDryerHardware(unittest.TestCase):
+
+    SECTION = re.compile(r"^\[([^\]]+)\]", re.M)
+
+    def _render(self, **syms):
+        profile = profiles.Profile(
+            "qidi_box_dryer_" + "_".join("%s_%s" % kv for kv in sorted(syms.items())),
+            syms=dict({"MMU_TYPE_QIDI_BOX_1_0": True}, **syms))
+        rendered = cfg.render(profile)
+        return cfg.assemble(rendered, macros=False), rendered["config/base/mmu_hardware.cfg"]
+
+    def test_board_supplies_the_heater_its_fans_and_the_board_fan(self):
+        parser, text = self._render()
+        unit = dict(parser.items("mmu_unit unit0"))
+        heater = dict(parser.items("heater_generic " + unit["filament_heater"]))
+        self.assertEqual(heater["heater_pin"], "unit0:PA3")
+        self.assertEqual(heater["sensor_type"], "temperature_combined")
+        self.assertEqual(heater["sensor_list"],
+                         "temperature_sensor " + unit["environment_sensor"])
+        self.assertIn("verify_heater unit0_heater", parser.sections())
+
+        fans = {s: dict(parser.items(s)) for s in parser.sections() if s.startswith("heater_fan ")}
+        self.assertEqual(sorted(f["pin"] for f in fans.values()), ["unit0:PA4", "unit0:PA5"])
+        self.assertTrue(all(f["heater"] == "unit0_heater" for f in fans.values()))
+
+        board_fan = dict(parser.items("controller_fan unit0_board_fan"))
+        self.assertEqual(board_fan["heater"], "unit0_heater")
+        steppers = [name.strip() for name in board_fan["stepper"].split(",")]
+        self.assertEqual(len(steppers), 4)
+        for name in steppers:
+            self.assertIn(name, parser.sections())
+
+        sections = self.SECTION.findall(text)
+        self.assertEqual(sorted({s for s in sections if sections.count(s) > 1}), [])
+
+    def test_environment_sensor_reports_fast_enough_for_the_heater(self):
+        parser, _ = self._render()
+        sensor = dict(parser.items("temperature_sensor unit0_Env"))
+        self.assertEqual(sensor["aht10_report_time"], "5")
+
+    def test_no_dryer_hardware_without_its_heater_or_sensor(self):
+        for syms in ({"MMU_HAS_HEATER": False}, {"MMU_HAS_ENVIRONMENT_SENSOR": False}):
+            with self.subTest(**syms):
+                parser, _ = self._render(**syms)
+                self.assertFalse([s for s in parser.sections()
+                                  if s.split(" ", 1)[0] in ("heater_generic", "heater_fan", "verify_heater")])
+                board_fan = dict(parser.items("controller_fan unit0_board_fan"))
+                self.assertNotIn("heater", board_fan)
+
+    def test_qidi_boots_with_its_dryer(self):
+        hh = session(profiles.get("qidi"))
+        try:
+            hh.boot()
+            self.assertEqual(hh.errors, [])
+            self.assertIsNotNone(hh.printer.lookup_object("heater_generic unit0_heater", None))
+        finally:
+            hh.close()
+
+
+if __name__ == "__main__":
+    unittest.main()
