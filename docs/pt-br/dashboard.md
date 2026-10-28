@@ -60,18 +60,19 @@ atuais. Os gráficos só andam enquanto a página está visível no navegador.
 > celulares só a linha do **KlipPocket** é desenhada, com um aviso. Memória, bateria
 > e os números do KlipPocket estão sempre disponíveis.
 
-## Aparelho (host) e memória
+## Armazenamento e aparelho (host)
 
-- **Aparelho (host)** — modelo, chip, núcleos e frequência máxima, arquitetura,
-  versão do Android, kernel, há quanto tempo está ligado, endereço de rede e a
-  versão do KlipPocket.
-- **Memória (RAM)** — total, em uso, disponível e swap; e **Armazenamento** — espaço
-  livre e total do armazenamento interno e, quando houver, do cartão SD.
+- **Armazenamento** — espaço livre e total do armazenamento interno e, quando
+  houver, do cartão SD, numa linha só.
+- **Aparelho (host)** — na linha seguinte, em duas colunas (uma só numa tela
+  estreita): modelo, chip, núcleos e frequência máxima, arquitetura, versão do
+  Android, kernel, há quanto tempo está ligado, endereço de rede e a versão do
+  KlipPocket. A memória fica nos cartões ao vivo e no gráfico acima.
 
 ## Impressoras e MCUs
 
-![Aparelho, memória e armazenamento, as impressoras com seu MCU e os ícones de iniciar/parar, e os dispositivos USB.](../images/dashboard/pt-br/dashboard-printers.jpg)
-*Aparelho, memória e armazenamento, as impressoras com seu MCU e os ícones de iniciar/parar, e os dispositivos USB.*
+![Armazenamento, aparelho, as impressoras com seu MCU e os ícones de iniciar/parar, e os dispositivos USB.](../images/dashboard/pt-br/dashboard-printers.jpg)
+*Armazenamento, aparelho, as impressoras com seu MCU e os ícones de iniciar/parar, e os dispositivos USB.*
 
 ![O ícone + abre o formulário de uma nova impressora.](../images/dashboard/pt-br/add-printer.jpg)
 *O ícone **+** abre o formulário de uma nova impressora.*

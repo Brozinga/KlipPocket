@@ -546,15 +546,12 @@
       h('div', { class: 'charts one' }, chartCard('c-cpu', t('cpuTitle'))),
       h('div', { class: 'charts' }, chartCard('c-mem', t('memTitle')), chartCard('c-temp', t('tempTitle'))),
       h('p', { class: 'muted small', id: 'cpu-note', text: '' }),
-      h('div', { class: 'cols' },
-        h('div', { class: 'card' }, h('h3', { text: t('hostTitle') }), hostRows),
-        h('div', { class: 'card' }, h('h3', { text: t('memTitle') }),
-          kv(t('memTotal'), '–', 'm-total'), kv(t('memUsed'), '–', 'm-used'), kv(t('memAvailable'), '–', 'm-avail'), meter('m-bar'),
-          kv(t('swapTitle'), '–', 'm-swap'),
-          h('h3', { class: 'gap', text: t('storageTitle') }),
-          dash.storage.map((v, n) => h('div', {},
-            kv(v.id === 'internal' ? t('storageInternal') : t('storageCard') + (n > 1 ? ' ' + n : ''), t('storageFree', formatBytes(v.free), formatBytes(v.total))),
-            h('div', { class: 'bar thin' }, h('span', { 'data-w': String(Math.round((v.total - v.free) * 100 / Math.max(1, v.total))) })))))),
+      // storage on a line of its own, then the host device on one line with its details in two columns
+      h('div', { class: 'card' }, h('h3', { text: t('storageTitle') }),
+        dash.storage.map((v, n) => h('div', {},
+          kv(v.id === 'internal' ? t('storageInternal') : t('storageCard') + (n > 1 ? ' ' + n : ''), t('storageFree', formatBytes(v.free), formatBytes(v.total))),
+          h('div', { class: 'bar thin' }, h('span', { 'data-w': String(Math.round((v.total - v.free) * 100 / Math.max(1, v.total))) }))))),
+      h('div', { class: 'card' }, h('h3', { text: t('hostTitle') }), h('div', { class: 'kv2' }, hostRows)),
       h('div', { class: 'secthead' }, h('h2', { class: 'section', text: t('printersTitle') }),
         h('div', { class: 'tools' },
           dash.instances.length ? (dash.instances.some((i) => i.state === 'RUNNING' || i.state === 'STARTING')
@@ -641,15 +638,8 @@
   function updateLive() {
     if (tab !== 'dashboard' || !live || !document.getElementById('stats')) return;
     const m = live;
-    const used = m.memTotal - m.memAvailable;
-    const usedPct = m.memTotal ? used * 100 / m.memTotal : 0;
     updateCards(m);
     setText('v-uptime', formatUptime(m.uptimeMs));
-    setText('m-total', formatBytes(m.memTotal));
-    setText('m-used', formatBytes(used) + ' (' + pct(usedPct) + ')');
-    setText('m-avail', formatBytes(m.memAvailable));
-    setBar('m-bar', usedPct);
-    setText('m-swap', m.swapTotal ? formatBytes(m.swapTotal - m.swapFree) + ' / ' + formatBytes(m.swapTotal) : '–');
     setText('cpu-note', m.cpu === undefined ? t('cpuHidden') : '');
     drawCharts();
   }
