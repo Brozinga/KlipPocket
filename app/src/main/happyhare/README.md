@@ -1,130 +1,229 @@
 <p align="center">
-  <img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/happy_hare_logo.jpg" alt='Happy Hare' width='30%'>
-  <h1 align="center">Happy Hare</h1>
+  <img src="assets/images/happy_hare_logo_transparent.png" alt="Happy Hare" width="13%">
 </p>
 
-<p align="center">
-Universal MMU driver for Klipper
-</p>
+# Happy Hare
+
+<p align="center"><em><strong>Universal Automated Filament Changer / MMU driver for Klipper</strong></em></p>
 
 <p align="center">
-<!--
-  <a aria-label="Downloads" href="https://github.com/moggieuk/Happy-Hare/releases">
-    <img src="https://img.shields.io/github/release/moggieuk/Happy-Hare?display_name=tag&style=flat-square">
-  </a>
--->
   <a aria-label="Stars" href="https://github.com/moggieuk/Happy-Hare/stargazers">
-    <img src="https://img.shields.io/github/stars/moggieuk/Happy-Hare?style=flat-square"></a> &nbsp;
+    <img src="assets/images/badge-stars.svg" alt="GitHub stars"></a> &nbsp;
   <a aria-label="Forks" href="https://github.com/moggieuk/Happy-Hare/network/members">
-    <img src="https://img.shields.io/github/forks/moggieuk/Happy-Hare?style=flat-square"></a> &nbsp;
-  <a aria-label="License" href="https://github.com/moggieuk/Happy-Hare/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/moggieuk/Happy-Hare?style=flat-square"></a> &nbsp;
-  <a aria-label="Commits" href="">
-    <img src="https://img.shields.io/github/commit-activity/y/moggieuk/Happy-Hare"></a> &nbsp;
+    <img src="assets/images/badge-forks.svg" alt="GitHub forks"></a> &nbsp;
+  <a aria-label="License" href="LICENSE">
+    <img src="assets/images/badge-license.svg" alt="License"></a> &nbsp;
+  <a aria-label="Commits" href="https://github.com/moggieuk/Happy-Hare/commits/">
+    <img src="assets/images/badge-commit-activity.svg" alt="Commit activity"></a> &nbsp;
+  <a aria-label="Last commit" href="https://github.com/moggieuk/Happy-Hare/commits/">
+    <img src="assets/images/badge-last-commit.svg" alt="Last commit"></a>
 </p>
 
-Happy Hare is the second edition of what started life and as alternative software control for the ERCF v1.1 ecosystem - the original open source filament changer for multi-colored printing. However it has now been rearchitected to support most types of MMU's connected to the Klipper ecosystem. That includes **ERCF**, **Tradrack**, AMS-style and other custom designs. It has extensive configuration to allow for customization and using the installer simplifies initial setup for common MMU types. The three conceptual types of MMUs and the function and operation of their various sensors can be [found here](https://github.com/moggieuk/Happy-Hare/wiki/Conceptual-MMU) and should be consulted for any customized setup.  It is best partnered with [KlipperScreen for Happy Hare](https://github.com/moggieuk/KlipperScreen-Happy-Hare-Edition) projet at least until the Mainsail integration is complete :-)
+<p>&nbsp;</p>
 
-Some folks have asked about making a donation to cover the cost of the all the coffee I'm drinking (actually it's been G&T lately!). Although I'm not doing this for any financial reward this is a BIG undertaking (9000 lines of python, 5000 lines of doc, 4000 lines of macros/config). I have put hundreds of hours into this project and if you find value and feel inclined a donation to PayPal https://www.paypal.me/moggieuk will certainly be spent making your life with your favorate MMU more enjoyable. Thank you!
-<p align="center"><a href="https://www.paypal.me/moggieuk"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/donate.svg" width="35%"></a></p>
+<p>
+  <strong>One driver. Every kind of MMU. A complete Klipper experience.</strong>
+</p>
 
-<br>
+Happy Hare is the original open-source filament changer controller for
+multi-color printing. Its philosophy is to provide a universal control system
+that adapts to your choice of MMU (Multi-Material Unit): switch hardware and the
+software transitions seamlessly with you.
 
-## ![#f03c15](https://github.com/moggieuk/Happy-Hare/wiki/resources/f03c15.png) ![#c5f015](https://github.com/moggieuk/Happy-Hare/wiki/resources/c5f015.png) ![#1589F0](https://github.com/moggieuk/Happy-Hare/wiki/resources/1589F0.png) A few of the features:
+It is implemented as a Klipper extension that drives the hardware directly and
+exposes everything else through ordinary Klipper macros. It helps to think of it
+in web-browser terms: Klipper is the browser, and Happy Hare is an extension that
+adds a whole new capability without changing how Klipper works underneath. If
+you can write a `gcode_macro`, you can customize how Happy Hare behaves.
 
-- Support any brand of MMU and user defined monsters (ERCF 1.1, 2.0, Tradrack, Custom.  Prusa & KMS coming very soon)
-- Synchronized movement of extruder and gear motors (with feedback control) to overcome friction and even work with FLEX materials!
-- Sophisticated multi-homing options including extruder!
-- Implements a Tool-to-Gate mapping so that the physical spool can be mapped to any tool
-- EndlessSpool allowing a spool to automatically be mapped and take over from a spool that runs out
-- Sophisticated logging options (console and mmu.log file)
-- Can define material type and color in each gate for visualization and customized settings (like Pressure Advance)
-- Deep Spoolman integration
-- Automated calibration for easy setup
-- Supports MMU "bypass" gate functionality
-- Moonraker update-manager support
-- Complete persistence of state and statistics across restarts. That's right you don't even need to home!
-- Highly configurable speed control that intelligently takes into account the realities of friction and tugs on the spool
-- Optional integrated encoder driver that validates filament movement, runout, clog detection and flow rate verification!
-- Vast customization options most of which can be changed and tested at runtime
-- Integrated help, testing and soak-testing procedures
-- Gcode pre-processor check that all the required tools are avaialble!
-- Drives LEDs for functional feed and some bling!
-- Built in tip forming and filament cutter support
-- Lots more... Detail change log can be found in the [Wiki](https://github.com/moggieuk/Happy-Hare/wiki/Change-Log)
+Now in its fourth generation, Happy Hare brings the MMU, printer, slicer, spool
+inventory and user interface together as one polished system. Configure it with
+a guided installer, control it from Mainsail, Fluidd or KlipperScreen, and let it
+manage the details from the first filament load to the last toolchange.
 
-Controlling an ERCF with companion [customized KlipperScreen](https://github.com/moggieuk/Happy-Hare/wiki/Basic-Operation#---klipperscreen-happy-hare) for easy touchscreen MMU control!
+Happy Hare supports most community-built MMU/AFC systems, including
+**Box Turtle**, **ERCF**, **EMU**, **Tradrack**, **BTT ViViD**, **Night Owl**,
+**Angry Beaver**, **3MS**, **3D Chameleon**, **QuattroBox**, **PicoMMU**,
+**MMX**, **KMS**, **QIDI Box**, and custom designs. Its capability-based architecture gives
+selector machines and modular gear-per-gate systems native motor and sensor
+control, with room to grow into multi-unit and mixed-hardware printers.
 
-<p align="center"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/my_klipperscreen.png" width="600" alt="KlipperScreen-Happy Hare edition"></p>
+Pair it with
+[KlipperScreen for Happy Hare](https://github.com/moggieuk/KlipperScreen-Happy-Hare-Edition)
+for dedicated touchscreen control, or use the native Happy Hare panels in
+Mainsail and Fluidd.
 
-<br>
- 
-## ![#f03c15](https://github.com/moggieuk/Happy-Hare/wiki/resources/f03c15.png) ![#c5f015](https://github.com/moggieuk/Happy-Hare/wiki/resources/c5f015.png) ![#1589F0](https://github.com/moggieuk/Happy-Hare/wiki/resources/1589F0.png) Installation
+<p align="center">
+  <img src="assets/images/universal_mmu_driver.png" alt="Happy Hare driving several different MMUs through Mainsail, Fluidd, KlipperScreen and the console" width="100%">
+</p>
 
-The module can be installed into an existing Klipper setup with the supplied install script. Once installed it will be added to Moonraker update-manager to easy updates like other Klipper plugins. Full installation documentation is in the [Wiki](https://github.com/moggieuk/Happy-Hare/wiki/Home) but start with cloning the repo onto your rpi:
+<p align="center">
+  <a href="https://moggieuk.github.io/Happy-Hare-Doc/">
+    <img src="assets/images/happy_hare_docs_logo.png" alt="Happy Hare v4 documentation" width="120" align="middle">
+    <strong>Explore the Happy Hare v4 documentation</strong>
+  </a>
+</p>
 
-```
-cd ~
-git clone https://github.com/moggieuk/Happy-Hare.git
-```
+<p>&nbsp;</p>
 
-<br>
- 
-## ![#f03c15](https://github.com/moggieuk/Happy-Hare/wiki/resources/f03c15.png) ![#c5f015](https://github.com/moggieuk/Happy-Hare/wiki/resources/c5f015.png) ![#1589F0](https://github.com/moggieuk/Happy-Hare/wiki/resources/1589F0.png) Documentation
-<table>
-<tr>
-<td width=30%><a href="https://github.com/moggieuk/Happy-Hare/wiki/Home"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/wiki.png" alt="wiki"></a></td>
-<td>
-MMU's are complexd! Fortunately Happy Hare has elaborate documentation logically organized in the <a href="https://github.com/moggieuk/Happy-Hare/wiki/Home">Wiki</a>
+## Features
 
-<p><br><p>
+- **Automated filament changing** from gate selection and preloading through
+  load, unload, eject and complete toolchanges, with bypass support for ad hoc
+  single-spool printing.
+- **Flexible multi-MMU control** for selector and gear-per-gate designs,
+  including independent units, dissimilar hardware and multiple toolheads on
+  the same printer.
+- **Guided calibration and validation** for selectors, drive gears, encoders,
+  bowden paths, toolheads, motors and sensors.
+- **Gate, slicer and tool-to-gate maps** that track every filament and remap any
+  slicer tool to any physical spool, backed by upload-time G-code preprocessing.
+- **Runout, clog and tangle protection** using filament-path sensors, encoders
+  and FlowGuard, with automatic EndlessSpool handoff to a replacement spool.
+- **Quality-focused filament movement** with synchronized gear/extruder control,
+  sync-feedback buffers, encoder flow verification, tip forming or cutting,
+  smart purging and guided cold pulls.
+- **Spool intelligence** including material, color, temperature and availability,
+  full Spoolman/Filament Hub integration, and beta NFC/RFID tag reading for
+  automatic spool identification.
+- **Active spool and enclosure hardware** with eSpooler rewind/assist, functional
+  LEDs, physical eject buttons, temperature-controlled fans and managed filament
+  drying.
+- **Persistent state and deep diagnostics** including calibration and map
+  recovery, toolchange statistics, maintenance counters, dedicated logging,
+  built-in help, hardware tests and soak testing.
+- **Complete UI control** through native MMU panels in Mainsail and Fluidd, plus
+  the dedicated KlipperScreen Happy Hare extension for touchscreen operation.
+- **Macro-level customization** for parking, pause/recovery, load/unload
+  sequences, print lifecycle hooks and other printer-specific behavior.
 
-**Other Resources:**
-<div align="left">
-<a href="https://www.youtube.com/watch?v=uaPLuWJBdQU"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/youtube1.png" width="30%"></a>
-German instructional video created by Crydteam
-<!--
-    <img src="https://i9.ytimg.com/vi_webp/uaPLuWJBdQU/maxresdefault.webp?v=6522d1a6&sqp=CKycn6kG&rs=AOn4CLBCiHQsjGJ0c8ywvkxy9uWEk_yUXw" 
-         alt="Everything Is AWESOME" 
-         style="width:50%;">
--->
+<p>&nbsp;</p>
 
-<p><br>
+## v3 or v4?
 
-<a href="https://www.youtube.com/watch?v=FCl5NfQnulg"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/youtube2.png" width="30%"></a>
-English Happy Hare introduction by Silverback
-</div>
+Happy Hare v4 is a major rework, not a drop-in update to v3. It introduces a
+modular multi-unit architecture, a restructured Klipper extension, and a guided
+Kconfig/`menuconfig` installer. The module and configuration layouts are
+different, so v3 configuration files cannot be loaded by v4, or vice versa.
 
-</td>
-</tr>
+- **New installations:** use **v4**, the current generation and the home of new
+  development. Start with the [v4 documentation](https://moggieuk.github.io/Happy-Hare-Doc/).
+- **Staying on v3:** the mature v3 release remains available on the `v3` branch;
+  continue to use the [v3 wiki](https://github.com/moggieuk/Happy-Hare/wiki)
+  and the [v3 resources and videos](README-V3.md).
+- **Moving from v3 to v4:** read the
+  [v3-to-v4 upgrade guide](https://moggieuk.github.io/Happy-Hare-Doc/Upgrade-v3-v4/)
+  before changing branches. The installer preserves a backup, but v4 must be
+  configured as a fresh setup.
+
+<p>&nbsp;</p>
+
+## What's new in v4?
+
+Happy Hare has always been exceptionally flexible. That flexibility also earned
+it a reputation for taking time and care to configure. **v4 changes that.**
+
+The new Kconfig/`menuconfig`-based installer/configurator turns setup into a
+guided, top-down series of choices. Select your MMU, control board, toolhead and
+features; Happy Hare applies sensible defaults, asks only the questions relevant
+to your hardware, validates the result, and generates the Klipper configuration
+for you. The same configurator makes later changes and upgrades predictable,
+without taking away the option to customize by hand.
+
+<p align="center">
+  <img src="assets/images/happy_hare_menuconfig_composite.png" alt="Happy Hare v4 menuconfig with Box Turtle selection overlaid on eSpooler feature configuration" width="65%">
+</p>
+
+Underneath the easier setup is a modular, multi-unit architecture. Different
+MMU/AFC designs can run independently on the same printer, including machines
+with multiple toolheads, while still sharing the mature mapping, runout,
+Spoolman, NFC/RFID, encoder, eSpooler, LED and UI ecosystem Happy Hare is known
+for.
+
+<p>&nbsp;</p>
+
+## Multi-color printing worth the machinery
+
+The setup and tuning journey can take patience, but this is why we do it. These
+prints from @igiannakas were produced with an ERCF v2, OrcaSlicer and Happy Hare.
+
+<p align="center">
+  <a href="assets/images/happy_hare_examples.jpg">
+    <img src="assets/images/happy_hare_examples.jpg" alt="Detailed multi-color prints produced with Happy Hare" width="70%">
+  </a>
+</p>
+
+<p>&nbsp;</p>
+
+## Donations
+
+Happy Hare is a labor of love rather than a funded project, but v4 and its new
+documentation site are a substantial undertaking:
+
+<table role="presentation" border="0" cellspacing="0" cellpadding="0">
+  <tr>
+    <td width="50%" align="center" valign="middle" style="border: 0;">
+      <sub>
+      ~58,500 lines: driver code<br>
+      ~30,000 lines: installer/configurator<br>
+      ~7,000 lines: macros/configuration<br>
+      ~46,000 lines: 1,900+ automated tests<br>
+      ~19,500 lines: docs across 73 pages<br>
+      260+ documentation images
+      </sub>
+    </td>
+    <td width="50%" align="center" valign="middle" style="border: 0;">
+      <p align="center">
+        <a href="https://www.paypal.me/moggieuk">
+          <img src="assets/images/donate.svg" alt="Donate with PayPal" width="100%">
+        </a>
+      </p>
+    </td>
+  </tr>
 </table>
 
-<br>
+If you have found value in Happy Hare and want to contribute, donations are
+welcome via PayPal. Any support goes toward improving the experience for
+whichever MMU/AFC you run. Thank you!
 
-## ![#f03c15](https://github.com/moggieuk/Happy-Hare/wiki/resources/f03c15.png) ![#c5f015](https://github.com/moggieuk/Happy-Hare/wiki/resources/c5f015.png) ![#1589F0](https://github.com/moggieuk/Happy-Hare/wiki/resources/1589F0.png) Just how good a MMU multi-color prints?
+<p>&nbsp;</p>
 
-Although the journey to calibrating and setup can be a frustrating one, I wanted to share @igiannakas (ERCFv2 + Orca Slicer + Happy Hare) example prints here.  Click on the image to zoom it. Incredible! :cool: :clap:
+## Getting help
 
-<p align="center"><a href="https://github.com/moggieuk/Happy-Hare/wiki/resources/example_mmu_print.png"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/example_mmu_print.png" width="800" alt="Example Prints"></a></p>
-<br>
+Join the [Happy Hare Discord](https://discord.gg/98TYYUf6f2), where there are
+channels for each MMU type and the main integrations. Bugs and feature requests
+can also be filed in the [GitHub issue tracker](https://github.com/moggieuk/Happy-Hare/issues).
 
-## ![#f03c15](https://github.com/moggieuk/Happy-Hare/wiki/resources/f03c15.png) ![#c5f015](https://github.com/moggieuk/Happy-Hare/wiki/resources/c5f015.png) ![#1589F0](https://github.com/moggieuk/Happy-Hare/wiki/resources/1589F0.png) My Testing and Setup:
+For the fastest help, include `klippy.log`, `mmu.log`, the output of
+`MMU_STATUS SHOWCONFIG=1`, the exact error text, and a clear description of what
+was happening. Pictures or video are especially useful for physical problems.
 
-Most of the development of Happy Hare was done on my trusty ERCF v1.1 setup but as it's grown, so has my collection of MMU's and MCU controllers. Multi-color printing is addictive but can be frustrating during setup and learning. Be patient and use the forums for help!  **But first read the [Wiki](https://github.com/moggieuk/Happy-Hare/wiki/Home)!**
+<p>&nbsp;</p>
 
-<p align="center"><img src="https://github.com/moggieuk/Happy-Hare/wiki/resources/my_voron_and_ercf.jpg" width="300" alt="My Setup"></p>
-<p align="center"><i>
-There once was a printer so keen,<br>
+## Built with five years of MMU experience (and probably too much coffee)
+
+Happy Hare is built on over five years of hands-on experience with many MMU
+designs, starting with **ERCF**, continuing through **Box Turtle**, and now the
+modular **EMU** system. Every new design brings another interesting challenge to
+solve—and another excuse to print something colorful.
+
+Multi-color printing can be addictive and occasionally frustrating. Be patient,
+read the docs, ask the community when you get stuck, and remember to enjoy the
+machine you built.
+
+<p align="center">
+<strong>❝</strong>
+<em>There once was a printer so keen,<br>
 To print in red, yellow, and green.<br>
 It whirred and it spun,<br>
 Mixing colors for fun,<br>
-The most vibrant prints ever seen!</br>
-</i></p>
+The most vibrant prints ever seen!</em>
+</p>
 
----
-
-```yml
+<pre>
   (\_/)
   ( *,*)
   (")_(") Happy Hare Ready
-```
+</pre>
+
+<sub>Copyright (C) 2022-2026 Paul Morgan</sub>

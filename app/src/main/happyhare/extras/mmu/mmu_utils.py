@@ -30,6 +30,12 @@ import logging, math, contextlib, re, copy
 from .mmu_constants import *
 
 
+def is_kalico(printer):
+    # Kalico ships its own [danger_options] module; vanilla Klipper has no
+    # such config object.
+    return bool(printer.lookup_object('danger_options', False))
+
+
 
 # -----------------------------------------------------------------------------------------------------------
 # DEDICATED MMU EXCEPTION
@@ -40,6 +46,14 @@ class MmuError(Exception):
     Wrapper exception for all MMU errors.
     """
     pass
+
+
+class MmuGateHomingMiss(MmuError):
+    """A pickup that failed with nothing moved and no sensor seeing filament.
+
+    Reported separately because the gate can be treated as empty, where a pickup that
+    failed any other way leaves the filament position unknown.
+    """
 
 
 
@@ -56,7 +70,7 @@ class SaveVariableManager:
 
     SAVE_VARIABLE snapshots klipper's variable dict up front, then pauses and finally
     replaces it with a re-read of the file, so anything set mid-command is silently lost.
-    Every set()/delete() is therefore journalled in _pending and only dropped once a
+    Every set()/delete() is therefore recorded in _pending and only dropped once a
     post-write re-read proves it reached disk. Writes are coalesced onto a reactor timer.
     """
 
@@ -565,6 +579,7 @@ class MmuColorUtils:
     """
 
     # Standard symbolic color names
+    # cspell:disable # technical color names should not be spell checked
     W3C_COLORS = {
         'aliceblue': '#F0F8FF',
         'antiquewhite': '#FAEBD7',
@@ -715,6 +730,7 @@ class MmuColorUtils:
         'yellow': '#FFFF00',
         'yellowgreen': '#9ACD32',
     }
+    # cspell:enable
 
 
     @staticmethod

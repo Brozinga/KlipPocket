@@ -1,0 +1,217 @@
+# Define MMU base capabilities excluding filament sensors.
+#
+# H/W features are represented by tokens with "MMU_HAS_" prefix
+# These are not designed to be directly exposed in UI.
+#
+#   MMU_HAS_SELECTOR_STEPPER
+#   MMU_HAS_SELECTOR_SERVO
+#   MMU_HAS_ENCODER
+#   MMU_HAS_SYNC_FEEDBACK_BUFFER
+#   MMU_HAS_ESPOOLER
+#   MMU_HAS_FILAMENT_BUFFER
+#   MMU_HAS_LEDS
+#   MMU_HAS_FANS
+#   MMU_HAS_ENVIRONMENT_SENSOR
+#   MMU_HAS_HEATER
+#   MMU_HAS_HEATER_FANS
+#   MMU_HAS_EJECT_BUTTONS
+#   MMU_HAS_VENT_SERVO
+#   MMU_HAS_BUFFER_MCU
+#
+# Per-gate capabilities/topology:
+#   MMU_HAS_PER_GATE_MCU
+#   MMU_HAS_PER_GATE_CONFIG
+#   MMU_HAS_PER_GATE_NFC_READERS
+#
+#   PARAM_MISC_HARDWARE
+#
+# Behavior parameters are generally determined by MMU type, use
+#   "imply  XXX"          .. to suggest on
+#   "select XXX"          .. to force on
+#   "select UNSELECT_XXX" .. to force off/disable
+#
+# but can be tuned, especially for custom designs.
+#
+#   (PARAM_HAS_BYPASS) set in Kconfig.bypass
+#   PARAM_VARIABLE_BOWDEN_LENGTHS
+#   PARAM_VARIABLE_ROTATION_DISTANCES
+#   PARAM_FILAMENT_ALWAYS_GRIPPED
+#
+# Some custom designs have special hardware setup. If so, that is included
+# in MISC_HARDWARE and these tokens may be 'y' to prevent duplicate setup.
+#   CUSTOM_LED_SETUP
+#   CUSTOM_ENVIRONMENT_SENSOR_SETUP
+#   CUSTOM_HEATER_SETUP
+#   CUSTOM_FAN_SETUP
+#   CUSTOM_HEATER_FAN_SETUP
+#   CUSTOM_CONTROLLER_FAN_SETUP
+#   CUSTOM_NFC_READER_SETUP
+#   CUSTOM_MISC_SETUP
+#
+
+config MMU_HAS_SELECTOR_STEPPER
+  def_bool n
+
+config MMU_HAS_SELECTOR_SERVO
+  def_bool n
+
+config MMU_HAS_ENCODER
+  def_bool n
+
+config MMU_HAS_SYNC_FEEDBACK_BUFFER
+  def_bool n
+
+config MMU_HAS_ESPOOLER
+  def_bool n
+  select UNSELECT_MMU_HAS_FILAMENT_BUFFER
+
+# Type-B designs without an eSpooler can still turn the spool with the gate's
+# own gear motor, so spool rotation is not tied to having an eSpooler.
+config MMU_GEAR_ROTATES_SPOOL
+  def_bool n
+
+config MMU_HAS_LEDS
+  def_bool n
+
+config MMU_HAS_FANS
+  def_bool n
+  depends on MMU_HAS_ENVIRONMENT_SENSOR || BOOL_CREATE_MCU_ENVIRONMENT_SENSORS
+
+config MMU_HAS_ENVIRONMENT_SENSOR
+  def_bool n
+
+config MMU_HAS_HEATER
+  def_bool n
+
+config MMU_HAS_HEATER_FANS
+  def_bool y if MMU_HAS_HEATER && !MMU_HAS_PER_GATE_CONFIG
+
+config MMU_HAS_EJECT_BUTTONS
+  def_bool n
+
+config MMU_HAS_VENT_SERVO
+  def_bool n
+  depends on MMU_HAS_HEATER
+
+# Some new designs have mcu integrated in sync-feedback buffer mcu
+config MMU_HAS_BUFFER_MCU
+  def_bool n
+
+
+# ------------------------------------
+# Custom hardware
+# ------------------------------------
+
+# Some custom designs have some pre-packaged hardware configuration
+config PARAM_MISC_HARDWARE
+  string
+
+# If custom hardware includes any of these, disable generic setup to prevent duplication.
+# No default here (so n) - a board or type file sets "def_bool y" next to the
+# misc hardware that provides it
+config CUSTOM_LED_SETUP
+  bool
+
+config CUSTOM_ENVIRONMENT_SENSOR_SETUP
+  bool
+
+config CUSTOM_HEATER_SETUP
+  bool
+
+config CUSTOM_FAN_SETUP
+  bool
+
+config CUSTOM_HEATER_FAN_SETUP
+  bool
+
+config CUSTOM_CONTROLLER_FAN_SETUP
+  bool
+
+config CUSTOM_NFC_READER_SETUP
+  bool
+
+# No generic setup: this only chooses a board's other misc hardware
+config CUSTOM_MISC_SETUP
+  bool
+
+
+# ------------------------------------
+# Design attributes controlling behavior
+# ------------------------------------
+
+menu "Design attributes"
+  help
+    ADVANCED: This allows tweaking of vendor defaults that control the
+    way the MMU behaves. It allows supporting some modifications or
+    specific setup.
+
+    It is unlikely that you want to change anything here so be careful.
+
+  source "Kconfig.selector_type" 
+
+  source "Kconfig.bypass" 
+
+  source "Kconfig.filament_buffer"
+
+  config UNSELECT_VARIABLE_BOWDEN_LENGTHS
+    def_bool n
+  config PARAM_VARIABLE_BOWDEN_LENGTHS
+    boolint "Variable bowden lengths?"
+    default 0
+    forceshow
+    depends on !UNSELECT_VARIABLE_BOWDEN_LENGTHS
+    help
+      Whether filament path from parked position in the gate to the extruder is different
+      for each gate. Typically this is true of type-B designs but not true of type-A with
+      Linear Selector and single bowden exit from the MMU.
+
+  config UNSELECT_VARIABLE_ROTATION_DISTANCES
+    def_bool n
+  config PARAM_VARIABLE_ROTATION_DISTANCES
+    boolint "Variable rotation distances?"
+    default 0
+    forceshow
+    depends on !UNSELECT_VARIABLE_ROTATION_DISTANCES
+    help
+      Whether the design has different drive gears (typically BMG gears). Even if from
+      the same vendor the rotation distance can vary, hence this option.
+      If this is selected you are able to tune the rotation distance of each gate/lane
+      independently which may useful especially with long bowden tubes where
+      lack of calibration can multiply.
+
+  config UNSELECT_FILAMENT_ALWAYS_GRIPPED
+    def_bool n
+  config PARAM_FILAMENT_ALWAYS_GRIPPED
+    boolint "Filament always gripped?"
+    default 0
+    forceshow
+    depends on !UNSELECT_FILAMENT_ALWAYS_GRIPPED
+    help
+      Whether the design is always gripping the filament. For most type-B designs this
+      will be true, but type-A designs usually have a choice because of their filament
+      release mechanism..
+
+
+  # ------------------------------------
+  # Per-gate capabilities
+  # ------------------------------------
+
+  comment "_" if SHOW_HIDDEN
+
+  config MMU_HAS_PER_GATE_MCU
+    def_bool n
+    prompt "Per-gate MCUs?" if SHOW_HIDDEN
+
+  config MMU_HAS_PER_GATE_CONFIG
+    def_bool n
+    prompt "Per-gate configuration?" if SHOW_HIDDEN
+    help
+      Configure environment sensor, heater, fan and vent servo hardware for
+      each gate, in each feature's h/w config menu. This is independent of
+      the MCU topology.
+
+  config MMU_HAS_PER_GATE_NFC_READERS
+    def_bool n
+    prompt "Per-gate NFC readers?" if SHOW_HIDDEN
+
+endmenu

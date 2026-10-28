@@ -1,0 +1,378 @@
+# Responsible for setting:
+#   MMU_HAS_SYNC_FEEDBACK_BUFFER
+#
+# Buffer parameter tokens which must be inside if MMU_HAS_SYNC_FEEDBACK_BUFFER clause in cfg templates:
+#   MMU_SHARED_SYNC_FEEDBACK_BUFFER
+#   PARAM_SYNC_FEEDBACK_BUFFER_NAME
+#   PARAM_BUFFER_RANGE
+#   PARAM_BUFFER_MAXRANGE
+#   PARAM_BUFFER_SPRING_STATE
+#   PARAM_SYNC_FEEDBACK_SPEED_MULTIPLIER
+#   PARAM_SYNC_FEEDBACK_BOOST_MULTIPLIER
+#   PARAM_SYNC_FEEDBACK_EXTRUDE_THRESHOLD
+#   PARAM_SYNC_FEEDBACK_DEBUG_LOG
+#   MMU_HAS_SENSOR_BUFFER_COMPRESSION
+#   MMU_HAS_SENSOR_BUFFER_TENSION
+#   MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+#
+#   PIN_BUFFER_COMPRESSION  (duplicate with pins)
+#   PIN_BUFFER_TENSION      (duplicate with pins)
+#   PIN_BUFFER_PROPORTIONAL (duplicate with pins)
+#   PIN_BUFFER_ANALOG
+#     PARAM_ANALOG_SENSOR_THRESHOLD (if MMU_HAS_SENSOR_BUFFER_PROPORTIONAL)
+#     PARAM_ANALOG_MAX_COMPRESSION
+#     PARAM_ANALOG_MAX_TENSION
+#     PARAM_ANALOG_NEUTRAL_POINT
+#     PARAM_ANALOG_GAMMA
+#
+# Can be disabled and forced off with:
+#   select UNSELECT_MMU_HAS_SYNC_FEEDBACK_BUFFER
+#
+# Behavior parameters for buffer tension/compression can be determined by MMU type to force off/disable:
+#   select UNSELECT_MMU_HAS_SENSOR_BUFFER_TENSION
+#   select UNSELECT_MMU_HAS_SENSOR_BUFFER_COMPRESSION
+
+
+comment "_"
+comment "_Sync Feedback Buffer"
+
+config UNSELECT_MMU_HAS_SYNC_FEEDBACK_BUFFER
+  def_bool n
+
+if !UNSELECT_MMU_HAS_SYNC_FEEDBACK_BUFFER
+  config MMU_HAS_SYNC_FEEDBACK_BUFFER
+    prompt "Has sync-feedback buffer?"
+    forceshow
+    default n
+    help
+      A sync-feedback sensor (often referred to as a "buffer") is
+      a sensor connected in the bowden path that can detect filament
+      compression and/or tension.
+endif
+
+
+# -------------------------------------
+# Buffer config
+# -------------------------------------
+
+if MMU_HAS_SYNC_FEEDBACK_BUFFER
+
+  menu "Buffer config"
+
+    config MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      bool "Use shared buffer?"
+      default n
+      help
+        Select if this unit uses a buffer it doesn't define: one owned by another
+        unit, e.g. fitted after the bowden combiner near the toolhead, or a
+        [mmu_buffer ...] section in your own config.
+
+    config PARAM_SYNC_FEEDBACK_BUFFER_NAME
+      string "$(pad,33,Buffer name)" if !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      validator "$(object_name_validator)"
+      help
+        The Klipper object name of this unit's buffer: [mmu_buffer [[B]][[VALUE:PARAM_SYNC_FEEDBACK_BUFFER_NAME]][[/B]]].
+        Another unit can share it by this name.
+        Use lowercase letters, digits, "_" and "-", starting with a letter.
+
+    config PARAM_SYNC_FEEDBACK_BUFFER_NAME
+      string "$(pad,33,Shared buffer object name)" if MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      # A sharer's saved name, unless it is older installs' placeholder
+      default "$(saved-config-value,PARAM_SYNC_FEEDBACK_BUFFER_NAME)" if MMU_SHARED_SYNC_FEEDBACK_BUFFER && "$(saved-config-value,MMU_SHARED_SYNC_FEEDBACK_BUFFER)" = "y" && \
+        "$(saved-config-value,PARAM_SYNC_FEEDBACK_BUFFER_NAME)" != "-specify name-"
+      default "" if MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      default UNIT_NAME
+      help
+        The name of the buffer this unit uses: [mmu_buffer [[B]][[VALUE:PARAM_SYNC_FEEDBACK_BUFFER_NAME]][[/B]]].
+        Another unit's "Buffer name" (its sensors are used here), or a section
+        in your own config (declare its sensors below). This unit renders no
+        [mmu_buffer] section of its own.
+
+    comment "Known shared buffers: $(first-nonempty,$(owner-names,buffer),none)" if MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      dim
+
+    # The shared name is another unit's own buffer
+    config SHARED_BUFFER_FOUND
+      bool
+      @repeat var=i min=0 max=$(owner-max,buffer)@
+      default y if MMU_SHARED_SYNC_FEEDBACK_BUFFER && "$(owner-name,buffer,$(i))" != "" && PARAM_SYNC_FEEDBACK_BUFFER_NAME = "$(owner-name,buffer,$(i))"
+      @endrepeat@
+
+    comment "No other unit owns this buffer: enter its capabilities below" if \
+        MMU_SHARED_SYNC_FEEDBACK_BUFFER && !SHARED_BUFFER_FOUND && PARAM_SYNC_FEEDBACK_BUFFER_NAME != ""
+      dim
+
+    # That buffer's sensors and spring state, for this unit's endstop and calibration defaults
+    if MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      shared_kind     := buffer
+      shared_name_sym := PARAM_SYNC_FEEDBACK_BUFFER_NAME
+      shared_export   := MMU_HAS_SENSOR_BUFFER_COMPRESSION
+      source "components/Kconfig.shared_export"
+      shared_kind     := buffer
+      shared_name_sym := PARAM_SYNC_FEEDBACK_BUFFER_NAME
+      shared_export   := MMU_HAS_SENSOR_BUFFER_TENSION
+      source "components/Kconfig.shared_export"
+      shared_kind     := buffer
+      shared_name_sym := PARAM_SYNC_FEEDBACK_BUFFER_NAME
+      shared_export   := MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+      source "components/Kconfig.shared_export"
+      shared_kind     := buffer
+      shared_name_sym := PARAM_SYNC_FEEDBACK_BUFFER_NAME
+      shared_export   := PARAM_BUFFER_SPRING_STATE
+      source "components/Kconfig.shared_export"
+    endif
+
+    if !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+      config PARAM_BUFFER_RANGE
+        float "Sync feedback buffer sensor range"
+        range 0 30
+        default 10
+        help
+          Travel in "buffer" between compression/tension or one sensor and end:
+
+          <------maxrange------>       <------maxrange------>       <------maxrange------>       <------maxrange------>
+               <--range--->                  <----range----->       <----range----->                       <> range=0
+          |====================|       |====================|       |====================|       |====================|
+               ^          ^                  ^                                     ^                       ^^
+          compression   tension        compression-only                      tension-only
+
+      config PARAM_BUFFER_MAXRANGE
+        float "Sync feedback buffer max range   "
+        range 0 30
+        default 12
+        help
+          The maximum distance the sync-feedback buffer can move from hard limit to hard limit:
+
+          <------maxrange------>       <------maxrange------>       <------maxrange------>       <------maxrange------>
+               <--range--->                  <----range----->       <----range----->                       <> range=0
+          |====================|       |====================|       |====================|       |====================|
+               ^          ^                  ^                                     ^                       ^^
+          compression   tension        compression-only                      tension-only
+    endif
+
+    # Another unit's buffer, as that unit configured it (padded so the rows line up)
+    if MMU_SHARED_SYNC_FEEDBACK_BUFFER && SHARED_BUFFER_FOUND
+      comment "$(pad,51,Resting spring state: Tension / squeezed buffer)" if PARAM_BUFFER_SPRING_STATE = "tension"
+        dim
+      comment "$(pad,51,Resting spring state: Neutral)" if PARAM_BUFFER_SPRING_STATE = "neutral"
+        dim
+      comment "$(pad,51,Resting spring state: Compression / expanded buffer)" if PARAM_BUFFER_SPRING_STATE = "compression"
+        dim
+      comment "$(pad,51,Resting spring state: n/a)" if PARAM_BUFFER_SPRING_STATE = "none"
+        dim
+      comment "$(pad,51,Compression sensor: yes)" if MMU_HAS_SENSOR_BUFFER_COMPRESSION
+        dim
+      comment "$(pad,51,Compression sensor: no)" if !MMU_HAS_SENSOR_BUFFER_COMPRESSION
+        dim
+      comment "$(pad,51,Tension sensor: yes)" if MMU_HAS_SENSOR_BUFFER_TENSION
+        dim
+      comment "$(pad,51,Tension sensor: no)" if !MMU_HAS_SENSOR_BUFFER_TENSION
+        dim
+      comment "$(pad,51,Proportional sensor: yes)" if MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+        dim
+      comment "$(pad,51,Proportional sensor: no)" if !MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+        dim
+    endif
+
+    # What the buffer is, unless it is another unit's own
+    if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+      choice CHOICE_BUFFER_SPRING_STATE
+        prompt "Buffer resting spring state      "
+        default CHOICE_BUFFER_SPRING_STATE_NONE
+        help
+          If the buffer is sprung and reliably rests in one position it can be set here. This aids
+          filament detection logic. If 'none' (default) no assumption will be made about resting position.
+          IMPORTANT NOTE: This is the state the filament
+            - commonly an expanded buffer indicates filament "compression"
+            - while a squeezed buffer indicates filament "tension"
+ 
+
+        config CHOICE_BUFFER_SPRING_STATE_TENSION
+          bool "Tension / squeezed buffer"
+          help
+            Set if buffer spring naturally keeps buffer indicating filament tension
+
+        config CHOICE_BUFFER_SPRING_STATE_NEUTRAL
+          bool "Neutral"
+          help
+            Set if buffer spring naturally keeps buffer centered in neutral position
+
+        config CHOICE_BUFFER_SPRING_STATE_COMPRESSION
+          bool "Compression / expanded buffer"
+          help
+            Set if buffer spring naturally keeps buffer indicating filament compression
+
+        config CHOICE_BUFFER_SPRING_STATE_NONE
+          bool "n/a"
+          help
+            Set for no spring or if buffer doesn't have a reliable resting position
+      endchoice
+
+      config PARAM_BUFFER_SPRING_STATE
+        string
+        default "tension"     if CHOICE_BUFFER_SPRING_STATE_TENSION
+        default "neutral"     if CHOICE_BUFFER_SPRING_STATE_NEUTRAL
+        default "compression" if CHOICE_BUFFER_SPRING_STATE_COMPRESSION
+        default "none"
+    endif
+
+    comment "_" if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+    comment "_Fitted Sensors" if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+
+    # A buffer this unit doesn't define has its sensors declared but no pins
+    if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+      config UNSELECT_MMU_HAS_SENSOR_BUFFER_COMPRESSION
+          bool
+      config MMU_HAS_SENSOR_BUFFER_COMPRESSION
+        bool "Sync-Feedback Compression sensor (aka buffer out)?"
+        depends on !UNSELECT_MMU_HAS_SENSOR_BUFFER_COMPRESSION
+        forceshow if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+        default n
+        help
+          A sync-feedback sensor (often referred to as a "buffer") is a sensor that can
+          detect filament compression and/or tension.  Select this option if your sensor
+          can detect filament being COMPRESSED in the bowden tube.
+
+          This sensor allows the MMU gear stepper to be synchronized with the extruder and
+          can be used to detect collision of the filament with the extruder.
+
+      config PIN_BUFFER_COMPRESSION
+        prompt "Sync feedback compression pin" if MMU_HAS_SENSOR_BUFFER_COMPRESSION && !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+        validator "$(pin_validator)"
+        help
+          $(pin_help)
+        
+      config UNSELECT_MMU_HAS_SENSOR_BUFFER_TENSION
+          bool
+      config MMU_HAS_SENSOR_BUFFER_TENSION
+        bool "Sync-Feedback Tension sensor (aka buffer in)?"
+        depends on !UNSELECT_MMU_HAS_SENSOR_BUFFER_TENSION
+        forceshow if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+        default n
+        help
+          A sync-feedback sensor (often referred to as a "buffer") is a sensor that
+          can detect filament compression and/or tension.  Select this option if your
+          sensor can detect filament being UNDER TENSION in the bowden tube.
+
+          This sensor allows the MMU gear stepper to be synchronized with the extruder.
+
+      config PIN_BUFFER_TENSION
+        prompt "Sync feedback tension pin    " if MMU_HAS_SENSOR_BUFFER_TENSION && !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+        validator "$(pin_validator)"
+        help
+          $(pin_help)
+ 
+      config UNSELECT_MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+          bool
+      config MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+        bool "Sync-Feedback Analog proportional position sensor?"
+        depends on !UNSELECT_MMU_HAS_SENSOR_BUFFER_PROPORTIONAL
+        forceshow if !MMU_SHARED_SYNC_FEEDBACK_BUFFER || !SHARED_BUFFER_FOUND
+        default n
+        help
+          A sync-feedback sensor (often referred to as a "buffer") is a sensor that can detect filament
+          compression and/or tension. Select this option if your sensor uses an analog input
+          proportional to position. Usually this is an alternate to discrete switch based sensors
+          but they can also be added. If not, a virtual compression/tension sensor will be created.
+
+          This sensor also allows the MMU gear stepper to be accurately synchronized with the extruder.
+
+      if MMU_HAS_SENSOR_BUFFER_PROPORTIONAL && !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+
+        config PIN_BUFFER_ANALOG
+          prompt "Proportional (analog) pin    "
+          validator "$(pin_validator)"
+          help
+            $(pin_help)
+
+        config PARAM_ANALOG_SENSOR_THRESHOLD
+          float "Sensor trigger threshold     "
+          default 0.9
+          help
+            analog_sensor_threshold
+            The point at which the virtual compression/tension sensors are triggered (on 0-1 scale)
+            The proportional scale is always normalized from -1.0 to +1.0, so a setting of 0.9 means:
+              the virtual filament_compression sensor will trigger at 0.9
+              the virtual filament_tension sensor will trigger at -0.9
+            This is extremely useful as the extruder homing endstop.
+
+        comment "_"
+        comment "Tuning params (MMU_CALIBRATE_PSENSOR)"
+
+        config PARAM_ANALOG_MAX_COMPRESSION
+          float "analog_max_compression       "
+          default 1.0
+          help
+            Raw sensor reading at max compression (buffer expanded).
+
+            Generally this can be determined with the MMU_CALIBRATE_PSENSOR command.
+
+        config PARAM_ANALOG_MAX_TENSION
+          float "analog_max_tension           "
+          default 0.0
+          help
+            Raw sensor reading at max tension (buffer squeezed).
+
+            Generally this can be determined with the MMU_CALIBRATE_PSENSOR command.
+
+        config PARAM_ANALOG_NEUTRAL_POINT
+          float "analog_neutral_point         "
+          default 0.5
+          help
+            Biasing of neutral point (sensor value 0). Normally close to 0.5
+
+            Generally this can be determined with the MMU_CALIBRATE_PSENSOR command.
+
+        config PARAM_ANALOG_GAMMA
+          float "analog_gamma                 "
+          default 1.0 
+          help
+            Advanced option to change the "shape" the response around neutral_point
+            A value of 1 maps to a linear scale. Experiment if your analog sensor seems
+            more sensitive at one end of travel verses the other.
+
+      endif
+
+      config PARAM_REGISTER_BUFFER_SENSORS
+        boolint "Register buffer sensors in Mainsail / Fluidd" if !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+        default 1
+        help
+          Whether to register the sensors for visibility in klipper UI's
+          and with QUERY_SENSOR command. There is no harm in doing this but
+          it can be disabled to reduce clutter.
+    endif
+
+    comment "_"
+    comment "_Feedback tuning"
+
+    config PARAM_SYNC_FEEDBACK_SPEED_MULTIPLIER
+      float "Sync feedback speed multiplier   "
+      range 1 50
+      default 5
+      help
+        % "two-level" gear speed delta to keep filament neutral in buffer (recommend 5%)
+
+    config PARAM_SYNC_FEEDBACK_BOOST_MULTIPLIER
+      float "Sync feedback boost multiplier   "
+      range 1 50
+      default 3
+      help
+        % "two-level" extra gear speed boost for finding initial neutral position (recommend 3%)
+
+    config PARAM_SYNC_FEEDBACK_EXTRUDE_THRESHOLD
+      float "Sync feedback extrude threshold  "
+      default 5
+      help
+        Extruder movement (mm) for updates (keep small but set > retract distance)
+
+    config PARAM_SYNC_FEEDBACK_DEBUG_LOG
+      boolint "Enable sync-feedback telemetry log?"
+      default 0
+      help
+        If enabled this forces debugging to a telemetry log file "sync_<gate>.jsonl". This is great if
+        trying to tune clog/tangle detection or for getting help on the Happy Hare forum. To plot graph
+        of sync-feedback operation, run:
+          ~/Happy-Hare/utils/plot_sync_feedback.sh
+
+  endmenu
+endif

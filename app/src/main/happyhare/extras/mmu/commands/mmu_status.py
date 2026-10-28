@@ -86,6 +86,8 @@ class MmuStatusCommand(BaseCommand):
             lines.append(f"{UI_CASCADE} {unit.selector.get_mmu_status_config()}\n")
             if unit.has_encoder():
                 lines.append(f"{UI_CASCADE} Encoder reads {unit.encoder.get_distance():.1f}mm\n")
+            if unit.has_buffer():
+                lines.append(f"{UI_CASCADE} Buffer reads {unit.sync_feedback.get_sync_feedback_string(detail=True)}\n")
 
 
         # This is all now the currently active unit ---------
@@ -124,7 +126,7 @@ class MmuStatusCommand(BaseCommand):
 
         if mmu.gate_selected >= 0:
             fil_pos_str = FILAMENT_POS_NAME_MAP.get(mmu.filament_pos, "INVALID")
-            lines.append(f"\nFilament positon believed to be: {fil_pos_str}")
+            lines.append(f"\nFilament position believed to be: {fil_pos_str}")
 
         if config:
 

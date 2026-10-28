@@ -22,7 +22,7 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 #
 
-import logging, importlib, math, os, time, re, traceback
+import logging, importlib, math, os, time, re, traceback, contextlib
 
 from dataclasses                        import dataclass, replace
 from itertools                          import chain
@@ -46,7 +46,9 @@ from .unit.mmu_sync_feedback            import MmuSyncFeedback
 from .unit.selectors                    import SELECTOR_REGISTRY
 from .unit.selectors.mmu_base_selectors import VirtualSelector
 from .unit.mmu_environment_manager      import MmuEnvironmentManager
+from .unit.mmu_fan_manager              import MmuFanManager
 from .unit.mmu_nfc_manager              import MmuNfcManager
+from .unit.mmu_td1_manager              import MmuTd1Manager
 from .mmu_utils                         import MmuError
 
 
@@ -70,6 +72,8 @@ class MmuUnit:
         self.unit_index = unit_index
         self.first_gate = first_gate
         self.name = config.get_name().split()[-1]
+        if not re.fullmatch(r"[a-z][a-z0-9_-]*", self.name):
+            raise config.error("MMU: Unit name '%s' is invalid. Use only lowercase letters, digits, '_' and '-', starting with a letter" % self.name)
         self.printer = config.get_printer()
 
         self.num_gates = config.getint('num_gates')
@@ -98,26 +102,27 @@ class MmuUnit:
             filament_always_gripped: bool = False    # Is filament always gripped by MMU (overrides gear/extruder syncing assumptions)
             show_bypass: bool = False                # Does design has selectable filament bypass (only type-A and type-C). Only one allowed per mmu_machine!
             filament_buffer: bool = False            # Does design has buffer to catch loose filament on rewind (allows for faster loading speeds)
+            gear_rotates_spool: bool = False         # Can the gear motor itself turn the spool (type-B without an eSpooler)
 
         DEF_PROFILE = MmuUnitProfile()
 
         VENDOR_PROFILES = {
             VENDOR_ERCF:         replace(DEF_PROFILE, selector_type=SELECTOR_LINEAR_SERVO, show_bypass=True, filament_buffer=True),
             VENDOR_TRADRACK:     replace(DEF_PROFILE, selector_type=SELECTOR_LINEAR_SERVO, variable_rotation_distances=False, filament_buffer=True),
-            VENDOR_ANGRY_BEAVER: replace(DEF_PROFILE, require_bowden_move=False, filament_always_gripped=True),
+            VENDOR_ANGRY_BEAVER: replace(DEF_PROFILE, filament_always_gripped=True),
             VENDOR_BOX_TURTLE:   replace(DEF_PROFILE, filament_always_gripped=True),
             VENDOR_NIGHT_OWL:    replace(DEF_PROFILE, filament_always_gripped=True),
-            VENDOR_3MS:          replace(DEF_PROFILE, require_bowden_move=False, filament_always_gripped=True),
+            VENDOR_3MS:          replace(DEF_PROFILE, filament_always_gripped=True),
             VENDOR_3D_CHAMELEON: replace(DEF_PROFILE, selector_type=SELECTOR_ROTARY, variable_rotation_distances=False, variable_bowden_lengths=True),
             VENDOR_PICO_MMU:     replace(DEF_PROFILE, selector_type=SELECTOR_SERVO,  variable_rotation_distances=False),
             VENDOR_QUATTRO_BOX:  replace(DEF_PROFILE, filament_always_gripped=True),
             VENDOR_MMX:          replace(DEF_PROFILE, selector_type=SELECTOR_SERVO),
             VENDOR_MMX6:         replace(DEF_PROFILE, selector_type=SELECTOR_ROTARY),
-            VENDOR_VVD:          replace(DEF_PROFILE, selector_type=SELECTOR_INDEXED, filament_always_gripped=True),
+            VENDOR_VVD:          replace(DEF_PROFILE, selector_type=SELECTOR_INDEXED, filament_always_gripped=True, gear_rotates_spool=True),
             VENDOR_KMS:          replace(DEF_PROFILE, filament_always_gripped=True),
             VENDOR_EMU:          replace(DEF_PROFILE, variable_bowden_lengths=True, filament_always_gripped=True),
             VENDOR_LOW_RIDER:    replace(DEF_PROFILE, selector_type=SELECTOR_ROTARY),
-            VENDOR_QIDI:         replace(DEF_PROFILE, variable_rotation_distances=False, filament_always_gripped=True),
+            VENDOR_QIDI:         replace(DEF_PROFILE, variable_rotation_distances=False, filament_always_gripped=True, gear_rotates_spool=True),
         }
 
         if self.mmu_vendor == VENDOR_PRUSA:
@@ -133,13 +138,14 @@ class MmuUnit:
         self.filament_always_gripped =     bool(config.getint('filament_always_gripped', profile.filament_always_gripped))
         self.show_bypass =                 bool(config.getint('show_bypass', profile.show_bypass))
         self.filament_buffer =             bool(config.getint('filament_buffer', profile.filament_buffer))
+        self.gear_rotates_spool =          bool(config.getint('gear_rotates_spool', profile.gear_rotates_spool))
 
-        # Can selector mechanism allow selection of other gates on unit when filament is loaded
-        self.can_crossload = self.selector_type in [SELECTOR_VIRTUAL, SELECTOR_SERVO, SELECTOR_INDEXED, SELECTOR_MACRO, SELECTOR_ROTARY]
+        # When set, gate selections switch the active gate/drive without moving the selector (see wrap_hold_selector)
+        self.selector_held = False
 
 
         # ---------------------------------------------------------------------------------------------------
-        # Optional heater and evironment sensors
+        # Optional fans, heater and environment sensors
         # ---------------------------------------------------------------------------------------------------
 
         # Helper to try common name prefixes to avoid long specification like:
@@ -159,9 +165,24 @@ class MmuUnit:
                     errors.append("%s: %s" % (candidate, str(e)))
 
             raise config.error(
-                "Object '%s' could not be loaded as a valid %s in [mmu_machine]\n"
-                "Tried:\n%s" % (obj_name, kind, "\n".join(errors))
+                "Object '%s' could not be loaded as a valid %s in [mmu_unit %s]\n"
+                "Tried:\n%s" % (obj_name, kind, self.name, "\n".join(errors))
             )
+
+        self.fan = config.get('fan', '')
+        self.fans = list(config.getlist('fans', []))
+
+        if len(self.fans) not in [0, self.num_gates]:
+            raise config.error("'fans' must be empty or a comma separated list of 'num_gates' elements")
+
+        if self.fan and self.fans:
+            raise config.error("Can't configure both single and per-gate MMU fans")
+
+        self.fan = resolve_object_name(config, self.fan, "fan_generic ", "fan")
+        self.fans = [
+            resolve_object_name(config, name, "fan_generic ", "fan")
+            for name in self.fans
+        ]
 
         self.environment_sensor = config.get('environment_sensor', '')
         self.environment_sensors = list(config.getlist('environment_sensors', []))
@@ -196,6 +217,32 @@ class MmuUnit:
             for name in self.environment_sensors
         ]
 
+        # Enclosure vent servo(s), opened by the environment manager while drying
+        self.vent_servo = config.get('vent_servo', '')
+        self.vent_servos = list(config.getlist('vent_servos', []))
+
+        if len(self.vent_servos) not in [0, self.num_gates]:
+            raise config.error("'vent_servos' must be empty or a comma separated list of 'num_gates' elements")
+
+        if self.vent_servo and self.vent_servos:
+            raise config.error("Can't configure both single and per-gate MMU vent servos")
+
+        def resolve_vent_servo(name):
+            # Venting needs mmu_servo's scheduled moves; a plain [servo] would fail at runtime
+            name = resolve_object_name(config, name, "mmu_servo ", "vent servo")
+            if name and not name.startswith("mmu_servo "):
+                raise config.error("Vent servo '%s' in [mmu_unit %s] must be an [mmu_servo] section" % (name, self.name))
+            return name
+
+        self.vent_servo = resolve_vent_servo(self.vent_servo)
+        self.vent_servos = [resolve_vent_servo(name) for name in self.vent_servos]
+
+        # Venting is part of the drying cycle, so without a heater the vent is never opened
+        if self.has_vent_servo() and not self.has_heater():
+            logging.warning(
+                "MMU: mmu_unit %s has a vent servo but no filament heater; "
+                "the vent only opens during a drying cycle so it will stay closed" % self.name)
+
 
         # ---------------------------------------------------------------------------------------------------
         # Optional NFC readers for spool rfid tags
@@ -204,8 +251,15 @@ class MmuUnit:
         # Create shared and per-gate NFC readers. We only store the reader names, the
         # klipper objects are loaded and referenced by the MmuNfcManager.
         # (all sensors are optional so any combination is possible)
-        self.nfc_reader  = config.get('nfc_reader', '')
-        self.nfc_readers = list(config.getlist('nfc_readers', []))
+        nfc_prefix = 'mmu_nfc_reader '
+
+        def nfc_short_name(name):
+            return name[len(nfc_prefix):] if name.startswith(nfc_prefix) else name
+
+        self.nfc_reader = nfc_short_name(config.get('nfc_reader', ''))
+        self.nfc_readers = [
+            nfc_short_name(name) for name in config.getlist('nfc_readers', [])
+        ]
 
         if len(self.nfc_readers) not in [0, self.num_gates]:
             raise config.error("'nfc_readers' must be empty or a comma separated list of 'num_gates' elements")
@@ -221,6 +275,43 @@ class MmuUnit:
         # enable/active state stays independent per gate. Adjacency is a hardware-layout
         # fact, not something validated here. See installer/boards/custom/Kconfig.vvd
         # for the in-tree example (the ViViD machine).
+
+
+        # ---------------------------------------------------------------------------------------------------
+        # Optional TD-1 filament measurement scanners
+        # ---------------------------------------------------------------------------------------------------
+
+        # USB devices owned by Moonraker's [td1] component, not klipper objects, so
+        # unlike NFC readers there is no section to validate - only serials to store.
+        #
+        # Same split as the NFC readers:
+        #   'td1_device'  - a scanner filament does NOT pass through, that you present
+        #                   filament to by hand. Its readings are staged as pending and
+        #                   applied to the next gate preloaded, like a shared tag read.
+        #   'td1_devices' - one entry per gate in local gate order, in the filament path.
+        #                   Repeat a serial for a scanner sitting in a shared part of the
+        #                   bowden; leave an entry blank for a gate with no scanner.
+        # Both are optional and any combination is possible.
+        self.td1_device = config.get('td1_device', '').strip()
+        self.td1_devices = [
+            name.strip() for name in config.getlist('td1_devices', [])
+        ]
+
+        # A blank entry means "no scanner on this gate", as in 'nfc_readers'. Reject a
+        # literal '-' rather than treat it as a serial that never connects
+        if any(name == '-' for name in self.td1_devices):
+            raise config.error(
+                "'td1_devices' uses a blank entry for a gate with no scanner, not '-' "
+                "(unit %s)" % self.name)
+
+        if config.get('td1_device', None) is not None and not self.td1_device:
+            raise config.error("'td1_device' requires a Moonraker TD-1 USB serial number")
+
+        if len(self.td1_devices) not in [0, self.num_gates]:
+            raise config.error("'td1_devices' must be empty or a comma separated list of 'num_gates' elements")
+
+        # A serial may repeat within 'td1_devices' and across units: one physical scanner
+        # can serve several gates or units, sharing one MmuTd1Device
 
 
         # ---------------------------------------------------------------------------------------------------
@@ -341,7 +432,7 @@ class MmuUnit:
         # Load subcomponents
         # This is done in a deliberate order, allows passing of parent ownership
         # and better config checking.
-        # I.e. most of these objects have special constructers and are not designed
+        # I.e. most of these objects have special constructors and are not designed
         # for regular klipper object loading
         # ---------------------------------------------------------------------------------------------------
 
@@ -366,7 +457,7 @@ class MmuUnit:
         logging.info("MMU: Created %s selector" % self.selector_type)
 
         # Create toolhead wrapper (probably shared so check for existence first)
-        # This encapsulates demensions and provides possibility of dissimilar toolheads on IDEX printer,
+        # This encapsulates dimensions and provides possibility of dissimilar toolheads on IDEX printer,
         # however, for now the toolhead is a shared "default" definition in mmu.cfg
         toolhead_name = config.get('toolhead')
         section = 'mmu_toolhead %s' % toolhead_name
@@ -416,7 +507,7 @@ class MmuUnit:
         else:
             logging.info("MMU: - No mmu_leds specified")
 
-        # Load optional mmu_encoder (can be a shared encoder so check for existance first)
+        # Load optional mmu_encoder (can be a shared encoder so check for existence first)
         self.encoder = None
         encoder_name = config.get('encoder', None)
         if encoder_name:
@@ -436,7 +527,7 @@ class MmuUnit:
             logging.info("MMU: - No mmu_encoder specified")
             self.calibrator.mark_calibrated(CALIBRATED_ENCODER)
 
-        # Load optional sync-feedback mmu_buffer (can be a shared buffer so check for existance first)
+        # Load optional sync-feedback mmu_buffer (can be a shared buffer so check for existence first)
         self.buffer = None
         buffer_name = config.get('buffer', None)
         if buffer_name:
@@ -463,9 +554,17 @@ class MmuUnit:
         self.environment_manager = MmuEnvironmentManager(params, self, self.p)
         logging.info("MMU: Created: heater and environment manager for unit %s" % self.name)
 
+        # Create generic fan manager
+        self.fan_manager = MmuFanManager(params, self, self.p)
+        logging.info("MMU: Created: fan manager for unit %s" % self.name)
+
         # Create NFC manager
         self.nfc_manager = MmuNfcManager(params, self, self.p)
         logging.info("MMU: Created: nfc manager for unit %s" % self.name)
+
+        # Create TD-1 manager
+        self.td1_manager = MmuTd1Manager(params, self, self.p)
+        logging.info("MMU: Created: td1 manager for unit %s" % self.name)
 
         self.subcomponents = [
             self.calibrator,
@@ -478,7 +577,9 @@ class MmuUnit:
             self.buffer,
             self.sync_feedback,
             self.environment_manager,
+            self.fan_manager,
             self.nfc_manager,
+            self.td1_manager,
         ]
 
 
@@ -665,13 +766,25 @@ class MmuUnit:
         return self.leds is not None
 
     def has_heater(self):
-        return self.filament_heater or self.filament_heaters
+        return bool(self.filament_heater or any(self.filament_heaters))
+
+    def has_vent_servo(self):
+        return bool(self.vent_servo or any(self.vent_servos))
+
+    def has_fan(self):
+        return bool(self.fan or any(self.fans))
+
+    def has_per_gate_fans(self):
+        return bool(self.fans)
 
     def has_bypass(self):
         return self.show_bypass
 
     def has_filament_buffer(self):
         return self.filament_buffer
+
+    def has_td1(self):
+        return bool(self.td1_device or any(self.td1_devices))
 
     def motors_onoff(self, on=False, motor="all"):
         if motor in ["all", "gear", "gears"]:
@@ -710,6 +823,49 @@ class MmuUnit:
 
     def gate_range(self):
         return list(range(self.first_gate, self.first_gate + self.num_gates))
+
+
+    @property
+    def can_crossload(self):
+        """
+        Whether other gates on this unit can be operated while filament is loaded. A type-C
+        selector can't move with filament loaded, so it crossloads in place: other gates must
+        home to their own exit sensor and park behind it, short of the selector.
+        """
+        if self.selector_type == SELECTOR_LINEAR_MULTI_GEAR:
+            return (
+                self.p.gate_preload_endstop == SENSOR_EXIT_PREFIX
+                and self.p.gate_preload_parking_distance < 0
+                and self.sensors is not None
+                and all(self.sensors.exit_sensors.get(gate) is not None for gate in self.gate_range())
+            )
+        return self.selector_type in [SELECTOR_VIRTUAL, SELECTOR_SERVO, SELECTOR_INDEXED, SELECTOR_MACRO, SELECTOR_ROTARY]
+
+
+    def crossload_in_place(self, gate):
+        """
+        True if operating on 'gate' is a type-C crossload, where the selector must stay put
+        because this unit has filament from another gate (or the bypass) loaded through it.
+        """
+        return (
+            self.selector_type == SELECTOR_LINEAR_MULTI_GEAR
+            and self.mmu.filament_pos != FILAMENT_POS_UNLOADED
+            and self is self.mmu.mmu_unit()
+            and gate != self.mmu.gate_selected
+        )
+
+
+    @contextlib.contextmanager
+    def wrap_hold_selector(self, hold=True):
+        """
+        Hold this unit's selector in place for the enclosed gate selections. hold=False is a no-op.
+        """
+        prev = self.selector_held
+        self.selector_held = prev or hold
+        try:
+            yield self
+        finally:
+            self.selector_held = prev
 
 
     def local_gate(self, gate, force_physical=False):
@@ -957,6 +1113,16 @@ class MmuUnit:
             unit_info['environment_sensors'] = self.environment_sensors
             unit_info['filament_heaters'] = self.filament_heaters
 
+        if self.fan:
+            unit_info['fan'] = self.fan
+        elif self.fans:
+            unit_info['fans'] = self.fans
+
+        if self.vent_servo:
+            unit_info['vent_servo'] = self.vent_servo
+        elif self.vent_servos:
+            unit_info['vent_servos'] = self.vent_servos
+
         if self.nfc_reader:
             # Single (shared) NFC reader
             unit_info['nfc_reader'] = self.nfc_reader
@@ -964,5 +1130,13 @@ class MmuUnit:
         elif self.nfc_readers:
             # Per-gate NFC reader
             unit_info['nfc_readers'] = self.nfc_readers
+
+        if self.td1_device:
+            # Off-path TD-1 scanner, presented to by hand
+            unit_info['td1_device'] = self.td1_device
+
+        if self.td1_devices:
+            # Per-gate TD-1 scanners, in the filament path
+            unit_info['td1_devices'] = self.td1_devices
 
         return unit_info

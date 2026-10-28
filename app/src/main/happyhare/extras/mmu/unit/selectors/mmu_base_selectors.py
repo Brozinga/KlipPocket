@@ -68,7 +68,7 @@ class BaseSelector:
 
     # Prevent overriding of methods with physical gate number as parameter
     # It is important and all selector logic works with local gates
-    _final_methods = {"select_gate, restore_gate"}
+    _final_methods = {"select_gate", "restore_gate"}
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
@@ -103,7 +103,7 @@ class BaseSelector:
         Don't override this method, instead override _select_gate() after the local gate translation.
         """
         if not self.mmu_unit.calibrator.check_calibrated(CALIBRATED_SELECTOR):
-            raise MmuError(f"Selector is not clibrated on %s" % self.mmu_unit.name)
+            raise MmuError(f"Selector is not calibrated on %s" % self.mmu_unit.name)
 
         lgate = self._local_gate(gate)
         self._select_gate(lgate)
@@ -267,8 +267,8 @@ class PhysicalSelector(BaseSelector, object):
         settled by the time mmu_gate_maps.load_persisted_state() decides whether to keep the
         persisted gate.
 
-        NOTE: a bare M84 / TURN_OFF_MOTORS de-energises the selector through klipper's
-        stepper_enable without Happy Hare seeing it, so last_pos survives a de-energising we
+        NOTE: a bare M84 / TURN_OFF_MOTORS de-energizes the selector through klipper's
+        stepper_enable without Happy Hare seeing it, so last_pos survives a de-energizing we
         never observed. Trusting it is a pre-existing assumption of this scheme, not something
         the gate fallback adds.
         """

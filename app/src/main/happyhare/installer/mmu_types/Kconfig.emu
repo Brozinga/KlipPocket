@@ -1,0 +1,222 @@
+config MMU_TYPE_EMU_1_0
+  bool "EMU  - Expandable Multi-material Unit"
+  help
+    EMU is a modular type-B MMU with each spool being contained in it's own
+    (optionally heater) enclosure. It had many features and is an incredible
+    choice for new builds. Highly recommended to use with an analog proportional
+    sync-feedback buffer like PSF.
+  select VIRTUAL_SELECTOR
+  select UNSELECT_MMU_HAS_FILAMENT_BUFFER # Disable
+  imply  MMU_HAS_PER_GATE_MCU # Install must also be run with "-e" for PER_GATE_MCU support
+  select MMU_HAS_PER_GATE_CONFIG
+  imply  MMU_HAS_ENVIRONMENT_SENSOR
+  select MMU_HAS_LEDS
+  imply  MMU_HAS_EJECT_BUTTONS
+  select MMU_HAS_SENSOR_ENTRY
+  select MMU_HAS_SENSOR_EXIT
+  select PARAM_VARIABLE_ROTATION_DISTANCES
+  select PARAM_VARIABLE_BOWDEN_LENGTHS
+  select PARAM_FILAMENT_ALWAYS_GRIPPED
+  select PARAM_SYNC_TO_EXTRUDER
+  select PARAM_SYNC_FORM_TIP
+  select PARAM_SYNC_PURGE
+  imply  MMU_HAS_SYNC_FEEDBACK_BUFFER
+  imply  MMU_HAS_FANS
+  imply  OPTION_PSF_BUFFER
+
+
+# -------------------------------------
+# Buffer option
+# -------------------------------------
+
+if MMU_TYPE_EMU_1_0
+  config OPTION_PSF_BUFFER
+    bool "PSF buffer"
+    help
+      Select if using the recommended PSF brand buffer connected to the bowden tube.
+      Don't select if using a different sync-feedback buffer system (instead add
+      under MMU additions)
+    select MMU_HAS_SYNC_FEEDBACK_BUFFER
+    select MMU_HAS_SENSOR_BUFFER_PROPORTIONAL if !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+    select UNSELECT_MMU_HAS_SENSOR_BUFFER_COMPRESSION if !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+    select UNSELECT_MMU_HAS_SENSOR_BUFFER_TENSION if !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+
+  if OPTION_PSF_BUFFER
+    choice CHOICE_BUFFER_SPRING_STATE
+      default CHOICE_BUFFER_SPRING_STATE_TENSION
+    endchoice
+
+    config PARAM_BUFFER_RANGE
+      default 16
+    config PARAM_BUFFER_MAXRANGE
+      default 16
+  endif
+
+  if !OPTION_PSF_BUFFER && !MMU_SHARED_SYNC_FEEDBACK_BUFFER
+    config MMU_HAS_SENSOR_BUFFER_COMPRESSION
+      default y
+    config MMU_HAS_SENSOR_BUFFER_TENSION
+      default y
+  endif
+endif
+
+
+# -------------------------------------
+# Defaults
+# -------------------------------------
+
+if MMU_TYPE_EMU_1_0
+
+  source "Kconfig.num_gates"
+
+  choice CHOICE_DEFAULT_FAN_TEMPERATURE_SOURCE
+    default CHOICE_DEFAULT_FAN_TEMPERATURE_SOURCE_MCU if FAN_HAS_MCU_TEMPERATURE
+  endchoice
+
+
+  source "Kconfig.capabilities"
+
+  config PARAM_VENDOR
+    default "EMU"
+  config PARAM_VERSION
+    default "1.0"  
+  config PARAM_NUM_GATES
+    default 5
+  choice BOARD_TYPE
+    default BOARD_TYPE_SLB_1_0
+  endchoice
+
+  # Gear stepper ---------------------------
+  config PARAM_GEAR_GEAR_RATIO
+    default "1:1"
+  config PARAM_GEAR_RUN_CURRENT
+    default 0.9
+  config PARAM_GEAR_HOLD_CURRENT
+    default 0.1
+  config PARAM_GEAR_MICROSTEPS
+    default 4
+
+  config PARAM_SYNC_GEAR_CURRENT
+    default 52
+
+  # Speeds  --------------------------------
+  config PARAM_GEAR_LOAD_SPEED
+    default 250
+  config PARAM_GEAR_LOAD_ACCEL
+    default 120
+  config PARAM_GEAR_UNLOAD_SPEED
+    default 250
+  config PARAM_GEAR_UNLOAD_ACCEL
+    default 120
+  config PARAM_GEAR_SHORT_MOVE_SPEED
+    default 80
+  config PARAM_GEAR_SHORT_MOVE_ACCEL
+    default 80
+  config PARAM_GEAR_SHORT_MOVE_THRESHOLD
+    default 100
+  config PARAM_GEAR_HOMING_SPEED
+    default 80
+
+  # Gate endstops and homing ---------------
+  config PARAM_GATE_HOMING_MAX
+    default 600
+  config PARAM_GATE_PARKING_DISTANCE
+    default -1
+
+  config PARAM_GATE_PRELOAD_HOMING_MAX
+    default 600
+  config PARAM_GATE_PRELOAD_PARKING_DISTANCE
+    default -1
+
+  config PARAM_GATE_FINAL_EJECT_DISTANCE
+    default 100
+
+  config PARAM_BOWDEN_UNLOAD_HOMING_BUFFER
+    default 80
+  config PARAM_EXTRUDER_HOMING_MAX
+    default 300
+  config PARAM_GATE_PRELOAD_ATTEMPTS
+    default 5
+
+  # NFC reader setup (if fitted) -----------
+  config PARAM_NFC_GATE_JOG_SCAN_WINDOW
+    default "0, 480"
+  config PARAM_NFC_PRELOAD_JOG_SCAN_WINDOW
+    default "0, 480"
+  config PARAM_NFC_GATE_CLEAR_DISTANCE
+    default 70
+  config PARAM_NFC_PRELOAD_CLEAR_DISTANCE
+    default 70
+  config PARAM_NFC_NEIGHBOR_CHECK
+    default y
+
+  # Other ----------------------------------
+  config PARAM_COLOR_ORDER
+    default "GRBW"
+  config PARAM_RETRY_TOOL_CHANGE_ON_ERROR
+    default 1
+  config PARAM_TOOLHEAD_UNLOAD_SAFETY_MARGIN
+    default 40
+  config VAR_SEQUENCE_MIN_TOOLCHANGE_Z
+    default 30.0
+  
+  # LED effects override -------------------
+  config PARAM_EFFECT_LOADING
+    default "mmu_blue_clockwise_fast,   (0, 0, 0.4)"
+  config PARAM_EFFECT_LOADING_EXTRUDER
+    default "mmu_blue_clockwise_slow,   (0, 0, 1)"
+  config PARAM_EFFECT_UNLOADING
+    default "mmu_blue_anticlock_fast,   (0, 0, 0.4)"
+  config PARAM_EFFECT_UNLOADING_EXTRUDER
+    default "mmu_blue_anticlock_slow,   (0, 0, 1)"
+  config PARAM_EFFECT_CHECKING
+    default "mmu_breathing_white_fast,  (0.8, 0.8, 0.8)"
+  config PARAM_EFFECT_GATE_AVAILABLE
+    default "mmu_static_white_dim_$(UNIT_NAME), (0.1, 0.1, 0.1)"
+  config PARAM_EFFECT_GATE_AVAILABLE_SEL
+    default "mmu_static_white_$(UNIT_NAME),    (0.75, 0.75, 0.75)"
+  config PARAM_EFFECT_GATE_EMPTY_SEL
+    default "mmu_static_red_$(UNIT_NAME),      (0.2, 0, 0)"
+
+  config PARAM_MISC_LED_EFFECTS
+    default "$(ml,\
+[mmu_led_effect mmu_static_white_$(UNIT_NAME)]\n\
+unit      : $(UNIT_NAME)\n\
+define_on : gates$(comma) exit\n\
+layers    : static 0 0 top (1.0$(comma)1.0$(comma)1.0$(comma) 1.0)\n\
+\n\
+[mmu_led_effect mmu_static_white_dim_$(UNIT_NAME)]\n\
+unit      : $(UNIT_NAME)\n\
+define_on : gates$(comma) exit\n\
+layers    : static 0 0 top (0.1$(comma)0.1$(comma)0.1$(comma) 0.1)\n\
+\n\
+[mmu_led_effect mmu_static_red_$(UNIT_NAME)]\n\
+unit      : $(UNIT_NAME)\n\
+define_on : gates$(comma) exit\n\
+layers    : static 0 0 top (0.5$(comma)0.0$(comma)0.0)\n\
+)"
+
+  if BOARD_TYPE_SLB_1_0
+    config PARAM_ENTRY_LEDS
+      generated_default "neopixel:_$(UNIT_NAME)_gate%i_box (1)" "" "; " PARAM_NUM_GATES
+
+    config PARAM_EXIT_LEDS
+      generated_default "neopixel:_$(UNIT_NAME)_gate%i_leds (1,2,3,4)" "" "; " PARAM_NUM_GATES
+
+  endif
+
+  if BOARD_TYPE_EBB_GEN1
+    config PARAM_CHAIN_COUNT
+      default 5
+
+    config PARAM_ENTRY_LEDS
+      generated_default "neopixel:_$(UNIT_NAME)_gate%i_leds (5)" "" "; " PARAM_NUM_GATES
+
+    config PARAM_EXIT_LEDS
+      generated_default "neopixel:_$(UNIT_NAME)_gate%i_leds (1,2,3,4)" "" "; " PARAM_NUM_GATES
+    
+  endif
+
+  comment "_"
+
+endif 

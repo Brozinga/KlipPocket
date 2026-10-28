@@ -96,7 +96,7 @@ class MmuEjectCommand(UnloadEjectMixin, BaseCommand):
             self.mmu.log_error("Operation not possible: Can't crossload on this mmu type")
             return
 
-        # Techincally possible, now determine if we can fully eject_from_gate
+        # Technically possible, now determine if we can fully eject_from_gate
         # rather than be an alias for UNLOAD
         can_eject_from_gate = (
             not extruder_only
@@ -112,8 +112,8 @@ class MmuEjectCommand(UnloadEjectMixin, BaseCommand):
         # names the gate ("Ejecting gate N..."). An unload that has to run first
         # announces itself the same way.
         try:
-            with mmu.wrap_sync_gear_to_extruder():
-                with mmu.wrap_suspend_filament_monitoring(): # Don't want runout accidently triggering during unload
+            with mmu.wrap_sync_gear_to_extruder(), eject_unit.wrap_hold_selector(eject_unit.crossload_in_place(gate)):
+                with mmu.wrap_suspend_filament_monitoring(): # Don't want runout accidentally triggering during unload
 
                     # Same as MMU_UNLOAD logic
                     if gate == current_gate and filament_pos != FILAMENT_POS_UNLOADED:
