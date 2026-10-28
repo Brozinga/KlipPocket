@@ -129,8 +129,8 @@ Save and restart. In Fluidd/Mainsail the **System** panel lists both MCUs, and
 - **Same chip, same id:** if two boards share an id and you use *By VID/PID*,
   they compete for one name. Switch to *By path*.
 - Works on both engines, [Klipper and Kalico](kalico.md).
-- Boards that rely on extra software (for example Happy Hare) are a separate
-  topic: those modules are not available in the app.
+- An MMU board running Happy Hare is just one more USB board here; see
+  [Happy Hare](happy-hare.md) for the rest of its setup.
 
 ## Quick troubleshooting
 

@@ -38,6 +38,8 @@ Kalico 默认启用 `[respond]`，因此自带 `M118`。如果你的配置里定
   `probe`、`safe_z_home`、`input_shaper`、`pause_resume`、`display_status`
   以及断料传感器。
 
+Happy Hare（多耗材）在 Kalico 上同样可以加载并响应 `MMU_*` 命令，见 [Happy Hare](happy-hare.md)。
+
 仅验证了加载（模块能导入并启动，但没有在打印中运行）：LED Effect、
 TMC Autotune、Print Recovery、蜂鸣器和摄像头扩展，以及 Z Calibration。
 
