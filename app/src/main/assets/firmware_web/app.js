@@ -85,7 +85,7 @@
   let logText = '';
   let experimentalCache = {};
   let lastSig = '';
-  let tab = ['firmware', 'settings', 'camera'].includes(store.get('kp_tab')) ? store.get('kp_tab') : 'dashboard';   // dashboard | settings | camera | firmware
+  let tab = ['firmware', 'settings', 'camera', 'hh'].includes(store.get('kp_tab')) ? store.get('kp_tab') : 'dashboard';   // dashboard | settings | camera | firmware | hh
   let dash = null;                   // last /api/dashboard
   let live = null;                   // last /api/metrics
   const HIST = 60;                   // seconds kept in the charts
@@ -163,6 +163,7 @@
     dashboard: ['M3 3h8v8H3z', 'M13 3h8v5h-8z', 'M13 10h8v11h-8z', 'M3 13h8v8H3z'],
     camera: ['M4 8h3l2-3h6l2 3h3v11H4z', 'M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
     gear: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'],
+    hh: ['M5 4h14v6H5z', 'M5 14h14v6H5z', 'M9 7h.01M9 17h.01'],
     play: ['M7 4l13 8-13 8z'],
     stop: ['M6 6h12v12H6z'],
     plus: ['M12 5v14', 'M5 12h14'],
@@ -821,6 +822,7 @@
     store.set('kp_tab', tab);
     if (tab === 'dashboard') { pollDashboard(); pollMetrics(); }
     if (tab === 'settings') loadSettings();
+    if (tab === 'hh') mmuOpen();
     if (tab === 'camera') loadCamera().then(startStream);
     render(true);
   }
@@ -828,7 +830,7 @@
   function tabsBar() {
     const btn = (id, ic, label) => h('button', { class: 'tabbtn' + (tab === id ? ' active' : ''), role: 'tab', 'aria-selected': String(tab === id), title: label, 'aria-label': label, onclick: () => setTab(id) }, icon(ICONS[ic]));
     return h('nav', { class: 'tabs', role: 'tablist' }, btn('dashboard', 'dashboard', t('tabDashboard')), btn('camera', 'camera', t('tabCamera')),
-      btn('firmware', 'chip', t('FirmwareTitle')), btn('settings', 'gear', t('tabSettings')));
+      btn('firmware', 'chip', t('FirmwareTitle')), btn('hh', 'hh', t('HappyHare')), btn('settings', 'gear', t('tabSettings')));
   }
 
   // ---- settings -----------------------------------------------------------------------------------------------
@@ -1049,9 +1051,198 @@
         cam.focusSupported ? h('div', { class: 'actions' }, h('button', { class: 'btn secondary', onclick: () => api('POST', '/api/camera/focus/reset', {}).then(() => toast(t('saved'))).catch(() => {}) }, t('CameraPreviewFocusReset'))) : null) : null);
   }
 
+
+  // ---- Happy Hare setup ---------------------------------------------------------------------------------------
+  // The same steps as the app's Happy Hare screen. The questions come from Happy Hare's own installer menu (answered by the
+  // setup engine in the app); this page only shows them.
+  const USB_SYMBOL = 'MMU_SERIAL_DEVICE_OTHER';
+  let mmu = { stage: 'printers', printers: null, printer: null, name: '', installed: false, type: null, types: [], selected: null, page: null,
+    stack: [], problems: [], warnings: [], include: true, reset: false, includeLines: [], moonrakerLines: [], added: false, busy: false, error: null };
+
+  async function mmuCall(body) { return api('POST', '/api/mmu', Object.assign({ printer: mmu.printer }, body)); }
+  function mmuFail(r) { mmu.error = r.error || r.key || t('serverError'); mmu.problems = r.problems || []; }
+
+  async function mmuOpen() {
+    if (mmu.printers) return;
+    try {
+      mmu.printers = (await api('GET', '/api/mmu/printers')).printers;
+      if (mmu.printers.length === 1) await mmuSelect(mmu.printers[0].id);
+    } catch (e) { mmu.printers = []; }
+    render(true);
+  }
+
+  async function mmuRun(fn) {
+    mmu.busy = true; mmu.error = null; render(true);
+    try { await fn(); } catch (e) { mmu.error = describeError(e); } finally { mmu.busy = false; render(true); }
+  }
+
+  function mmuSelect(id) {
+    return mmuRun(async () => {
+      const p = mmu.printers.find((x) => x.id === id);
+      mmu.printer = id; mmu.name = p ? p.name : '';
+      const r = await mmuCall({ op: 'open' });
+      if (!r.ok) return mmuFail(r);
+      Object.assign(mmu, { stage: 'home', installed: r.installed, type: r.type, types: r.types, selected: null, stack: [] });
+    });
+  }
+
+  function mmuStart(edit) {
+    return mmuRun(async () => {
+      let r = await mmuCall({ op: 'reset', load_saved: edit });
+      if (!r.ok) return mmuFail(r);
+      r = await mmuCall({ op: 'open' });
+      if (r.ok) mmu.types = r.types;
+      if (edit) { mmu.selected = null; await mmuPage('', true); } else { mmu.stage = 'type'; mmu.selected = null; mmu.stack = []; }
+    });
+  }
+
+  function mmuChoose(symbol) {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'set', symbol, value: true });
+      if (!r.ok) return mmuFail(r);
+      mmu.selected = symbol;
+      await mmuPage('', true);
+    });
+  }
+
+  async function mmuPage(path, reset, push) {
+    const r = await mmuCall({ op: 'page', path });
+    if (!r.ok) return mmuFail(r);
+    mmu.page = r; mmu.stage = 'page';
+    if (reset) mmu.stack = []; else if (push) mmu.stack = mmu.stack.concat(path);
+  }
+
+  function mmuSet(symbol, value) {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'set', symbol, value });
+      if (!r.ok) return mmuFail(r);
+      await mmuPage(mmu.stack[mmu.stack.length - 1] || '');
+    });
+  }
+
+  function mmuUnset(symbol) {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'unset', symbol });
+      if (!r.ok) return mmuFail(r);
+      await mmuPage(mmu.stack[mmu.stack.length - 1] || '');
+    });
+  }
+
+  function mmuBack() {
+    if (mmu.stage === 'page') {
+      if (mmu.stack.length === 0) { mmu.stage = mmu.selected === null && mmu.installed ? 'home' : 'type'; render(true); return; }
+      const parent = mmu.stack.slice(0, -1);
+      mmuRun(async () => { await mmuPage(parent[parent.length - 1] || '', true); mmu.stack = parent; });
+    } else if (mmu.stage === 'review') { mmu.stage = 'page'; render(true); }
+    else if (mmu.stage === 'type' || mmu.stage === 'done') { mmu.stage = 'home'; render(true); }
+    else if (mmu.stage === 'home' && mmu.printers && mmu.printers.length > 1) { mmu.stage = 'printers'; render(true); }
+  }
+
+  function mmuReview() {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'review' });
+      if (!r.ok) return mmuFail(r);
+      Object.assign(mmu, { stage: 'review', problems: r.problems, warnings: r.warnings, reset: mmu.selected !== null });
+    });
+  }
+
+  function mmuGenerate() {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'generate', include: mmu.include, keep_state: !mmu.reset });
+      if (!r.ok) return mmuFail(r);
+      Object.assign(mmu, { stage: 'done', installed: true, added: r.added, includeLines: r.includes, moonrakerLines: r.moonraker });
+    });
+  }
+
+  function mmuAddNow() {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'add_to_printer' });
+      if (!r.ok) return mmuFail(r);
+      mmu.added = true;
+    });
+  }
+
+  function mmuQuestion(item) {
+    const label = item.title;
+    const help = item.help ? h('details', { class: 'muted small' }, h('summary', { text: '?' }), h('p', { text: item.help })) : null;
+    const wrap = (node) => h('div', { class: 'mmuq' + (item.indent ? ' ind' + Math.min(item.indent, 3) : '') }, node, help);
+    switch (item.kind) {
+      case 'heading': return h('h4', { class: 'subhead', text: label });
+      case 'note': return h('p', { class: 'muted small', text: label });
+      case 'menu':
+        return wrap(h('button', { class: 'btn secondary wide', disabled: !item.enabled, onclick: () => mmuRun(() => mmuPage(item.path, false, true)) }, label + '  ›'));
+      case 'bool':
+        return wrap(switchRow(label, item.value, (v) => mmuSet(item.symbol, v), 'q-' + item.id));
+      case 'choice':
+        return wrap(h('label', { class: 'frow' }, h('span', { class: 'flabel', text: label }),
+          h('select', { id: 'q-' + item.id, onchange: (e) => mmuSet(e.target.value, true) },
+            item.options.map((o) => h('option', { value: o.symbol, selected: o.symbol === item.value }, o.title)))));
+      default: {
+        const usb = item.symbol === USB_SYMBOL ? ((st && st.devices) || []).filter((d) => d.serialPath) : [];
+        return wrap(h('div', {},
+          h('label', { class: 'frow' }, h('span', { class: 'flabel', text: label }),
+            h('input', { id: 'q-' + item.id, type: item.kind === 'text' ? 'text' : 'number', step: item.kind === 'float' ? 'any' : '1', class: 'wide', value: item.value,
+              onchange: (e) => mmuSet(item.symbol, e.target.value.trim()) })),
+          usb.length ? h('label', { class: 'frow' }, h('span', { class: 'flabel', text: t('HHUsbPick') }),
+            h('select', { id: 'q-usb', onchange: (e) => { if (e.target.value) mmuSet(item.symbol, e.target.value); } },
+              [h('option', { value: '' }, '—')].concat(usb.map((d) => h('option', { value: d.serialPath }, d.label + ' ' + d.serialPath))))) : null,
+          !item.default ? h('button', { class: 'btn text', onclick: () => mmuUnset(item.symbol) }, t('HHRestoreDefault')) : null));
+      }
+    }
+  }
+
+  function mmuView() {
+    if (!mmu.printers) return h('div', { class: 'center' }, h('div', { class: 'spinner' }));
+    const back = (mmu.stage !== 'printers' && !(mmu.stage === 'home' && mmu.printers.length <= 1))
+      ? h('button', { class: 'btn text', onclick: mmuBack }, '‹ ' + t('FirmwareBack')) : null;
+    const err = mmu.error ? h('div', { class: 'box danger', role: 'alert' }, h('p', { text: t('HHFailed', mmu.error) }),
+      mmu.problems.slice(0, 12).map((x) => h('p', { class: 'muted small', text: x }))) : null;
+    const busy = mmu.busy ? h('p', { class: 'muted small', text: t('HHWorking') }) : null;
+    let body;
+    if (mmu.stage === 'printers') {
+      body = h('div', {}, h('h3', { text: t('HHChoosePrinter') }), h('p', { class: 'muted', text: t('HappyHareSubtitle') }),
+        mmu.printers.length === 0 ? h('p', { class: 'muted', text: t('HHNoPrinters') }) : null,
+        mmu.printers.map((p) => h('button', { class: 'btn secondary wide', onclick: () => mmuSelect(p.id) }, p.name || p.id)));
+    } else if (mmu.stage === 'home') {
+      const cur = mmu.types.find((x) => x.symbol === mmu.type);
+      body = h('div', {}, h('h3', { text: mmu.name || t('HappyHare') }), h('p', { class: 'muted', text: t('HappyHareSubtitle') }),
+        h('p', { text: mmu.installed ? t('HHConfigured', cur ? cur.title : 'Happy Hare') : t('HHNotConfigured') }),
+        h('div', { class: 'actions' },
+          mmu.installed ? h('button', { class: 'btn', onclick: () => mmuStart(true) }, t('HHEdit')) : h('button', { class: 'btn', onclick: () => mmuStart(false) }, t('HHStart')),
+          mmu.installed ? h('button', { class: 'btn secondary', onclick: () => mmuStart(false) }, t('HHStartOver')) : null));
+    } else if (mmu.stage === 'type') {
+      body = h('div', {}, h('h3', { text: t('HHChooseMmu') }),
+        mmu.types.map((x) => h('button', { class: 'btn secondary wide', onclick: () => mmuChoose(x.symbol) }, x.title)));
+    } else if (mmu.stage === 'page') {
+      const items = mmu.page.items;
+      body = h('div', {}, h('h3', { text: mmu.page.title }), mmu.page.help ? h('p', { class: 'muted small', text: mmu.page.help }) : null,
+        items.some((i) => i.kind !== 'heading' && i.kind !== 'note') ? null : h('p', { class: 'muted', text: t('HHNothingHere') }),
+        items.map(mmuQuestion),
+        mmu.stack.length === 0 ? h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: mmuReview }, t('HHReview'))) : null);
+    } else if (mmu.stage === 'review') {
+      body = h('div', {}, h('h3', { text: t('HHReview') }),
+        mmu.problems.length ? h('div', { class: 'box danger' }, h('h4', { class: 'subhead', text: t('HHProblemsTitle') }), h('p', { class: 'muted small', text: t('HHProblemsHelp') }),
+          mmu.problems.slice(0, 20).map((x) => h('p', { class: 'muted small', text: x }))) : null,
+        mmu.warnings.length ? h('div', { class: 'box warn' }, h('h4', { class: 'subhead', text: t('HHWarningsTitle') }), mmu.warnings.map((x) => h('p', { class: 'small', text: x }))) : null,
+        switchRow(t('HHIncludePrinter'), mmu.include, (v) => { mmu.include = v; render(true); }, 'hh-include'),
+        h('p', { class: 'muted small', text: t('HHIncludeHelp') }),
+        switchRow(t('HHResetState'), mmu.reset, (v) => { mmu.reset = v; render(true); }, 'hh-reset'),
+        h('p', { class: 'muted small', text: t('HHReplaceNote') }),
+        h('div', { class: 'actions' }, h('button', { class: 'btn', disabled: mmu.problems.length > 0 || mmu.busy, onclick: mmuGenerate }, t('HHInstall'))));
+    } else {
+      body = h('div', {}, h('h3', { text: t('HHDone') }), h('p', { text: t('HHDoneRestart') }),
+        mmu.added ? h('p', { class: 'okc', text: t('HHAdded') }) : h('div', {},
+          h('h4', { class: 'subhead', text: t('HHManualTitle') }),
+          h('p', { class: 'muted small', text: t('HHManualPrinter') }), h('pre', { class: 'box', text: mmu.includeLines.join('\n') }),
+          h('p', { class: 'muted small', text: t('HHManualMoonraker') }), h('pre', { class: 'box', text: mmu.moonrakerLines.join('\n') }),
+          h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: mmuAddNow }, t('HHAddNow')))));
+    }
+    return h('div', { class: 'card' }, back, busy, err, body);
+  }
+
   // ---- render -------------------------------------------------------------------------------------------------
   function signature() {
-    return JSON.stringify([authed, view, Object.assign({}, wiz, { start: null }), modal && modal.type, modal && modal.name, modal && modal.info, modal && modal.busy, upload && upload.name, offline, lang, theme, showLog, tab, cfg, form.obicoCloud, cam, camState, dash, logs.sources, logs.id, logs.live, st && [st.files, st.devices, st.download, st.flash],
+    return JSON.stringify([authed, view, Object.assign({}, wiz, { start: null }), modal && modal.type, modal && modal.name, modal && modal.info, modal && modal.busy, upload && upload.name, offline, lang, theme, showLog, tab, tab === 'hh' && [mmu, st && st.devices], cfg, form.obicoCloud, cam, camState, dash, logs.sources, logs.id, logs.live, st && [st.files, st.devices, st.download, st.flash],
       st && Object.keys(experimentalCache).length]);
   }
 
@@ -1066,6 +1257,7 @@
       if (tab === 'dashboard') root.appendChild(dashboardView());
       else if (tab === 'settings') root.appendChild(settingsView());
       else if (tab === 'camera') root.appendChild(cameraView());
+      else if (tab === 'hh') root.appendChild(mmuView());
       else root.appendChild(view === 'run' ? runView() : view === 'wizard' ? wizardView() : homeView());
       if (tab === 'dashboard') root.appendChild(logsView());
       const m = upload ? uploadOverlay() : modalView();

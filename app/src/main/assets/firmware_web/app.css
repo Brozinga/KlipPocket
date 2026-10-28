@@ -191,3 +191,12 @@ h4.subhead { margin: 0 0 4px; font-size: .95rem; color: var(--ink-muted); text-t
 .bars i { width: 6px; border-radius: 2px; background: var(--line); display: block; }
 .bars i.b1 { height: 8px; } .bars i.b2 { height: 14px; } .bars i.b3 { height: 20px; } .bars i.b4 { height: 26px; }
 .bars i.on { background: var(--accent); }
+
+/* Happy Hare setup */
+.mmuq { margin: 6px 0; }
+.mmuq.ind1 { margin-left: 14px; }
+.mmuq.ind2 { margin-left: 28px; }
+.mmuq.ind3 { margin-left: 42px; }
+.mmuq details summary { cursor: pointer; width: max-content; }
+.card .btn.wide { display: block; width: 100%; margin: 6px 0; text-align: left; }
+.card pre.box { white-space: pre-wrap; word-break: break-all; margin: 6px 0 12px; }
