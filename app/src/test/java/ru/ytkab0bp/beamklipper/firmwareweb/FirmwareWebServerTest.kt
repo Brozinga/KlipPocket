@@ -99,8 +99,20 @@ private class FakeControl : ControlBackend {
     override fun resetFocus() { focusReset = true }
 }
 
+/** Answers like the Happy Hare setup wizard would and remembers what the page sent. */
+private class FakeMmu : MmuBackend {
+    var last: Pair<String, JSONObject>? = null
+    override fun printers() = JSONObject().put("printers", org.json.JSONArray().put(JSONObject().put("id", "p1").put("name", "Neptune")))
+    override fun call(id: String, body: JSONObject): JSONObject? {
+        if (id != "p1") return null
+        last = id to body
+        return JSONObject().put("ok", true).put("op", body.optString("op"))
+    }
+}
+
 class FirmwareWebServerTest {
     private lateinit var control: FakeControl
+    private lateinit var mmu: FakeMmu
     private val pin = "123456"
     private lateinit var backend: FakeBackend
     private lateinit var server: FirmwareWebServer
@@ -116,9 +128,10 @@ class FirmwareWebServerTest {
     @Before fun start() {
         backend = FakeBackend()
         control = FakeControl()
+        mmu = FakeMmu()
         server = FirmwareWebServer(0, backend, control, pinStore, { path ->
             if (path.startsWith("firmware_web/")) ByteArrayInputStream("<html>$path</html>".toByteArray()) else null
-        })
+        }, mmu = mmu)
         server.start()
         base = "http://127.0.0.1:${server.listeningPort}"
     }
@@ -167,7 +180,7 @@ class FirmwareWebServerTest {
     }
 
     @Test fun everyApiRouteNeedsTheLogin() {
-        for ((m, p) in listOf("GET" to "/api/state", "GET" to "/api/files", "GET" to "/api/devices", "GET" to "/api/flash", "GET" to "/api/log", "GET" to "/api/dashboard", "GET" to "/api/metrics", "GET" to "/api/logs", "GET" to "/api/logs/read?id=app", "POST" to "/api/logs/clear", "GET" to "/api/settings", "POST" to "/api/settings", "POST" to "/api/control", "GET" to "/api/printers/new", "POST" to "/api/printers", "GET" to "/api/camera", "GET" to "/api/camera/stream", "POST" to "/api/camera/focus", "POST" to "/api/flash")) {
+        for ((m, p) in listOf("GET" to "/api/state", "GET" to "/api/files", "GET" to "/api/devices", "GET" to "/api/flash", "GET" to "/api/log", "GET" to "/api/dashboard", "GET" to "/api/metrics", "GET" to "/api/logs", "GET" to "/api/logs/read?id=app", "POST" to "/api/logs/clear", "GET" to "/api/settings", "POST" to "/api/settings", "POST" to "/api/control", "GET" to "/api/printers/new", "POST" to "/api/printers", "GET" to "/api/camera", "GET" to "/api/camera/stream", "POST" to "/api/camera/focus", "POST" to "/api/flash", "GET" to "/api/mmu/printers", "POST" to "/api/mmu")) {
             assertEquals("$m $p", 401, call(m, p, withCookie = false).code)
         }
         assertEquals(false, call("GET", "/api/session", withCookie = false).json().getBoolean("authenticated"))
@@ -405,6 +418,36 @@ class FirmwareWebServerTest {
         assertTrue(control.focusReset)
         control.cameraOn = false
         assertEquals(503, call("GET", "/api/camera/stream").code)
+    }
+
+    // --- Happy Hare setup ----------------------------------------------------------------------------------------
+
+    @Test fun theHappyHareTabListsThePrinters() {
+        login()
+        val printers = call("GET", "/api/mmu/printers").json().getJSONArray("printers")
+        assertEquals("Neptune", printers.getJSONObject(0).getString("name"))
+    }
+
+    @Test fun aWizardCallReachesThePrinterAndComesBack() {
+        login()
+        val r = call("POST", "/api/mmu", json = JSONObject().put("printer", "p1").put("op", "set").put("symbol", "MMU_TYPE_TRADRACK_1_0").put("value", true))
+        assertEquals(200, r.code)
+        assertEquals("set", r.json().getString("op"))
+        assertEquals("MMU_TYPE_TRADRACK_1_0", mmu.last!!.second.getString("symbol"))
+    }
+
+    @Test fun aWizardCallNeedsTheGuardHeaderAndAKnownPrinter() {
+        login()
+        val body = JSONObject().put("printer", "p1").put("op", "open")
+        assertEquals(403, call("POST", "/api/mmu", json = body, guard = false).code)
+        assertEquals(404, call("POST", "/api/mmu", json = JSONObject().put("printer", "nope").put("op", "open")).code)
+    }
+
+    @Test fun aWizardCallThatIsNotOneOfItsOwnIsRefused() {
+        login()
+        assertEquals(400, call("POST", "/api/mmu", json = JSONObject().put("printer", "p1").put("op", "eval")).code)
+        assertEquals(400, call("POST", "/api/mmu", json = JSONObject().put("printer", "p1").put("op", "set").put("symbol", "A;B").put("value", 1)).code)
+        assertEquals(null, mmu.last)
     }
 
     @Test fun unknownRoutesAndMethodsAreRefused() {

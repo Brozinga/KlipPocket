@@ -101,7 +101,8 @@ import java.io.File
 @Composable
 fun ConfigScreen(
     modifier: Modifier = Modifier,
-    viewModel: SettingsViewModel = viewModel()
+    viewModel: SettingsViewModel = viewModel(),
+    onOpenHappyHare: () -> Unit = {}
 ) {
     val engine by viewModel.engine.collectAsStateWithLifecycle()
     val webFrontend by viewModel.webFrontend.collectAsStateWithLifecycle()
@@ -250,6 +251,14 @@ fun ConfigScreen(
             value = frontendVersionText(voyagerVersion.active, voyagerVersion.latest),
             showUpdateButton = VersionCompare.tagDiffers(voyagerVersion.active, voyagerVersion.latest),
             onUpdateClick = { confirmUpdateFrontend = Prefs.FRONTEND_VOYAGER }
+        )
+
+        Spacer(Modifier.height(28.dp))
+        KlipSectionHeader(stringResource(R.string.HappyHare))
+        KlipValueRow(
+            title = stringResource(R.string.HappyHare),
+            value = stringResource(R.string.HappyHareSubtitle),
+            onClick = onOpenHappyHare
         )
 
         Spacer(Modifier.height(28.dp))

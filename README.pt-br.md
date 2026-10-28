@@ -32,6 +32,7 @@ Muitas impressoras "clássicas" ainda usam placas Marlin lentas e fechadas. O Kl
 - **Print Recovery** — retome uma impressão após uma queda de energia
 - **Monitoramento por câmera** — use a câmera do aparelho ou uma webcam USB, com pré-visualização ao vivo, zoom e timelapse
 - **Interfaces web** — Fluidd, Mainsail e Voyager UI, servidas pelo próprio aparelho
+- **Painel KlipPocket** — cartões e gráficos ao vivo de CPU, memória, temperatura e rede, informações das MCUs, logs, configurações, iniciar/parar e adicionar impressoras, câmera e gravação de firmware, acessíveis pelo navegador (compatível com celular)
 
 ## Escolhendo o pacote certo
 
@@ -74,9 +75,10 @@ Todos os guias ficam em [`docs/`](docs/pt-br/index.md) (também em English e 简
 - [SimplyPrint](docs/pt-br/simplyprint.md) — monitoramento remoto e detecção de falhas por IA com SimplyPrint
 - [Kalico](docs/pt-br/kalico.md) — trocar o motor para o Kalico, o que funciona e o que não funciona
 - [Multi-MCU](docs/pt-br/multi-mcu.md) — usar placas USB extras (cabeçote, sensores, portas extras) com exemplos de `printer.cfg`
-- [Happy Hare](docs/pt-br/happy-hare.md) — multifilamento (MMU): gerar a configuração, copiá-la e apontar para a placa
+- [Happy Hare](docs/pt-br/happy-hare.md) — suporte a multifilamento (MMU): escolha a sua MMU e responda às perguntas de configuração do Happy Hare no app ou no KlipPocket Dashboard
 - [Complementos do Klipper](docs/pt-br/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper sem acelerômetro](docs/pt-br/mods/input-shaper-manual.md) — método da torre de ringing e macros
+- [Painel KlipPocket](docs/pt-br/dashboard.md) — CPU, memória, temperatura e rede ao vivo, informações do dispositivo e das MCUs, logs, configurações, controle e adição de impressoras, câmera e gravação de firmware pelo navegador
 - [Compilando o APK](docs/pt-br/build-app.md) — compile o app você mesmo
 
 ## Quais portas as interfaces web e a câmera usam?
@@ -88,6 +90,7 @@ O endereço aparece na tela principal sempre que alguma instância está rodando
 | Fluidd | `http://IP:4408/` |
 | Mainsail | `http://IP:4409/` |
 | Voyager UI | `http://IP:4410/` |
+| Painel KlipPocket (dispositivo, MCUs, logs, firmware) | `http://IP:4400/` |
 | Transmissão da câmera | `http://IP:8889/` |
 | Snapshot da câmera (JPEG único) | `http://IP:8889/snapshot` |
 | Transmissão da câmera (estilo webcam) | `http://IP:8889/webcam/?action=stream` |

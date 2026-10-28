@@ -36,9 +36,20 @@ open class BasePythonService : Service() {
         override fun getInterfaceDescriptor(): String = DESCRIPTOR
     }
 
+    /** False for a helper that is not tied to a printer: it is bound without an instance id. */
+    protected open val needsInstance: Boolean get() = true
+
+    /** Waits for Python to start and returns it, or null if it did not start in time. */
+    protected fun awaitPython(timeoutMs: Long): Python? {
+        if (!pythonReady.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)) return null
+        return py
+    }
+
     override fun onBind(intent: Intent?): IBinder? {
-        val id = intent?.getStringExtra(KEY_INSTANCE); Log.i("beam_service", "onBind id: $id"); if(id==null) return null
-        instance = KlipperInstance.getInstance(id)
+        if (needsInstance) {
+            val id = intent?.getStringExtra(KEY_INSTANCE); Log.i("beam_service", "onBind id: $id"); if(id==null) return null
+            instance = KlipperInstance.getInstance(id)
+        }
         pythonHandler?.post {
             runBlocking { KlipperApp.bundleInstallJob.await() }
             pythonReady.await()

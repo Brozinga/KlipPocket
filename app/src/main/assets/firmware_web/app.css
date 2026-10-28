@@ -129,6 +129,8 @@ canvas.chart { display: block; width: 100%; height: 140px; }
 .kv { display: flex; justify-content: space-between; gap: 14px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .kv:last-child { border-bottom: 0; }
 .kv .v { text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.kv2 { display: grid; grid-template-columns: 1fr 1fr; column-gap: 32px; }
+.kv2 .kv:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
 .bar.thin { height: 8px; margin: 6px 0 10px; }
 .badge.on { border-color: var(--ok); color: var(--ok); }
 
@@ -146,6 +148,11 @@ pre.log.tall { max-height: 60vh; min-height: 220px; }
   .stat .big { font-size: 1.6rem; }
   .cols { grid-template-columns: 1fr; }
   .charts { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+  .kv2 { grid-template-columns: 1fr; }
+  .kv2 .kv:nth-last-child(2):nth-child(odd) { border-bottom: 1px solid var(--line); }
 }
 
 .hidden { display: none !important; }
@@ -191,3 +198,12 @@ h4.subhead { margin: 0 0 4px; font-size: .95rem; color: var(--ink-muted); text-t
 .bars i { width: 6px; border-radius: 2px; background: var(--line); display: block; }
 .bars i.b1 { height: 8px; } .bars i.b2 { height: 14px; } .bars i.b3 { height: 20px; } .bars i.b4 { height: 26px; }
 .bars i.on { background: var(--accent); }
+
+/* Happy Hare setup */
+.mmuq { margin: 6px 0; }
+.mmuq.ind1 { margin-left: 14px; }
+.mmuq.ind2 { margin-left: 28px; }
+.mmuq.ind3 { margin-left: 42px; }
+.mmuq details summary { cursor: pointer; width: max-content; }
+.card .btn.wide { display: block; width: 100%; margin: 6px 0; text-align: left; }
+.card pre.box { white-space: pre-wrap; word-break: break-all; margin: 6px 0 12px; }

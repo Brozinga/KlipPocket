@@ -8,6 +8,7 @@ import org.nanohttpd.protocols.http.request.Method
 import org.nanohttpd.protocols.http.response.Response
 import org.nanohttpd.protocols.http.response.Status
 import ru.ytkab0bp.beamklipper.firmware.FirmwareStore
+import ru.ytkab0bp.beamklipper.hhwizard.HhWizardRules
 import java.io.File
 import java.io.InputStream
 
@@ -30,6 +31,7 @@ class FirmwareWebServer(
     private val assets: (String) -> InputStream?,
     private val limiter: LoginLimiter = LoginLimiter(),
     private val sessions: WebSessions = WebSessions(),
+    private val mmu: MmuBackend? = null,
 ) : NanoHTTPD(port) {
 
     companion object {
@@ -184,6 +186,16 @@ class FirmwareWebServer(
                 ok()
             }
             path == "/api/camera/focus/reset" && s.method == Method.POST -> { control.resetFocus(); ok() }
+            path == "/api/mmu/printers" && s.method == Method.GET -> ok((mmu ?: return error(Status.NOT_FOUND, "route")).printers())
+            path == "/api/mmu" && s.method == Method.POST -> {
+                val wizard = mmu ?: return error(Status.NOT_FOUND, "route")
+                val b = json ?: return error(Status.BAD_REQUEST, "json")
+                val printer = b.optString("printer")
+                // Only the wizard's own fields go through: the folders come from the app, never from the page
+                val answer = if (HhWizardRules.request("", "", b) == null) return error(Status.BAD_REQUEST, "request")
+                else wizard.call(printer, b) ?: return error(Status.NOT_FOUND, "printer")
+                ok(answer)
+            }
             path == "/api/log" && s.method == Method.GET -> ok(JSONObject().put("log", backend.log()))
             else -> error(Status.NOT_FOUND, "route")
         }

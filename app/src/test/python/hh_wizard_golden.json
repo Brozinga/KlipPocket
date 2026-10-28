@@ -1,0 +1,200 @@
+{
+ "happy_hare": "4.1.0",
+ "profiles": {
+  "3ms": {
+   "files": {
+    "base/mmu.cfg": "ba5ac3ee2a90085f43e2007af3bd6dbb54f773494ba10519c0bc20cd494ae4ca",
+    "base/mmu_hardware_unit0.cfg": "08118e30204ef673e27fe194a022c667973acaa01f3880c4f8ab7ea9b076e0e3",
+    "base/mmu_macro_vars.cfg": "f35d5ed9bd0f7fcae1053df812f879547bc9f266dee4f745f159a392dc0c6463",
+    "base/mmu_parameters_unit0.cfg": "5549bdfa2f50839c11fac6c943719d68e818fb514d1c319c98d856907d37db1b",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "BOARD_TYPE_MMB_2_0": true,
+    "MMU_TYPE_3MS_1_0": true,
+    "PIN_EXTRUDER_SENSOR": "mcu:PA7"
+   }
+  },
+  "box_turtle": {
+   "files": {
+    "base/mmu.cfg": "4fb5702fad9401fd63e58a89bafd073c3c1d37ac5eecd8ac0f6533af6d48e4e8",
+    "base/mmu_hardware_unit0.cfg": "aebfbce6545d7b312bebd19caf5c4bcacc6c8dceff4413fc4996aeee3f2c9178",
+    "base/mmu_macro_vars.cfg": "f35d5ed9bd0f7fcae1053df812f879547bc9f266dee4f745f159a392dc0c6463",
+    "base/mmu_parameters_unit0.cfg": "9be4d2b6e79f57b21aa36b256830827b88534d8e8fa53fe1b1e2a947eaba6218",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_TYPE_BOX_TURTLE_1_0": true
+   }
+  },
+  "emu": {
+   "files": {
+    "base/mmu.cfg": "d37f25b838f9767ac1f3e8761d2d0b1342fdd3a389f2e95508e0784a4e20d122",
+    "base/mmu_hardware_unit0.cfg": "b8b55be498e0472581af681a6baaf21d4448909beab1ace4f5da619d940982b8",
+    "base/mmu_macro_vars.cfg": "dfde5557c9b736010bf63b97f060681304140f9b26e73832aada93ade1d87d94",
+    "base/mmu_parameters_unit0.cfg": "d661d81870e7245595712d1037f0486ee0c030f2228ec7054f28d731545fd8f2",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_TYPE_EMU_1_0": true
+   }
+  },
+  "ercf": {
+   "files": {
+    "base/mmu.cfg": "4fb5702fad9401fd63e58a89bafd073c3c1d37ac5eecd8ac0f6533af6d48e4e8",
+    "base/mmu_hardware_unit0.cfg": "aa3325fbeed1e79805e89d97ba6e7798c753f3b039c8d701a4619429ee04fe3c",
+    "base/mmu_macro_vars.cfg": "877faa0061527869845928795d2c624ece94f00528586c9b6a3e8a9c032c3038",
+    "base/mmu_parameters_unit0.cfg": "c68fb98d041d2389986324285c0cf61cfeef3de4b8f8281f480fc854901a6376",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_FAMILY_ERCF": true
+   }
+  },
+  "night_owl": {
+   "files": {
+    "base/mmu.cfg": "4fb5702fad9401fd63e58a89bafd073c3c1d37ac5eecd8ac0f6533af6d48e4e8",
+    "base/mmu_hardware_unit0.cfg": "61ce22c1b173167f1b8a61e2d940d026275016945201115610f47b74977fa2bb",
+    "base/mmu_macro_vars.cfg": "a71d6d7b2cb15e9586fe6f59c9a086a22f1bcc684bd48b503c133cd3a36bb91f",
+    "base/mmu_parameters_unit0.cfg": "ef5c5e2495ce61340d0738385e92ee80b6a21f3110196c2861cdfb69133857e0",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_TYPE_NIGHT_OWL_1_0": true
+   }
+  },
+  "tradrack": {
+   "files": {
+    "base/mmu.cfg": "4fb5702fad9401fd63e58a89bafd073c3c1d37ac5eecd8ac0f6533af6d48e4e8",
+    "base/mmu_hardware_unit0.cfg": "199f76a35307e803ddd3c6693abfcba3cc346a4c4992adc893e4e2659809d24b",
+    "base/mmu_macro_vars.cfg": "a5d8463870bd6e1028aff78308a8c59bfcacf8206a98f3d54c4694a0d18c4ef7",
+    "base/mmu_parameters_unit0.cfg": "ad17510987b3500a51e6ebf96f1c53cf84105546b9542111e053a7254897a694",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_TYPE_TRADRACK_1_0": true
+   }
+  },
+  "tradrack_renamed": {
+   "files": {
+    "base/mmu.cfg": "4fb5702fad9401fd63e58a89bafd073c3c1d37ac5eecd8ac0f6533af6d48e4e8",
+    "base/mmu_hardware_unit0.cfg": "5cfa4bd3acb69d6f7f0a93a6b7ae37e00ec522f0f7a11919bd24812c21b25d15",
+    "base/mmu_macro_vars.cfg": "a5d8463870bd6e1028aff78308a8c59bfcacf8206a98f3d54c4694a0d18c4ef7",
+    "base/mmu_parameters_unit0.cfg": "ad17510987b3500a51e6ebf96f1c53cf84105546b9542111e053a7254897a694",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_TYPE_TRADRACK_1_0": true,
+    "PARAM_DISPLAY_NAME": "My Tradrack"
+   }
+  },
+  "vvd": {
+   "files": {
+    "base/mmu.cfg": "4fb5702fad9401fd63e58a89bafd073c3c1d37ac5eecd8ac0f6533af6d48e4e8",
+    "base/mmu_hardware_unit0.cfg": "060d5e23dbb4ad2bf92921b220e6c8ba77926724e9655bfb3c9487ae6de7957d",
+    "base/mmu_macro_vars.cfg": "f35d5ed9bd0f7fcae1053df812f879547bc9f266dee4f745f159a392dc0c6463",
+    "base/mmu_parameters_unit0.cfg": "eccbf7685604b8f25d07194e94db4cc69edeb0e5efbc77923d4ea4acacdf642a",
+    "macros/blobifier.cfg": "fcbbcbe97f4d8b81245448faae0aa1f116bd18946f6da1d68e505af9ddcf6a60",
+    "macros/mmu_cut_tip.cfg": "424aae00fde95152fdb58d1b60ab7679f9d90d666812c7f6fe3b852e4d0adcef",
+    "macros/mmu_form_tip.cfg": "55eccd3650062b233cd015b7b4185148a8e47744872c6df8ce4371cc85a951ce",
+    "macros/mmu_heater_vent.cfg": "f0540f131d15d12afbf5327c9b5617757f72bf53b9f473ab71a952d5ea201b42",
+    "macros/mmu_misc.cfg": "5c1f83f1e40e39adf09be1e9690d9e8bbda5b3bd5bc12409041589584ef02212",
+    "macros/mmu_purge.cfg": "1843e1be36ebf62b61e3616b9c10d120e9d37e9a8aa76105d2e795e49d9f1f48",
+    "macros/mmu_sequence.cfg": "5c7ae3c29f0a02cb873fe873ad976002d9d3c72dcc53b8d4ac319f51b0ac750e",
+    "macros/mmu_servo_cutter.cfg": "6a2eb8bb2eb2521b5d1b5e947fb8124c2e496068d54117fc089c470671130367",
+    "macros/mmu_software.cfg": "fea0d8a0ab46d71ad2a5e24563642f052d63a42a01fed5f6816cc2c8ae394235",
+    "macros/mmu_state.cfg": "f2577985db85327306eb820cb38903893d54a38f6042d12ac4f06356a410a5f7",
+    "mmu_vars.cfg": "fd7a56c78e7c187d7fcc5df0c8b10f155914a3626cd636a85c1e882ac5595ba2",
+    "optional/client_macros.cfg": "6e6f88d60e283b433c7cfc6e3b7c938e446fe43b9adb63cb779ba3104e96fb42",
+    "optional/mmu_menu.cfg": "2164559d931187e164c981e80959741781d0091f6128e35e8a5de96f856fe5ef"
+   },
+   "symbols": {
+    "MMU_TYPE_VVD_1_0": true
+   }
+  }
+ }
+}

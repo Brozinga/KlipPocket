@@ -85,7 +85,7 @@
   let logText = '';
   let experimentalCache = {};
   let lastSig = '';
-  let tab = ['firmware', 'settings', 'camera'].includes(store.get('kp_tab')) ? store.get('kp_tab') : 'dashboard';   // dashboard | settings | camera | firmware
+  let tab = ['firmware', 'settings', 'camera', 'hh'].includes(store.get('kp_tab')) ? store.get('kp_tab') : 'dashboard';   // dashboard | settings | camera | firmware | hh
   let dash = null;                   // last /api/dashboard
   let live = null;                   // last /api/metrics
   const HIST = 60;                   // seconds kept in the charts
@@ -136,6 +136,8 @@
     try {
       st = await api('GET', '/api/state');
       authed = true;
+      // the tab is remembered across reloads: its printers are not loaded by a click then
+      if (tab === 'hh' && !mmu.printers && !mmu.busy) mmuOpen();
       if (!store.get('kp_lang')) { const l = matchLanguage(st.language); if (l && l !== lang) { lang = l; applyLang(); } }
       if (!store.get('kp_theme')) { const th = st.dark ? 'dark' : 'light'; if (th !== theme) { theme = th; applyTheme(); } }
       // a write in progress, or a result nobody has closed yet, owns the page: also after a reload or on another device
@@ -163,6 +165,7 @@
     dashboard: ['M3 3h8v8H3z', 'M13 3h8v5h-8z', 'M13 10h8v11h-8z', 'M3 13h8v8H3z'],
     camera: ['M4 8h3l2-3h6l2 3h3v11H4z', 'M12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'],
     gear: ['M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z', 'M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z'],
+    hh: ['M5 4h14v6H5z', 'M5 14h14v6H5z', 'M9 7h.01M9 17h.01'],
     play: ['M7 4l13 8-13 8z'],
     stop: ['M6 6h12v12H6z'],
     plus: ['M12 5v14', 'M5 12h14'],
@@ -543,15 +546,12 @@
       h('div', { class: 'charts one' }, chartCard('c-cpu', t('cpuTitle'))),
       h('div', { class: 'charts' }, chartCard('c-mem', t('memTitle')), chartCard('c-temp', t('tempTitle'))),
       h('p', { class: 'muted small', id: 'cpu-note', text: '' }),
-      h('div', { class: 'cols' },
-        h('div', { class: 'card' }, h('h3', { text: t('hostTitle') }), hostRows),
-        h('div', { class: 'card' }, h('h3', { text: t('memTitle') }),
-          kv(t('memTotal'), '–', 'm-total'), kv(t('memUsed'), '–', 'm-used'), kv(t('memAvailable'), '–', 'm-avail'), meter('m-bar'),
-          kv(t('swapTitle'), '–', 'm-swap'),
-          h('h3', { class: 'gap', text: t('storageTitle') }),
-          dash.storage.map((v, n) => h('div', {},
-            kv(v.id === 'internal' ? t('storageInternal') : t('storageCard') + (n > 1 ? ' ' + n : ''), t('storageFree', formatBytes(v.free), formatBytes(v.total))),
-            h('div', { class: 'bar thin' }, h('span', { 'data-w': String(Math.round((v.total - v.free) * 100 / Math.max(1, v.total))) })))))),
+      // storage on a line of its own, then the host device on one line with its details in two columns
+      h('div', { class: 'card' }, h('h3', { text: t('storageTitle') }),
+        dash.storage.map((v, n) => h('div', {},
+          kv(v.id === 'internal' ? t('storageInternal') : t('storageCard') + (n > 1 ? ' ' + n : ''), t('storageFree', formatBytes(v.free), formatBytes(v.total))),
+          h('div', { class: 'bar thin' }, h('span', { 'data-w': String(Math.round((v.total - v.free) * 100 / Math.max(1, v.total))) }))))),
+      h('div', { class: 'card' }, h('h3', { text: t('hostTitle') }), h('div', { class: 'kv2' }, hostRows)),
       h('div', { class: 'secthead' }, h('h2', { class: 'section', text: t('printersTitle') }),
         h('div', { class: 'tools' },
           dash.instances.length ? (dash.instances.some((i) => i.state === 'RUNNING' || i.state === 'STARTING')
@@ -638,15 +638,8 @@
   function updateLive() {
     if (tab !== 'dashboard' || !live || !document.getElementById('stats')) return;
     const m = live;
-    const used = m.memTotal - m.memAvailable;
-    const usedPct = m.memTotal ? used * 100 / m.memTotal : 0;
     updateCards(m);
     setText('v-uptime', formatUptime(m.uptimeMs));
-    setText('m-total', formatBytes(m.memTotal));
-    setText('m-used', formatBytes(used) + ' (' + pct(usedPct) + ')');
-    setText('m-avail', formatBytes(m.memAvailable));
-    setBar('m-bar', usedPct);
-    setText('m-swap', m.swapTotal ? formatBytes(m.swapTotal - m.swapFree) + ' / ' + formatBytes(m.swapTotal) : '–');
     setText('cpu-note', m.cpu === undefined ? t('cpuHidden') : '');
     drawCharts();
   }
@@ -734,7 +727,7 @@
   async function pollDashboard() {
     if (!authed || tab !== 'dashboard' || document.hidden || dashBusy) return;
     dashBusy = true;
-    try { const d = await api('GET', '/api/dashboard'); const changed = JSON.stringify(d) !== JSON.stringify(dash); dash = d; if (changed) render(true); } catch (e) { /* ignore */ }
+    try { const d = await api('GET', '/api/dashboard'); const changed = JSON.stringify(d) !== JSON.stringify(dash); dash = d; if (changed) render(false); } catch (e) { /* ignore */ }
     dashBusy = false;
   }
 
@@ -821,6 +814,7 @@
     store.set('kp_tab', tab);
     if (tab === 'dashboard') { pollDashboard(); pollMetrics(); }
     if (tab === 'settings') loadSettings();
+    if (tab === 'hh') mmuOpen();
     if (tab === 'camera') loadCamera().then(startStream);
     render(true);
   }
@@ -828,7 +822,7 @@
   function tabsBar() {
     const btn = (id, ic, label) => h('button', { class: 'tabbtn' + (tab === id ? ' active' : ''), role: 'tab', 'aria-selected': String(tab === id), title: label, 'aria-label': label, onclick: () => setTab(id) }, icon(ICONS[ic]));
     return h('nav', { class: 'tabs', role: 'tablist' }, btn('dashboard', 'dashboard', t('tabDashboard')), btn('camera', 'camera', t('tabCamera')),
-      btn('firmware', 'chip', t('FirmwareTitle')), btn('settings', 'gear', t('tabSettings')));
+      btn('firmware', 'chip', t('FirmwareTitle')), btn('hh', 'hh', t('HappyHare')), btn('settings', 'gear', t('tabSettings')));
   }
 
   // ---- settings -----------------------------------------------------------------------------------------------
@@ -992,7 +986,7 @@
   let camRetry = null;
 
   async function loadCamera() {
-    try { const c = await api('GET', '/api/camera'); const changed = JSON.stringify(c) !== JSON.stringify(cam); cam = c; if (changed) render(true); } catch (e) { /* ignore */ }
+    try { const c = await api('GET', '/api/camera'); const changed = JSON.stringify(c) !== JSON.stringify(cam); cam = c; if (changed) render(false); } catch (e) { /* ignore */ }
   }
 
   function startStream() {
@@ -1049,15 +1043,213 @@
         cam.focusSupported ? h('div', { class: 'actions' }, h('button', { class: 'btn secondary', onclick: () => api('POST', '/api/camera/focus/reset', {}).then(() => toast(t('saved'))).catch(() => {}) }, t('CameraPreviewFocusReset'))) : null) : null);
   }
 
+
+  // ---- Happy Hare setup ---------------------------------------------------------------------------------------
+  // The same steps as the app's Happy Hare screen. The questions come from Happy Hare's own installer menu (answered by the
+  // setup engine in the app); this page only shows them.
+  const USB_SYMBOL = 'MMU_SERIAL_DEVICE_OTHER';
+  let mmu = { stage: 'printers', printers: null, printer: null, name: '', installed: false, type: null, types: [], selected: null, page: null,
+    stack: [], problems: [], warnings: [], include: true, reset: false, includeLines: [], moonrakerLines: [], added: false, busy: false, error: null };
+
+  async function mmuCall(body) { return api('POST', '/api/mmu', Object.assign({ printer: mmu.printer }, body)); }
+  function mmuFail(r) { mmu.error = r.error || r.key || t('serverError'); mmu.problems = r.problems || []; }
+
+  async function mmuOpen() {
+    if (mmu.printers) return;
+    try {
+      mmu.printers = (await api('GET', '/api/mmu/printers')).printers;
+      if (mmu.printers.length === 1) await mmuSelect(mmu.printers[0].id);
+    } catch (e) { mmu.printers = []; }
+    render(true);
+  }
+
+  async function mmuRun(fn) {
+    mmu.busy = true; mmu.error = null; render(true);
+    try { await fn(); } catch (e) { mmu.error = describeError(e); } finally { mmu.busy = false; render(true); }
+  }
+
+  function mmuSelect(id) {
+    return mmuRun(async () => {
+      const p = mmu.printers.find((x) => x.id === id);
+      mmu.printer = id; mmu.name = p ? p.name : '';
+      const r = await mmuCall({ op: 'open' });
+      if (!r.ok) return mmuFail(r);
+      Object.assign(mmu, { stage: 'home', installed: r.installed, type: r.type, types: r.types, selected: null, stack: [] });
+    });
+  }
+
+  function mmuStart(edit) {
+    return mmuRun(async () => {
+      let r = await mmuCall({ op: 'reset', load_saved: edit });
+      if (!r.ok) return mmuFail(r);
+      r = await mmuCall({ op: 'open' });
+      if (r.ok) mmu.types = r.types;
+      if (edit) { mmu.selected = null; await mmuPage('', true); } else { mmu.stage = 'type'; mmu.selected = null; mmu.stack = []; }
+    });
+  }
+
+  function mmuChoose(symbol) {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'set', symbol, value: true });
+      if (!r.ok) return mmuFail(r);
+      mmu.selected = symbol;
+      await mmuPage('', true);
+    });
+  }
+
+  async function mmuPage(path, reset, push) {
+    const r = await mmuCall({ op: 'page', path });
+    if (!r.ok) return mmuFail(r);
+    mmu.page = r; mmu.stage = 'page';
+    if (reset) mmu.stack = []; else if (push) mmu.stack = mmu.stack.concat(path);
+  }
+
+  function mmuSet(symbol, value) {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'set', symbol, value });
+      if (!r.ok) return mmuFail(r);
+      await mmuPage(mmu.stack[mmu.stack.length - 1] || '');
+    });
+  }
+
+  function mmuUnset(symbol) {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'unset', symbol });
+      if (!r.ok) return mmuFail(r);
+      await mmuPage(mmu.stack[mmu.stack.length - 1] || '');
+    });
+  }
+
+  function mmuBack() {
+    if (mmu.stage === 'page') {
+      if (mmu.stack.length === 0) { mmu.stage = mmu.selected === null && mmu.installed ? 'home' : 'type'; render(true); return; }
+      const parent = mmu.stack.slice(0, -1);
+      mmuRun(async () => { await mmuPage(parent[parent.length - 1] || '', true); mmu.stack = parent; });
+    } else if (mmu.stage === 'review') { mmu.stage = 'page'; render(true); }
+    else if (mmu.stage === 'type' || mmu.stage === 'done') { mmu.stage = 'home'; render(true); }
+    else if (mmu.stage === 'home' && mmu.printers && mmu.printers.length > 1) { mmu.stage = 'printers'; render(true); }
+  }
+
+  function mmuReview() {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'review' });
+      if (!r.ok) return mmuFail(r);
+      Object.assign(mmu, { stage: 'review', problems: r.problems, warnings: r.warnings, reset: mmu.selected !== null });
+    });
+  }
+
+  function mmuGenerate() {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'generate', include: mmu.include, keep_state: !mmu.reset });
+      if (!r.ok) return mmuFail(r);
+      const o = await mmuCall({ op: 'open' });
+      Object.assign(mmu, { stage: 'done', installed: true, added: r.added, includeLines: r.includes, moonrakerLines: r.moonraker, type: o.ok ? o.type : mmu.type });
+    });
+  }
+
+  function mmuAddNow() {
+    return mmuRun(async () => {
+      const r = await mmuCall({ op: 'add_to_printer' });
+      if (!r.ok) return mmuFail(r);
+      mmu.added = true;
+    });
+  }
+
+  function mmuQuestion(item) {
+    const label = item.title;
+    const help = item.help ? h('details', { class: 'muted small' }, h('summary', { text: '?' }), h('p', { text: item.help })) : null;
+    const wrap = (node) => h('div', { class: 'mmuq' + (item.indent ? ' ind' + Math.min(item.indent, 3) : '') }, node, help);
+    switch (item.kind) {
+      case 'heading': return h('h4', { class: 'subhead', text: label });
+      case 'note': return h('p', { class: 'muted small', text: label });
+      case 'menu':
+        return wrap(h('button', { class: 'btn secondary wide', disabled: !item.enabled, onclick: () => mmuRun(() => mmuPage(item.path, false, true)) }, label + '  ›'));
+      case 'bool':
+        return wrap(switchRow(label, item.value, (v) => mmuSet(item.symbol, v), 'q-' + item.id));
+      case 'choice':
+        return wrap(h('label', { class: 'frow' }, h('span', { class: 'flabel', text: label }),
+          h('select', { id: 'q-' + item.id, onchange: (e) => mmuSet(e.target.value, true) },
+            item.options.map((o) => h('option', { value: o.symbol, selected: o.symbol === item.value }, o.title)))));
+      default: {
+        const usb = item.symbol === USB_SYMBOL ? ((st && st.devices) || []).filter((d) => d.serialPath) : [];
+        return wrap(h('div', {},
+          h('label', { class: 'frow' }, h('span', { class: 'flabel', text: label }),
+            h('input', { id: 'q-' + item.id, type: item.kind === 'text' ? 'text' : 'number', step: item.kind === 'float' ? 'any' : '1', class: 'wide', value: item.value,
+              onchange: (e) => mmuSet(item.symbol, e.target.value.trim()) })),
+          usb.length ? h('label', { class: 'frow' }, h('span', { class: 'flabel', text: t('HHUsbPick') }),
+            h('select', { id: 'q-usb', onchange: (e) => { if (e.target.value) mmuSet(item.symbol, e.target.value); } },
+              [h('option', { value: '' }, '—')].concat(usb.map((d) => h('option', { value: d.serialPath }, d.label + ' ' + d.serialPath))))) : null,
+          !item.default ? h('button', { class: 'btn text', onclick: () => mmuUnset(item.symbol) }, t('HHRestoreDefault')) : null));
+      }
+    }
+  }
+
+  function mmuView() {
+    if (!mmu.printers) return h('div', { class: 'center' }, h('div', { class: 'spinner' }));
+    const back = (mmu.stage !== 'printers' && !(mmu.stage === 'home' && mmu.printers.length <= 1))
+      ? h('button', { class: 'btn text', onclick: mmuBack }, '‹ ' + t('FirmwareBack')) : null;
+    const err = mmu.error ? h('div', { class: 'box danger', role: 'alert' }, h('p', { text: t('HHFailed', mmu.error) }),
+      mmu.problems.slice(0, 12).map((x) => h('p', { class: 'muted small', text: x }))) : null;
+    const busy = mmu.busy ? h('p', { class: 'muted small', text: t('HHWorking') }) : null;
+    let body;
+    if (mmu.stage === 'printers') {
+      body = h('div', {}, h('h3', { text: t('HHChoosePrinter') }), h('p', { class: 'muted', text: t('HappyHareSubtitle') }),
+        mmu.printers.length === 0 ? h('p', { class: 'muted', text: t('HHNoPrinters') }) : null,
+        mmu.printers.map((p) => h('button', { class: 'btn secondary wide', onclick: () => mmuSelect(p.id) }, p.name || p.id)));
+    } else if (mmu.stage === 'home') {
+      const cur = mmu.types.find((x) => x.symbol === mmu.type);
+      body = h('div', {}, h('h3', { text: mmu.name || t('HappyHare') }), h('p', { class: 'muted', text: t('HappyHareSubtitle') }),
+        h('p', { text: mmu.installed ? t('HHConfigured', cur ? cur.title : 'Happy Hare') : t('HHNotConfigured') }),
+        h('div', { class: 'actions' },
+          mmu.installed ? h('button', { class: 'btn', onclick: () => mmuStart(true) }, t('HHEdit')) : h('button', { class: 'btn', onclick: () => mmuStart(false) }, t('HHStart')),
+          mmu.installed ? h('button', { class: 'btn secondary', onclick: () => mmuStart(false) }, t('HHStartOver')) : null));
+    } else if (mmu.stage === 'type') {
+      body = h('div', {}, h('h3', { text: t('HHChooseMmu') }),
+        mmu.types.map((x) => h('button', { class: 'btn secondary wide', onclick: () => mmuChoose(x.symbol) }, x.title)));
+    } else if (mmu.stage === 'page') {
+      const items = mmu.page.items;
+      body = h('div', {}, h('h3', { text: mmu.page.title }), mmu.page.help ? h('p', { class: 'muted small', text: mmu.page.help }) : null,
+        items.some((i) => i.kind !== 'heading' && i.kind !== 'note') ? null : h('p', { class: 'muted', text: t('HHNothingHere') }),
+        items.map(mmuQuestion),
+        mmu.stack.length === 0 ? h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: mmuReview }, t('HHReview'))) : null);
+    } else if (mmu.stage === 'review') {
+      body = h('div', {}, h('h3', { text: t('HHReview') }),
+        mmu.problems.length ? h('div', { class: 'box danger' }, h('h4', { class: 'subhead', text: t('HHProblemsTitle') }), h('p', { class: 'muted small', text: t('HHProblemsHelp') }),
+          mmu.problems.slice(0, 20).map((x) => h('p', { class: 'muted small', text: x }))) : null,
+        mmu.warnings.length ? h('div', { class: 'box warn' }, h('h4', { class: 'subhead', text: t('HHWarningsTitle') }), mmu.warnings.map((x) => h('p', { class: 'small', text: x }))) : null,
+        switchRow(t('HHIncludePrinter'), mmu.include, (v) => { mmu.include = v; render(true); }, 'hh-include'),
+        h('p', { class: 'muted small', text: t('HHIncludeHelp') }),
+        switchRow(t('HHResetState'), mmu.reset, (v) => { mmu.reset = v; render(true); }, 'hh-reset'),
+        h('p', { class: 'muted small', text: t('HHReplaceNote') }),
+        h('div', { class: 'actions' }, h('button', { class: 'btn', disabled: mmu.problems.length > 0 || mmu.busy, onclick: mmuGenerate }, t('HHInstall'))));
+    } else {
+      body = h('div', {}, h('h3', { text: t('HHDone') }), h('p', { text: t('HHDoneRestart') }),
+        mmu.added ? h('p', { class: 'okc', text: t('HHAdded') }) : h('div', {},
+          h('h4', { class: 'subhead', text: t('HHManualTitle') }),
+          h('p', { class: 'muted small', text: t('HHManualPrinter') }), h('pre', { class: 'box', text: mmu.includeLines.join('\n') }),
+          h('p', { class: 'muted small', text: t('HHManualMoonraker') }), h('pre', { class: 'box', text: mmu.moonrakerLines.join('\n') }),
+          h('div', { class: 'actions' }, h('button', { class: 'btn', onclick: mmuAddNow }, t('HHAddNow')))));
+    }
+    return h('div', { class: 'card' }, back, busy, err, body);
+  }
+
   // ---- render -------------------------------------------------------------------------------------------------
   function signature() {
-    return JSON.stringify([authed, view, Object.assign({}, wiz, { start: null }), modal && modal.type, modal && modal.name, modal && modal.info, modal && modal.busy, upload && upload.name, offline, lang, theme, showLog, tab, cfg, form.obicoCloud, cam, camState, dash, logs.sources, logs.id, logs.live, st && [st.files, st.devices, st.download, st.flash],
+    return JSON.stringify([authed, view, Object.assign({}, wiz, { start: null }), modal && modal.type, modal && modal.name, modal && modal.info, modal && modal.busy, upload && upload.name, offline, lang, theme, showLog, tab, tab === 'hh' && [mmu, st && st.devices], cfg, form.obicoCloud, cam, camState, dash, logs.sources, logs.id, logs.live, st && [st.files, st.devices, st.download, st.flash],
       st && Object.keys(experimentalCache).length]);
+  }
+
+  // a text field is being edited: a redraw would replace it and move the cursor
+  function typing() {
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'range'].includes(a.type)));
   }
 
   function render(force) {
     const sig = signature();
     if (!force && sig === lastSig) { applyWidths(); return; }
+    // background refreshes wait until the field is left (the next poll draws them); what the user does always draws
+    if (!force && typing()) return;
     lastSig = sig;
     const root = h('div', {}, header(), offline ? h('div', { class: 'banner', role: 'alert', text: t('connectionLost') }) : null);
     if (authed === false) root.appendChild(loginView());
@@ -1066,16 +1258,33 @@
       if (tab === 'dashboard') root.appendChild(dashboardView());
       else if (tab === 'settings') root.appendChild(settingsView());
       else if (tab === 'camera') root.appendChild(cameraView());
+      else if (tab === 'hh') root.appendChild(mmuView());
       else root.appendChild(view === 'run' ? runView() : view === 'wizard' ? wizardView() : homeView());
       if (tab === 'dashboard') root.appendChild(logsView());
       const m = upload ? uploadOverlay() : modalView();
       if (m) root.appendChild(m);
     }
-    const focused = document.activeElement && document.activeElement.id;
+    const active = document.activeElement;
+    const focused = active && active.id;
+    const caret = focused && typeof active.selectionStart === 'number' ? { start: active.selectionStart, end: active.selectionEnd, dir: active.selectionDirection } : null;
+    const pageX = window.scrollX;
+    const pageY = window.scrollY;
+    const oldDialog = document.querySelector('.dialog');
+    const dialogTop = oldDialog ? oldDialog.scrollTop : 0;
     const oldPre = document.getElementById('logpre');
     const keepScroll = oldPre ? oldPre.scrollTop : null;
     $app.replaceChildren(root);
-    if (focused) { const again = document.getElementById(focused); if (again) again.focus(); }
+    // the page was emptied for a moment: put the scroll back first, then the focus and the cursor without scrolling to them
+    window.scrollTo(pageX, pageY);
+    const dialogNow = document.querySelector('.dialog');
+    if (dialogNow) dialogNow.scrollTop = dialogTop;
+    if (focused) {
+      const again = document.getElementById(focused);
+      if (again) {
+        again.focus({ preventScroll: true });
+        if (caret) { try { again.setSelectionRange(caret.start, caret.end, caret.dir || 'none'); } catch (e) { /* not a text field */ } }
+      }
+    }
     const pre = document.getElementById('logpre');
     if (pre) pre.scrollTop = keepScroll !== null ? keepScroll : pre.scrollHeight;
     updateLive();

@@ -2,125 +2,102 @@
 
 **语言：[English](../happy-hare.md) · [Português (BR)](../pt-br/happy-hare.md) · [简体中文](happy-hare.md)**
 
-[Happy Hare](https://github.com/moggieuk/Happy-Hare) 是 Klipper 上用于多材料单元（MMU）的驱动：
-ERCF、Tradrack、BoxTurtle、3MS、3D Chameleon、HTLF、KMS、MMX 等。KlipPocket 内置
-**Happy Hare v4.1.0** 及其 Moonraker 组件，Klipper 和 [Kalico](kalico.md) 都能使用。
-只有你的配置要求时才会启用，所以没有 MMU 的打印机不受影响。
+[Happy Hare](https://github.com/moggieuk/Happy-Hare) 是 Klipper 上用于多材料单元（MMU）的驱动：ERCF、Tradrack、BoxTurtle、3MS、3D Chameleon、HTLF、KMS、MMX 等。KlipPocket 内置 **Happy Hare v4.1.0** 及其 Moonraker 组件，同时支持 Klipper 和 [Kalico](kalico.md)。只有配置文件里要求时才会启用，没有 MMU 的打印机不受影响。
 
-> **尚未用实体 MMU 测试。** 内置的 Happy Hare 已通过两项检查：在应用所用的 Python 版本上运行它自带的测试套件；
-> 在模拟的主板上用生成的 Tradrack 配置启动 Klipper 和 Kalico（`mmu` 对象成功加载，`MMU_*` 命令有响应）。
-> 如果你在真实硬件上试过，欢迎反馈结果。
+您可以**在应用里**（或在[仪表盘](dashboard.md)里）设置 Happy Hare：回答与 Happy Hare 自带安装菜单相同的问题，由 KlipPocket 写出文件，不需要电脑。
 
-## 你需要什么
+## 您需要
 
-- 一块刷入 Klipper **USB** 固件的 MMU 主板。只支持 **CAN**（例如 CAN 模式的 MMB）或只支持 **UART** 的板，
-  应用无法连接，参见 [多 MCU](multi-mcu.md#哪些可用哪些不可用)。
-- 主板能通过 USB 连接到手机/平板，最好经过带独立供电的 USB 集线器。电机和舵机需要自己的电源。
-- 一台电脑，用几分钟生成 Happy Hare 配置（第 1 步）。手机上不需要安装任何东西。
+- 一块刷了 Klipper **USB** 固件的 MMU 主板，连接到手机/平板（最好通过带供电的集线器）。电机和舵机需要单独供电。
+- 已在 KlipPocket 中创建好的打印机配置。
 
-## 第 1 步 —— 在电脑上生成 Happy Hare 配置
+## 在应用里设置
 
-Happy Hare 通过引导式菜单写出配置：你回答关于 MMU 的问题（类型、通道数、主板、传感器），而不用手动改引脚。
-在 Linux 或 macOS 电脑上：
+1. 打开**设置 → Happy Hare**，选择打印机（只有一台时会直接打开）。点 **Set up Happy Hare**（设置 Happy Hare）。
 
-```sh
-git clone --branch v4.1.0 https://github.com/moggieuk/Happy-Hare.git
-cd Happy-Hare
-./install.sh -i -t
-```
+   <p align="center"><img src="../images/happy-hare/app/01-settings.jpg" alt="带有 Happy Hare 入口的设置" width="240"> <img src="../images/happy-hare/app/02-home.jpg" alt="设置 Happy Hare" width="240"></p>
 
-`-t` 是 Happy Hare 的测试模式：把结果写到 `/tmp/mmu_test`，不需要安装 Klipper 或 Moonraker。
-完成后，在 `/tmp/mmu_test/printer_data/config` 中可以找到：
+2. 选择您的 MMU。Happy Hare 会填入其设计者推荐的默认值。
 
-- **`mmu`** 文件夹（`base`、`macros`、`optional` 和 `mmu_vars.cfg`）；
-- Happy Hare 修改过的 `printer.cfg` 和 `moonraker.conf`，其中能看到它添加的行（第 2、4 步会用到）。
+   <p align="center"><img src="../images/happy-hare/app/03-mmu.jpg" alt="MMU 列表" width="240"></p>
 
-请使用与应用相同的 Happy Hare 版本（v4.1.0）：配置格式会随版本变化，Happy Hare 会拒绝较旧版本生成的配置。
+3. 依次回答问题。它们就是 Happy Hare 自己的菜单，所以显示为英文。打开一个分区查看其中的问题；点某个问题即可修改，在其窗口中用**恢复默认值**撤销修改。变灰的开关由您的其他回答决定。依赖某个回答的问题会直接显示在它下面（例如 MMU 类型下面的 Turtle Neck 版本）。
 
-## 第 2 步 —— 把配置复制到应用中
+   <p align="center"><img src="../images/happy-hare/app/04-questions.jpg" alt="问题" width="240"></p>
 
-1. 打开该打印机配置的配置文件夹，也就是存放 `printer.cfg` 的位置。有两种方式：
-   Fluidd/Mainsail 的配置文件管理器（新建文件夹并上传文件），或 Android「文件」应用里的
-   KlipPocket 条目，它会显示每个配置的 `config` 文件夹。
-2. 把整个 **`mmu`** 文件夹复制进去，得到 `mmu/base/…`、`mmu/macros/…` 和 `mmu/mmu_vars.cfg`。
-3. 在 `printer.cfg` 靠前的位置加入这两行（Happy Hare 会在测试模式的输出里加上它们）：
+4. 打开 **MCU connection**，设置 MMU 主板的设备。在 **Enter serial device path** 中，从列表里选择已连接的主板，或输入它的路径（见**设置 → USB → 列出 USB 设备**）。
+
+   <p align="center"><img src="../images/happy-hare/app/05-mcu.jpg" alt="MCU connection" width="240"> <img src="../images/happy-hare/app/06-device-path.jpg" alt="串口设备路径" width="240"></p>
+
+5. 回到第一页，点**检查并创建**。如果列出了**仍缺少的回答**，请返回补全。然后选择：
+
+   - **把 Happy Hare 添加到 printer.cfg 和 moonraker.conf**：开启时 KlipPocket 会替您添加这些行（并各保留一份备份）。关闭时由您自己添加，见[自行添加这些行](#自行添加这些行)。
+   - **同时重置校准和通道状态**：换了另一种 MMU 时开启。只改了设置时请保持关闭，以保留 `mmu/mmu_vars.cfg` 中的校准。
+
+   这台打印机的 `mmu` 文件夹会被删除并重新创建，所以手动在其中做的修改会丢失。点**创建配置**。
+
+   <p align="center"><img src="../images/happy-hare/app/07-review.jpg" alt="检查并创建" width="240"> <img src="../images/happy-hare/app/08-done.jpg" alt="配置已创建" width="240"></p>
+
+6. 重启打印机配置（或发送 **Firmware Restart**），让 Klipper 加载 Happy Hare。
+
+## 在仪表盘里设置
+
+[仪表盘](dashboard.md)在设置旁边的 **Happy Hare** 标签页中有同样的步骤：选择打印机、**设置 Happy Hare**、您的 MMU、问题、**检查并创建**。在 **MCU connection** 中，列表会提供手机看到的 USB 设备。
+
+<p align="center"><img src="../images/happy-hare/web/01-home.jpg" alt="Happy Hare 标签页" width="420"> <img src="../images/happy-hare/web/02-mmu.jpg" alt="选择 MMU" width="420"></p>
+<p align="center"><img src="../images/happy-hare/web/04-usb.jpg" alt="MCU connection" width="420"> <img src="../images/happy-hare/web/05-review.jpg" alt="检查并创建" width="420"></p>
+
+## 自行添加这些行
+
+如果您关闭了**把 Happy Hare 添加到 printer.cfg 和 moonraker.conf**，最后一个界面会显示要添加的行（也可以点**现在添加**让 KlipPocket 来做）。
+
+<p align="center"><img src="../images/happy-hare/app/09-manual.jpg" alt="要添加的行" width="240"> <img src="../images/happy-hare/web/07-manual.jpg" alt="仪表盘中要添加的行" width="420"></p>
+
+打开打印机配置的配置文件夹，也就是放着 `printer.cfg` 的那个（Fluidd/Mainsail 的配置文件管理器，或 Android“文件”应用中的 KlipPocket 入口），然后：
+
+1. 把显示的 `[include …]` 行加到 `printer.cfg` 的**开头**。通常是：
 
    ```ini
-   [include mmu/macros/*.cfg]
    [include mmu/base/*.cfg]
+   [include mmu/macros/*.cfg]
    ```
 
-   如果你在安装程序里选了可选菜单或客户端宏，也要加上它写出的对应 `[include mmu/optional/…]` 行。
-4. 确认 `printer.cfg` 里仍有 `[pause_resume]` 段，并且你自己的 `PAUSE`、`RESUME`、`CANCEL_PRINT`
-   宏没有重复定义（Happy Hare 已提供）。重复会让 Klipper 因
-   `gcode command … already registered` 而停止。
+   开启了相应选项时还有 `[include mmu/optional/client_macros.cfg]`（以及 `mmu_menu.cfg`）；界面会准确显示是哪些。
+2. 把下面内容加到 `moonraker.conf` 的**末尾**：
 
-生成的 `mmu/base/mmu_macro_vars.cfg` 里有一个 `[save_variables]` 块，它的 `filename` 是电脑上的路径
-（例如 `/tmp/mmu_test/printer_data/config/mmu/mmu_vars.cfg`）。**你不需要修改它：**
-当手机上不存在该文件夹时，应用会改用打印机配置自己的配置文件夹下的相同路径，
-Happy Hare 因此把状态保存在 `mmu/mmu_vars.cfg`，与你的其他文件放在一起。备份或迁移配置时请保留这个文件。
+   ```ini
+   [mmu_server]
+   enable_file_preprocessor: True
+   enable_toolchange_next_pos: True
+   update_spoolman_location: True
+   ```
 
-## 第 3 步 —— 让 Happy Hare 指向主板
+   不要添加 `[update_manager happy-hare]` 段：应用会随应用本身一起更新 Happy Hare。
+3. 确认 `printer.cfg` 中有 `[pause_resume]` 段，并且没有自己定义 `PAUSE`、`RESUME` 或 `CANCEL_PRINT`（Happy Hare 已提供）。重复定义会让 Klipper 以 `gcode command … already registered` 停止。
+4. 重启打印机配置。
 
-Happy Hare 的 `mmu/base/mmu_hardware.cfg` 把 MMU 主板声明为一个额外的 MCU：
+## 以后更换 MMU 或修改设置
 
-```ini
-[mcu unit0]
-serial: -enter-device-path-
-```
+再次打开**设置 → Happy Hare** 和这台打印机。
 
-接上主板，打开 **设置 → USB → List USB devices**，把占位符替换成列表中显示的路径。
-[多 MCU](multi-mcu.md) 介绍了设备列表和两种命名方式。重新刷固件后路径变化的话，请再次运行
-**List USB devices**。
+<p align="center"><img src="../images/happy-hare/app/10-installed.jpg" alt="已设置 Happy Hare 的打印机" width="240"></p>
 
-## 第 4 步 —— 启用 Moonraker 组件
+- **修改设置**会打开您保存的回答；改动需要的内容后重新创建配置。
+- **更换 MMU（重新开始）**从您选择的 MMU 的默认值开始。创建配置时会删除旧的 `mmu` 文件夹并写入新的（请保持**同时重置校准和通道状态**开启）。之前使用的 USB 主板会再次被提供，无需重复选择。
 
-Happy Hare 的 Moonraker 组件会对上传的 G-code 做换色预处理，并与 Spoolman 保持同步。
-把下面内容加到该打印机配置的 `moonraker.conf`：
+## 在网页界面中查看 MMU
 
-```ini
-[mmu_server]
-enable_file_preprocessor: True
-enable_toolchange_next_pos: True
-update_spoolman_location: True
-```
+Klipper 加载 Happy Hare 之后，应用自带的 Fluidd 和 Mainsail 会在它们的**仪表盘**页面显示 MMU，无需开启任何选项：Fluidd 有一个 **MMU** 卡片，Mainsail 有一个 **MMU** 面板，显示各通道、当前工具、耗材状态，以及预装载、退出和恢复按钮。可以通过各界面的仪表盘布局选项移动或隐藏。
 
-**不要**复制安装程序 `moonraker.conf` 里的 `[update_manager happy-hare]` 段：
-Happy Hare 随应用一起更新，手机上没有 git 仓库供更新管理器使用。
+在 Fluidd 或 Mainsail 的控制台中，`MMU_STATUS` 输出 MMU 摘要，`MMU_HELP` 列出所有命令。Happy Hare 自己的日志写在 `klippy.log` 旁边，名为 `mmu.log`。
 
-重启该打印机配置。在 Fluidd/Mainsail 控制台里，`MMU_STATUS` 应显示 MMU 概况，
-`MMU_HELP` 列出所有命令。MMU 自己的日志会写在 `klippy.log` 旁边，文件名为 `mmu.log`。
+[KlipperScreen for Happy Hare](https://github.com/moggieuk/KlipperScreen-Happy-Hare-Edition) 是面向触摸屏的独立项目。
 
-## 可以正常使用的
+## 快速排错
 
-用生成的 Tradrack 配置在 Klipper 和 Kalico 上检查过：
-
-- Happy Hare 启动（`Happy Hare v4.1.0 controlling 1 units`），应用的 `[save_variables]` 处理生效。
-- `MMU_*` 命令有响应，例如 `MMU_STATUS`、`MMU_HELP`、`MMU_TEST_CONFIG`、`MMU_GATE_MAP`、
-  `MMU_TTG_MAP`、`MMU_ENDLESS_SPOOL`、`MMU_SENSORS`、`MMU_TEST_MOVE` 和 `MMU_STATS`。
-- Moonraker 加载 `[mmu_server]` 并完成启动。
-- Happy Hare 的测试套件（2,543 个测试）在应用自带的 Python 版本上全部通过。
-
-## 不可用或未测试的
-
-- **真实硬件：** 通道、选择器、舵机、编码器、传感器以及完整的换色流程都没有在实体 MMU 上运行过。
-- **CAN 和 UART 主板** 无法连接（见「你需要什么」）。
-- **断电续打** 会在继续前装回正确的工具（见 [断电续打](print-recovery.md)），但只用模拟的 Happy Hare 测试过，
-  没有在实体 MMU 上真正断电后测试过。
-- **NFC/RFID 读卡器和 TD-1 扫描仪** 可以加载，但没有用设备试过。解密 Bambu/Creality NFC 标签需要
-  `pycryptodome` 库，应用没有内置；Happy Hare 会因此关闭这一功能。
-- **Happy Hare 面向 Mainsail 和 KlipperScreen 的专用界面** 是独立项目，通过 Moonraker 通信。
-  应用里的 Fluidd/Mainsail 可以在控制台或宏里发送所有 `MMU_*` 命令。
-- **在已有配置中途更改 MMU**（增加单元）需要用之前的答案重新运行安装程序；
-  把新的 `mmu` 文件夹覆盖到旧的上面，但保留你的 `mmu/mmu_vars.cfg`。
-
-## 常见问题速查
-
-| 提示 | 可能原因 |
+| 信息 | 可能原因 |
 |---|---|
-| `MMU_STATUS` 返回 `Unknown command` | 缺少 `[include mmu/base/*.cfg]` 行或 `mmu` 文件夹，Happy Hare 没有加载。 |
-| `Looks like Happy Hare is not installed correctly - cannot find happy_hare_version` | 配置不是由 Happy Hare 安装程序生成的。请用 v4.1.0 生成（第 1 步）。 |
-| `Looks like you upgraded (vX -> v4.1.0)?` | 配置由较旧的 Happy Hare 生成。请用 v4.1.0 重新生成。 |
-| `gcode command … already registered` | `printer.cfg` 里的某个宏与 Happy Hare 提供的重复（例如 `PAUSE`、`RESUME` 或 `CANCEL_PRINT`）。删除你自己的。 |
-| `mcu 'unit0': Unable to connect` / `Unable to open serial port` | `[mcu unit0]` 的 `serial:` 仍是占位符、主板没有 USB 固件，或路径已变化。 |
-| `Happy Hare's Klipper modules failed to load` | 请反馈。该提示里关于 `install.sh` 的建议不适用于应用。 |
+| `MMU_STATUS` 回答 `Unknown command` | `printer.cfg` 缺少 `[include mmu/base/*.cfg]` 行，或没有 `mmu` 文件夹。 |
+| `gcode command … already registered` | `printer.cfg` 中的某个宏与 Happy Hare 提供的重复（例如 `PAUSE`、`RESUME` 或 `CANCEL_PRINT`）。删除您自己的。 |
+| `mcu 'unit0': Unable to connect` / `Unable to open serial port` | 主板没有 USB 固件，或重新刷写后路径变了：在 **MCU connection** 中重新选择，并再次创建配置。 |
+| `Happy Hare's Klipper modules failed to load` | 请反馈。该信息中关于 `install.sh` 的建议不适用于本应用。 |

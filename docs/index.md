@@ -10,7 +10,7 @@
 | [simplyprint.md](simplyprint.md) | Using SimplyPrint for remote monitoring and AI failure detection — turning it on in Moonraker and linking the printer. |
 | [kalico.md](kalico.md) | Using Kalico instead of Klipper — switching the engine, the one config change it may need, and what works. |
 | [multi-mcu.md](multi-mcu.md) | Using more than one MCU — USB boards, how to find each board's path and write it in `printer.cfg`, and what does not work (CAN). |
-| [happy-hare.md](happy-hare.md) | Using Happy Hare (MMU / multi-filament) — generating the config, copying it into the app, pointing it at the board and Moonraker. |
+| [happy-hare.md](happy-hare.md) | Using Happy Hare (MMU / multi-filament) — setting it up in the app or the dashboard, adding the lines by hand, changing the MMU and seeing it in Fluidd/Mainsail. |
 | [dashboard.md](dashboard.md) | The KlipPocket Dashboard (port 4400) — device usage charts, MCUs, logs with clear, and the firmware page, with a PIN. |
 | [firmware-web.md](firmware-web.md) | The firmware web page (port 4400) — upload a file, paste a link and flash a board from a browser, with a PIN. |
 | [firmware-tab.md](firmware-tab.md) | The Firmware tab — download a firmware and flash a Pico (USB / RP2040 modes) from the app, step by step. |

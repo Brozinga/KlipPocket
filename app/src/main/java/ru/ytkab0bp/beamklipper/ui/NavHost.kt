@@ -43,6 +43,7 @@ import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.ui.screens.CameraPreviewScreen
 import ru.ytkab0bp.beamklipper.ui.screens.ConfigScreen
 import ru.ytkab0bp.beamklipper.ui.screens.FirmwareScreen
+import ru.ytkab0bp.beamklipper.ui.screens.HappyHareScreen
 import ru.ytkab0bp.beamklipper.ui.screens.HomeScreen
 import ru.ytkab0bp.beamklipper.ui.screens.LogsScreen
 import ru.ytkab0bp.beamklipper.ui.state.AppState
@@ -59,6 +60,7 @@ const val NAV_CONFIG = 1
 const val NAV_LOGS = 2
 const val NAV_CAMERA = 3
 const val NAV_FIRMWARE = 4
+const val NAV_HAPPY_HARE = 5
 
 @Composable
 fun NavHost(
@@ -128,7 +130,7 @@ fun NavHost(
                     onClick = { logsSource = null; nav = NAV_LOGS }
                 )
                 NavTabButton(
-                    active = nav == NAV_CONFIG,
+                    active = nav == NAV_CONFIG || nav == NAV_HAPPY_HARE,
                     icon = R.drawable.ic_settings_outline_28,
                     onClick = { nav = NAV_CONFIG }
                 )
@@ -143,7 +145,8 @@ fun NavHost(
             contentAlignment = Alignment.TopStart
         ) {
             when (nav) {
-                NAV_CONFIG -> ConfigScreen()
+                NAV_CONFIG -> ConfigScreen(onOpenHappyHare = { nav = NAV_HAPPY_HARE })
+                NAV_HAPPY_HARE -> HappyHareScreen(onClose = { nav = NAV_CONFIG })
                 NAV_LOGS -> LogsScreen(initialSourceId = logsSource)
                 NAV_FIRMWARE -> FirmwareScreen(onOpenLogs = { logsSource = "flash"; nav = NAV_LOGS })
                 NAV_CAMERA -> CameraPreviewScreen()

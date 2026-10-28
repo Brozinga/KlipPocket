@@ -6,158 +6,148 @@ O [Happy Hare](https://github.com/moggieuk/Happy-Hare) é o driver do Klipper
 para unidades multimaterial (MMU): ERCF, Tradrack, BoxTurtle, 3MS, 3D Chameleon,
 HTLF, KMS, MMX e muitas outras. O KlipPocket traz o **Happy Hare v4.1.0** e o
 componente dele para o Moonraker, tanto para o Klipper quanto para o
-[Kalico](kalico.md). Nada é ligado até a sua configuração pedir, então
-impressoras sem MMU não são afetadas.
+[Kalico](kalico.md). Nada é ligado até sua configuração pedir, então impressoras
+sem MMU não são afetadas.
 
-> **Ainda não testado com uma MMU física.** O Happy Hare embutido foi validado
-> rodando a suíte de testes dele na versão do Python do app e iniciando o Klipper
-> e o Kalico com uma configuração Tradrack gerada, em placas simuladas (os
-> objetos `mmu` carregam e os comandos `MMU_*` respondem). Se você testar em
-> hardware real, conte como foi.
+Você configura o Happy Hare **no app** (ou no [dashboard](dashboard.md)): responde
+às mesmas perguntas do menu de instalação do próprio Happy Hare e o KlipPocket
+escreve os arquivos, sem precisar de computador.
 
 ## O que você precisa
 
-- Uma placa da MMU gravada com o firmware **USB** do Klipper. Uma placa que só
-  fala **CAN** (por exemplo uma MMB em modo CAN) ou só **UART** não é alcançada
-  pelo app; veja [Multi-MCU](multi-mcu.md#o-que-funciona-e-o-que-não-funciona).
-- A placa acessível por USB a partir do celular/tablet, de preferência por um hub
-  com alimentação própria. Motores e servos precisam da própria fonte.
-- Um computador por alguns minutos, para gerar a configuração do Happy Hare
-  (Passo 1). Nada precisa ser instalado no celular.
+- Uma placa da MMU com firmware **USB** do Klipper, conectada ao celular/tablet
+  (de preferência por um hub com alimentação). Motores e servos precisam de
+  fonte própria.
+- Um perfil de impressora já criado no KlipPocket.
 
-## Passo 1 — Gerar a configuração do Happy Hare em um computador
+## Configurar no app
 
-O Happy Hare escreve a configuração a partir de um menu guiado: você responde
-perguntas sobre a sua MMU (tipo, número de gates, placa, sensores) em vez de
-editar pinos à mão. Em um computador Linux ou macOS:
+1. Abra **Configurações → Happy Hare** e escolha a impressora (com uma só, ela
+   abre direto). Toque em **Set up Happy Hare** (Configurar o Happy Hare).
 
-```sh
-git clone --branch v4.1.0 https://github.com/moggieuk/Happy-Hare.git
-cd Happy-Hare
-./install.sh -i -t
-```
+   <p align="center"><img src="../images/happy-hare/app/01-settings.jpg" alt="Configurações com a entrada Happy Hare" width="240"> <img src="../images/happy-hare/app/02-home.jpg" alt="Configurar o Happy Hare" width="240"></p>
 
-O `-t` é o modo de teste do Happy Hare: grava o resultado em `/tmp/mmu_test` e
-não exige Klipper nem Moonraker instalados. Ao terminar, você encontra em
-`/tmp/mmu_test/printer_data/config`:
+2. Escolha a sua MMU. O Happy Hare preenche os padrões que o projetista dela
+   recomenda.
 
-- a pasta **`mmu`** (`base`, `macros`, `optional` e `mmu_vars.cfg`);
-- o `printer.cfg` e o `moonraker.conf` que o Happy Hare edita, mostrando as
-  linhas que ele adiciona (os Passos 2 e 4 usam isso).
+   <p align="center"><img src="../images/happy-hare/app/03-mmu.jpg" alt="A lista de MMUs" width="240"></p>
 
-Use a mesma versão do Happy Hare do app (v4.1.0): o formato da configuração muda
-entre versões, e o Happy Hare recusa uma configuração feita por uma versão mais
-antiga.
+3. Percorra as perguntas. Elas são o menu do próprio Happy Hare e aparecem em
+   inglês. Abra uma seção para ver as perguntas; toque numa para mudá-la e use
+   **Restaurar o padrão** na janela dela para desfazer. Uma chave esmaecida é
+   fixada pelas suas outras respostas. As perguntas que dependem de uma resposta
+   aparecem logo abaixo dela (por exemplo a versão do Turtle Neck sob o tipo de
+   MMU).
 
-## Passo 2 — Copiar a configuração para o app
+   <p align="center"><img src="../images/happy-hare/app/04-questions.jpg" alt="As perguntas" width="240"></p>
 
-1. Abra a pasta de configuração do perfil da impressora, a que contém o
-   `printer.cfg`. Há dois caminhos: o gerenciador de arquivos de configuração do
-   Fluidd/Mainsail (crie as pastas e envie os arquivos) ou a entrada do
-   KlipPocket no app Arquivos do Android, que mostra a pasta `config` de cada
-   perfil.
-2. Copie a pasta **`mmu`** inteira para lá, de modo que existam `mmu/base/…`,
-   `mmu/macros/…` e `mmu/mmu_vars.cfg`.
-3. Adicione estas duas linhas perto do topo do `printer.cfg` (o Happy Hare as
-   adiciona no resultado do modo de teste):
+4. Abra **MCU connection** e defina o dispositivo da placa da MMU. Em
+   **Enter serial device path**, escolha a placa conectada na lista ou digite o
+   caminho dela (veja **Configurações → USB → Listar dispositivos USB**).
+
+   <p align="center"><img src="../images/happy-hare/app/05-mcu.jpg" alt="MCU connection" width="240"> <img src="../images/happy-hare/app/06-device-path.jpg" alt="Caminho do dispositivo serial" width="240"></p>
+
+5. Na primeira página, toque em **Revisar e criar**. Se aparecer **Respostas que
+   ainda faltam**, volte e preencha. Depois escolha:
+
+   - **Adicionar o Happy Hare ao printer.cfg e ao moonraker.conf**: ligado, o
+     KlipPocket adiciona as linhas (é guardada uma cópia de cada arquivo).
+     Desligado, você adiciona à mão, veja
+     [Adicionando as linhas você mesmo](#adicionando-as-linhas-você-mesmo).
+   - **Zerar também a calibração e o estado dos gates**: ligado quando você
+     escolheu outra MMU. Deixe desligado se só mudou configurações, para manter
+     a calibração em `mmu/mmu_vars.cfg`.
+
+   A pasta `mmu` da impressora é apagada e criada de novo, então alterações
+   feitas à mão nela são perdidas. Toque em **Criar a configuração**.
+
+   <p align="center"><img src="../images/happy-hare/app/07-review.jpg" alt="Revisar e criar" width="240"> <img src="../images/happy-hare/app/08-done.jpg" alt="Configuração criada" width="240"></p>
+
+6. Reinicie o perfil da impressora (ou envie **Firmware Restart**) para o Klipper
+   carregar o Happy Hare.
+
+## Configurar no dashboard
+
+O [dashboard](dashboard.md) tem os mesmos passos na aba **Happy Hare**, ao lado de
+Configurações: escolher a impressora, **Configurar o Happy Hare**, a MMU, as
+perguntas e **Revisar e criar**. Em **MCU connection** uma lista oferece os
+dispositivos USB que o celular enxerga.
+
+<p align="center"><img src="../images/happy-hare/web/01-home.jpg" alt="Aba Happy Hare" width="420"> <img src="../images/happy-hare/web/02-mmu.jpg" alt="Escolher a MMU" width="420"></p>
+<p align="center"><img src="../images/happy-hare/web/04-usb.jpg" alt="MCU connection" width="420"> <img src="../images/happy-hare/web/05-review.jpg" alt="Revisar e criar" width="420"></p>
+
+## Adicionando as linhas você mesmo
+
+Se você deixou **Adicionar o Happy Hare ao printer.cfg e ao moonraker.conf**
+desligado, a última tela mostra as linhas a adicionar (ou toque em **Adicionar
+agora** para o KlipPocket fazer isso).
+
+<p align="center"><img src="../images/happy-hare/app/09-manual.jpg" alt="Linhas a adicionar" width="240"> <img src="../images/happy-hare/web/07-manual.jpg" alt="Linhas a adicionar no dashboard" width="420"></p>
+
+Abra a pasta de configuração do perfil da impressora, a que tem o `printer.cfg`
+(o gerenciador de arquivos de configuração do Fluidd/Mainsail, ou a entrada do
+KlipPocket no app Arquivos do Android), e:
+
+1. Adicione as linhas `[include …]` mostradas no **início** do `printer.cfg`.
+   Normalmente são:
 
    ```ini
-   [include mmu/macros/*.cfg]
    [include mmu/base/*.cfg]
+   [include mmu/macros/*.cfg]
    ```
 
-   Se no instalador você escolheu o menu opcional ou as macros de cliente,
-   adicione também a linha `[include mmu/optional/…]` correspondente que ele
-   escreveu.
-4. Confira que o `printer.cfg` ainda tem uma seção `[pause_resume]` e que as suas
-   macros `PAUSE`, `RESUME` e `CANCEL_PRINT` não estão definidas duas vezes (o
-   Happy Hare já as fornece). Uma duplicata faz o Klipper parar com
-   `gcode command … already registered`.
+   mais `[include mmu/optional/client_macros.cfg]` (e `mmu_menu.cfg`) quando
+   essas opções estão ligadas; a tela mostra exatamente quais.
+2. Adicione isto no **final** do `moonraker.conf`:
 
-O `mmu/base/mmu_macro_vars.cfg` gerado traz um bloco `[save_variables]` cujo
-`filename` é um caminho do computador (por exemplo
-`/tmp/mmu_test/printer_data/config/mmu/mmu_vars.cfg`). **Você não precisa
-alterá-lo:** quando essa pasta não existe no celular, o app usa o mesmo caminho
-dentro da pasta de configuração do próprio perfil, e o Happy Hare guarda o estado
-em `mmu/mmu_vars.cfg`, junto dos seus outros arquivos. Mantenha esse arquivo ao
-fazer backup ou mover o perfil.
+   ```ini
+   [mmu_server]
+   enable_file_preprocessor: True
+   enable_toolchange_next_pos: True
+   update_spoolman_location: True
+   ```
 
-## Passo 3 — Apontar o Happy Hare para a placa
+   Não adicione uma seção `[update_manager happy-hare]`: o app atualiza o Happy
+   Hare junto com o próprio app.
+3. Confira se o `printer.cfg` tem uma seção `[pause_resume]` e não define
+   `PAUSE`, `RESUME` ou `CANCEL_PRINT` próprios (o Happy Hare já os fornece).
+   Uma duplicata faz o Klipper parar com `gcode command … already registered`.
+4. Reinicie o perfil da impressora.
 
-O `mmu/base/mmu_hardware.cfg` do Happy Hare declara a placa da MMU como um MCU
-extra:
+## Trocar a MMU ou as configurações depois
 
-```ini
-[mcu unit0]
-serial: -enter-device-path-
-```
+Abra **Configurações → Happy Hare** e a impressora de novo.
 
-Conecte a placa, abra **Configurações → USB → List USB devices** e troque
-o texto provisório pelo caminho mostrado para ela. O [Multi-MCU](multi-mcu.md)
-explica a lista de dispositivos e os dois modos de nomeação. Rode **List USB
-devices** de novo se o caminho mudar depois de regravar o firmware.
+<p align="center"><img src="../images/happy-hare/app/10-installed.jpg" alt="Uma impressora com Happy Hare" width="240"></p>
 
-## Passo 4 — Ligar o componente do Moonraker
+- **Editar as configurações** abre as respostas que você salvou; mude o que
+  precisar e crie a configuração de novo.
+- **Trocar a MMU (começar do zero)** parte dos padrões da MMU que você escolher.
+  Ao criar a configuração, a pasta `mmu` antiga é apagada e uma nova é escrita
+  (deixe **Zerar também a calibração e o estado dos gates** ligado). A placa USB
+  usada antes é oferecida de novo, então você não precisa escolhê-la outra vez.
 
-O componente do Happy Hare no Moonraker pré-processa o G-code enviado para as
-trocas de ferramenta e mantém o Spoolman em sincronia. Adicione ao
-`moonraker.conf` do perfil da impressora:
+## Ver a MMU nas interfaces web
 
-```ini
-[mmu_server]
-enable_file_preprocessor: True
-enable_toolchange_next_pos: True
-update_spoolman_location: True
-```
+Depois que o Klipper carrega o Happy Hare, o Fluidd e o Mainsail que acompanham
+o app mostram a MMU na página **Dashboard**, sem nada para ligar: o Fluidd tem um
+cartão **MMU** e o Mainsail um painel **MMU**, com os gates, a ferramenta
+selecionada, o estado do filamento e os botões para pré-carregar, ejetar e
+recuperar. Mova ou esconda-os pelas opções de layout do dashboard de cada
+interface.
 
-**Não** copie a seção `[update_manager happy-hare]` do `moonraker.conf` do
-instalador: o Happy Hare é atualizado junto com o app, e não existe checkout git
-no celular para o gerenciador de atualizações usar.
+No console do Fluidd ou do Mainsail, `MMU_STATUS` mostra o resumo da MMU e
+`MMU_HELP` lista todos os comandos. O log do próprio Happy Hare fica junto do
+`klippy.log`, como `mmu.log`.
 
-Reinicie o perfil da impressora. No console do Fluidd/Mainsail, `MMU_STATUS`
-deve mostrar o resumo da MMU e `MMU_HELP` lista todos os comandos. O log da MMU é
-gravado ao lado do `klippy.log`, como `mmu.log`.
-
-## O que funciona
-
-Verificado com uma configuração Tradrack gerada, no Klipper e no Kalico:
-
-- O Happy Hare inicia (`Happy Hare v4.1.0 controlling 1 units`) com o tratamento
-  de `[save_variables]` do app.
-- Os comandos `MMU_*` respondem, como `MMU_STATUS`, `MMU_HELP`,
-  `MMU_TEST_CONFIG`, `MMU_GATE_MAP`, `MMU_TTG_MAP`, `MMU_ENDLESS_SPOOL`,
-  `MMU_SENSORS`, `MMU_TEST_MOVE` e `MMU_STATS`.
-- O Moonraker carrega o `[mmu_server]` e conclui a inicialização.
-- A suíte de testes do Happy Hare (2.543 testes) passa na versão do Python que o
-  app traz.
-
-## O que não funciona, ou não foi testado
-
-- **Hardware real:** gates, seletor, servo, encoder, sensores e uma troca de
-  ferramenta completa não foram executados em uma MMU física.
-- **Placas CAN e UART** não são alcançadas (veja "O que você precisa").
-- **Recuperação de impressão** recoloca a ferramenta certa antes de retomar
-  (veja [Recuperação de impressão](print-recovery.md)), mas isso só foi
-  testado com um Happy Hare simulado, não após uma queda de energia real em uma
-  MMU.
-- **Leitores NFC/RFID e scanners TD-1** carregam, mas não foram testados com o
-  dispositivo. Decifrar tags NFC Bambu/Creality exige uma biblioteca
-  (`pycryptodome`) que o app não traz; o Happy Hare então deixa esse recurso
-  desligado.
-- **As telas próprias do Happy Hare** para Mainsail e KlipperScreen são
-  projetos separados que conversam com o Moonraker. O Fluidd/Mainsail do app
-  envia qualquer comando `MMU_*` pelo console ou por macros.
-- **Mudar a MMU no meio do perfil** (adicionar unidades) significa rodar o
-  instalador de novo com as respostas anteriores; copie a nova pasta `mmu` sobre a
-  antiga, mas mantenha o seu `mmu/mmu_vars.cfg`.
+O [KlipperScreen for Happy Hare](https://github.com/moggieuk/KlipperScreen-Happy-Hare-Edition)
+é um projeto separado para telas touch.
 
 ## Solução rápida de problemas
 
 | Mensagem | Causa provável |
 |---|---|
-| `MMU_STATUS` responde `Unknown command` | Falta a linha `[include mmu/base/*.cfg]` ou a pasta `mmu`, então o Happy Hare nunca carregou. |
-| `Looks like Happy Hare is not installed correctly - cannot find happy_hare_version` | A configuração não foi feita pelo instalador do Happy Hare. Gere com a v4.1.0 (Passo 1). |
-| `Looks like you upgraded (vX -> v4.1.0)?` | A configuração foi gerada por um Happy Hare mais antigo. Gere de novo com a v4.1.0. |
-| `gcode command … already registered` | Uma macro do `printer.cfg` duplica uma que o Happy Hare fornece (por exemplo `PAUSE`, `RESUME` ou `CANCEL_PRINT`). Remova a sua. |
-| `mcu 'unit0': Unable to connect` / `Unable to open serial port` | O `serial:` do `[mcu unit0]` ainda é o texto provisório, a placa não tem firmware USB, ou o caminho mudou. |
-| `Happy Hare's Klipper modules failed to load` | Reporte. O conselho de `install.sh` nessa mensagem não vale para o app. |
+| `MMU_STATUS` responde `Unknown command` | Falta a linha `[include mmu/base/*.cfg]` no `printer.cfg`, ou a pasta `mmu` não está lá. |
+| `gcode command … already registered` | Um macro do `printer.cfg` duplica um que o Happy Hare fornece (por exemplo `PAUSE`, `RESUME` ou `CANCEL_PRINT`). Remova o seu. |
+| `mcu 'unit0': Unable to connect` / `Unable to open serial port` | A placa não tem firmware USB, ou o caminho mudou depois de regravar: escolha-a de novo em **MCU connection** e crie a configuração outra vez. |
+| `Happy Hare's Klipper modules failed to load` | Avise. O conselho do `install.sh` nessa mensagem não vale para o app. |

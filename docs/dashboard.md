@@ -30,7 +30,7 @@ and closes every open page.
 > five wrong tries the address is locked for a minute. The page uses plain HTTP,
 > like the other pages of the app: use it on a network you trust.
 
-The page has four tabs, shown as icons under the title (hover one to see its name): **Dashboard**, **Camera**, **Firmware** (see the [firmware web page](firmware-web.md)) and, last, **Settings**. The **Logs** section is at the bottom of the Dashboard tab. Language and theme follow the app the first time; what you choose on the
+The page has five tabs, shown as icons under the title (hover one to see its name): **Dashboard**, **Camera**, **Firmware** (see the [firmware web page](firmware-web.md)), **Happy Hare** (see [Happy Hare](happy-hare.md#set-up-in-the-dashboard)) and, last, **Settings**. The **Logs** section is at the bottom of the Dashboard tab. Language and theme follow the app the first time; what you choose on the
 page is remembered by the browser.
 
 ## Live usage
@@ -60,18 +60,19 @@ values. Charts only move while the page is visible in the browser.
 > **KlipPocket** line is drawn, with a note saying so. The memory, battery and
 > KlipPocket numbers are always available.
 
-## Host device and memory
+## Storage and host device
 
-- **Host device** — model, chip, CPU cores and top frequency, architecture,
-  Android version, kernel, how long the phone has been on, its network address
-  and the KlipPocket version.
-- **Memory (RAM)** — total, in use, available and swap; and **Storage** — free
-  and total space of the internal storage and, when there is one, the SD card.
+- **Storage** — free and total space of the internal storage and, when there is
+  one, the SD card, on a line of its own.
+- **Host device** — on the next line, in two columns (one on a narrow screen):
+  model, chip, CPU cores and top frequency, architecture, Android version,
+  kernel, how long the phone has been on, its network address and the KlipPocket
+  version. The memory is in the live cards and the chart above.
 
 ## Printers and MCUs
 
-![Host device, memory and storage, the printers with their MCU and the start/stop icons, and the USB devices.](images/dashboard/en/dashboard-printers.jpg)
-*Host device, memory and storage, the printers with their MCU and the start/stop icons, and the USB devices.*
+![Storage, host device, the printers with their MCU and the start/stop icons, and the USB devices.](images/dashboard/en/dashboard-printers.jpg)
+*Storage, host device, the printers with their MCU and the start/stop icons, and the USB devices.*
 
 ![The + icon opens the form of a new printer.](images/dashboard/en/add-printer.jpg)
 *The **+** icon opens the form of a new printer.*
