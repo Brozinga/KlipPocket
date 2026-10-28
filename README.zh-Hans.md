@@ -32,6 +32,7 @@
 - **Print Recovery（断电续打）** —— 断电后继续打印
 - **摄像头监控** —— 使用设备摄像头或 USB 摄像头，支持实时预览、缩放和延时摄影
 - **网页界面** —— Fluidd、Mainsail 和 Voyager UI，由设备本身提供
+- **KlipPocket 仪表盘** —— 实时 CPU、内存、温度和网络卡片及图表、MCU 信息、日志、设置、启动/停止和添加打印机、摄像头以及固件刷写，均可通过浏览器访问（支持手机查看）
 
 ## 选择正确的安装包
 
@@ -74,9 +75,10 @@ KlipPocket 提供三种 APK：
 - [SimplyPrint](docs/zh-Hans/simplyprint.md) —— 使用 SimplyPrint 远程监控和 AI 故障检测
 - [Kalico](docs/zh-Hans/kalico.md) —— 切换到 Kalico 引擎，哪些可用、哪些不可用
 - [多 MCU](docs/zh-Hans/multi-mcu.md) —— 使用额外的 USB 板（工具头、传感器、扩展接口），附 `printer.cfg` 示例
-- [Happy Hare](docs/zh-Hans/happy-hare.md) —— 多耗材（MMU）设置：选择您的 MMU，在应用或仪表盘中回答 Happy Hare 的问题
+- [Happy Hare](docs/zh-Hans/happy-hare.md) —— 多耗材（MMU）支持：选择您的 MMU，并在应用或 KlipPocket 仪表盘中回答 Happy Hare 的配置问题
 - [Klipper 附加组件](docs/zh-Hans/mods/klipper-addons.md) —— KAMP、LED Effect、Z Calibration、Auto Speed、TMC Autotune
 - [无加速度计的 Input Shaper](docs/zh-Hans/mods/input-shaper-manual.md) —— 振铃塔方法和宏
+- [KlipPocket 仪表盘](docs/zh-Hans/dashboard.md) —— 在浏览器中查看实时 CPU、内存、温度和网络图表，主机和 MCU 信息、日志、设置、打印机控制与添加、摄像头及固件刷写
 - [构建 APK](docs/zh-Hans/build-app.md) —— 自己编译应用
 
 ## 网页界面和摄像头使用哪些端口？
@@ -88,6 +90,7 @@ KlipPocket 提供三种 APK：
 | Fluidd | `http://IP:4408/` |
 | Mainsail | `http://IP:4409/` |
 | Voyager UI | `http://IP:4410/` |
+| KlipPocket 仪表盘（设备、MCU、日志、固件） | `http://IP:4400/` |
 | 摄像头视频流 | `http://IP:8889/` |
 | 摄像头快照（单张 JPEG） | `http://IP:8889/snapshot` |
 | 摄像头视频流（webcam 风格） | `http://IP:8889/webcam/?action=stream` |

@@ -32,6 +32,7 @@
 - **Print Recovery（斷電續打）** —— 斷電後繼續列印
 - **攝像頭監控** —— 使用裝置攝像頭或 USB 攝像頭，支援實時預覽、縮放和延時攝影
 - **網頁介面** —— Fluidd、Mainsail 和 Voyager UI，由裝置本身提供
+- **KlipPocket 儀表板** —— 即時 CPU、記憶體、溫度和網路卡片及圖表、MCU 資訊、日誌、設定、啟動/停止和新增印表機、攝像頭以及韌體刷寫，均可透過瀏覽器存取（支援手機檢視）
 
 ## 選擇正確的安裝包
 
@@ -74,9 +75,10 @@ KlipPocket 提供三種 APK：
 - [SimplyPrint](docs/zh-Hans/simplyprint.md) —— 使用 SimplyPrint 遠端監控和 AI 故障檢測
 - [Kalico](docs/zh-Hans/kalico.md) —— 切换到 Kalico 引擎，哪些可用、哪些不可用
 - [多 MCU](docs/zh-Hans/multi-mcu.md) —— 使用額外的 USB 板（工具頭、感測器、擴充接口），附 `printer.cfg` 範例
-- [Happy Hare](docs/zh-Hans/happy-hare.md) —— 多耗材（MMU）设置：选择您的 MMU，在应用或仪表盘中回答 Happy Hare 的问题
+- [Happy Hare](docs/zh-Hans/happy-hare.md) —— 多耗材（MMU）支援：選擇您的 MMU，並在應用或 KlipPocket 儀表板中回答 Happy Hare 的設定問題
 - [Klipper 附加元件](docs/zh-Hans/mods/klipper-addons.md) —— KAMP、LED Effect、Z Calibration、Auto Speed、TMC Autotune
 - [無加速度計的 Input Shaper](docs/zh-Hans/mods/input-shaper-manual.md) —— 振鈴塔方法和宏
+- [KlipPocket 儀表板](docs/zh-Hans/dashboard.md) —— 在瀏覽器中檢視即時 CPU、記憶體、溫度和網路圖表、主機與 MCU 資訊、日誌、設定、印表機控制與新增、攝像頭及韌體刷寫
 - [構建 APK](docs/zh-Hans/build-app.md) —— 自己編譯應用
 
 ## 網頁介面和攝像頭使用哪些埠？
@@ -88,6 +90,7 @@ KlipPocket 提供三種 APK：
 | Fluidd | `http://IP:4408/` |
 | Mainsail | `http://IP:4409/` |
 | Voyager UI | `http://IP:4410/` |
+| KlipPocket 儀表板（裝置、MCU、日誌、韌體） | `http://IP:4400/` |
 | 攝像頭影片流 | `http://IP:8889/` |
 | 攝像頭快照（單張 JPEG） | `http://IP:8889/snapshot` |
 | 攝像頭影片流（webcam 風格） | `http://IP:8889/webcam/?action=stream` |
