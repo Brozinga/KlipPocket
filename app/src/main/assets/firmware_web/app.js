@@ -737,7 +737,7 @@
   async function pollDashboard() {
     if (!authed || tab !== 'dashboard' || document.hidden || dashBusy) return;
     dashBusy = true;
-    try { const d = await api('GET', '/api/dashboard'); const changed = JSON.stringify(d) !== JSON.stringify(dash); dash = d; if (changed) render(true); } catch (e) { /* ignore */ }
+    try { const d = await api('GET', '/api/dashboard'); const changed = JSON.stringify(d) !== JSON.stringify(dash); dash = d; if (changed) render(false); } catch (e) { /* ignore */ }
     dashBusy = false;
   }
 
@@ -996,7 +996,7 @@
   let camRetry = null;
 
   async function loadCamera() {
-    try { const c = await api('GET', '/api/camera'); const changed = JSON.stringify(c) !== JSON.stringify(cam); cam = c; if (changed) render(true); } catch (e) { /* ignore */ }
+    try { const c = await api('GET', '/api/camera'); const changed = JSON.stringify(c) !== JSON.stringify(cam); cam = c; if (changed) render(false); } catch (e) { /* ignore */ }
   }
 
   function startStream() {
@@ -1249,9 +1249,17 @@
       st && Object.keys(experimentalCache).length]);
   }
 
+  // a text field is being edited: a redraw would replace it and move the cursor
+  function typing() {
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'range'].includes(a.type)));
+  }
+
   function render(force) {
     const sig = signature();
     if (!force && sig === lastSig) { applyWidths(); return; }
+    // background refreshes wait until the field is left (the next poll draws them); what the user does always draws
+    if (!force && typing()) return;
     lastSig = sig;
     const root = h('div', {}, header(), offline ? h('div', { class: 'banner', role: 'alert', text: t('connectionLost') }) : null);
     if (authed === false) root.appendChild(loginView());
@@ -1266,11 +1274,27 @@
       const m = upload ? uploadOverlay() : modalView();
       if (m) root.appendChild(m);
     }
-    const focused = document.activeElement && document.activeElement.id;
+    const active = document.activeElement;
+    const focused = active && active.id;
+    const caret = focused && typeof active.selectionStart === 'number' ? { start: active.selectionStart, end: active.selectionEnd, dir: active.selectionDirection } : null;
+    const pageX = window.scrollX;
+    const pageY = window.scrollY;
+    const oldDialog = document.querySelector('.dialog');
+    const dialogTop = oldDialog ? oldDialog.scrollTop : 0;
     const oldPre = document.getElementById('logpre');
     const keepScroll = oldPre ? oldPre.scrollTop : null;
     $app.replaceChildren(root);
-    if (focused) { const again = document.getElementById(focused); if (again) again.focus(); }
+    // the page was emptied for a moment: put the scroll back first, then the focus and the cursor without scrolling to them
+    window.scrollTo(pageX, pageY);
+    const dialogNow = document.querySelector('.dialog');
+    if (dialogNow) dialogNow.scrollTop = dialogTop;
+    if (focused) {
+      const again = document.getElementById(focused);
+      if (again) {
+        again.focus({ preventScroll: true });
+        if (caret) { try { again.setSelectionRange(caret.start, caret.end, caret.dir || 'none'); } catch (e) { /* not a text field */ } }
+      }
+    }
     const pre = document.getElementById('logpre');
     if (pre) pre.scrollTop = keepScroll !== null ? keepScroll : pre.scrollHeight;
     updateLive();

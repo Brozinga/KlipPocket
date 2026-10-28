@@ -27,6 +27,38 @@ def i18n():
     return json.loads(body)
 
 
+class PageRedraw(unittest.TestCase):
+    """What keeps a redraw of the page from disturbing someone who is typing (the add-printer form, for example)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.js = read(os.path.join(PAGE, "app.js"))
+
+    def body(self, name):
+        start = self.js.index("function " + name)
+        return self.js[start:start + 2600]
+
+    def test_a_background_redraw_waits_while_a_text_field_has_the_focus(self):
+        render = self.body("render(force)")
+        self.assertIn("if (!force && typing()) return;", render)
+        # and it must not mark the page as drawn, or the data it skipped would never show
+        self.assertLess(render.index("typing()"), render.index("lastSig = sig"))
+
+    def test_the_pollers_do_not_force_a_redraw(self):
+        for name in ("pollDashboard", "loadCamera"):
+            body = self.body(name).split("\n  }\n", 1)[0]
+            self.assertIn("render(false)", body, name)
+            self.assertNotIn("render(true)", body, name)
+
+    def test_a_redraw_keeps_the_cursor_and_the_scroll(self):
+        render = self.body("render(force)")
+        for needle in ("selectionStart", "setSelectionRange", "window.scrollTo(pageX, pageY)", "preventScroll: true", "dialogTop"):
+            self.assertIn(needle, render)
+
+    def test_the_remembered_happy_hare_tab_loads_its_printers_on_reload(self):
+        self.assertIn("if (tab === 'hh' && !mmu.printers && !mmu.busy) mmuOpen();", self.body("refresh()"))
+
+
 class PageTexts(unittest.TestCase):
     def test_generated_file_is_up_to_date(self):
         current = read(os.path.join(PAGE, "i18n.js"))
