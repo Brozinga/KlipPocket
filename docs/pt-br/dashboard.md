@@ -29,7 +29,7 @@ as páginas abertas.
 > de cinco erros o endereço fica bloqueado por um minuto. A página usa HTTP simples,
 > como as outras páginas do app: use numa rede de confiança.
 
-A página tem quatro abas, mostradas como ícones abaixo do título (passe o mouse para ver o nome): **Dashboard**, **Câmera**, **Firmware** (veja a [página web de firmware](firmware-web.md)) e, por último, **Configurações**. A seção **Logs** fica no fim da aba Dashboard.
+A página tem cinco abas, mostradas como ícones abaixo do título (passe o mouse para ver o nome): **Dashboard**, **Câmera**, **Firmware** (veja a [página web de firmware](firmware-web.md)), **Happy Hare** (veja [Happy Hare](happy-hare.md#configurar-no-dashboard)) e, por último, **Configurações**. A seção **Logs** fica no fim da aba Dashboard.
 Idioma e tema seguem o app na primeira vez; o que você escolher na página fica
 guardado no navegador.
 

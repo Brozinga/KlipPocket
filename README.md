@@ -75,7 +75,7 @@ All guides live in [`docs/`](docs/index.md) (also available in Português and �
 - [SimplyPrint](docs/simplyprint.md) — remote monitoring and AI failure detection with SimplyPrint
 - [Kalico](docs/kalico.md) — switch the engine to Kalico, what works and what does not
 - [Multi-MCU](docs/multi-mcu.md) — use extra USB boards (toolhead, sensors, extra ports) with `printer.cfg` examples
-- [Happy Hare](docs/happy-hare.md) — multi-filament (MMU) setup: generate the config, copy it and point it at the board
+- [Happy Hare](docs/happy-hare.md) — multi-filament (MMU) setup: choose your MMU and answer Happy Hare's questions in the app or the dashboard
 - [Klipper add-ons](docs/mods/klipper-addons.md) — KAMP, LED Effect, Z Calibration, Auto Speed, TMC Autotune
 - [Input shaper without an accelerometer](docs/mods/input-shaper-manual.md) — ringing-tower method and macros
 - [KlipPocket Dashboard](docs/dashboard.md) — a PIN-protected web page (port 4400): live CPU/memory charts, host and MCU info, logs with clear, and firmware flashing

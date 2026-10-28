@@ -30,7 +30,7 @@ and closes every open page.
 > five wrong tries the address is locked for a minute. The page uses plain HTTP,
 > like the other pages of the app: use it on a network you trust.
 
-The page has four tabs, shown as icons under the title (hover one to see its name): **Dashboard**, **Camera**, **Firmware** (see the [firmware web page](firmware-web.md)) and, last, **Settings**. The **Logs** section is at the bottom of the Dashboard tab. Language and theme follow the app the first time; what you choose on the
+The page has five tabs, shown as icons under the title (hover one to see its name): **Dashboard**, **Camera**, **Firmware** (see the [firmware web page](firmware-web.md)), **Happy Hare** (see [Happy Hare](happy-hare.md#set-up-in-the-dashboard)) and, last, **Settings**. The **Logs** section is at the bottom of the Dashboard tab. Language and theme follow the app the first time; what you choose on the
 page is remembered by the browser.
 
 ## Live usage
