@@ -105,8 +105,8 @@ Happy Hare 随应用一起更新，手机上没有 git 仓库供更新管理器�
 
 - **真实硬件：** 通道、选择器、舵机、编码器、传感器以及完整的换色流程都没有在实体 MMU 上运行过。
 - **CAN 和 UART 主板** 无法连接（见「你需要什么」）。
-- **断电续打** 只保存和恢复当前挤出机，所以断电中断的打印无法在正确的通道上继续。
-  见 [断电续打](print-recovery.md)。
+- **断电续打** 会在继续前装回正确的工具（见 [断电续打](print-recovery.md)），但只用模拟的 Happy Hare 测试过，
+  没有在实体 MMU 上真正断电后测试过。
 - **NFC/RFID 读卡器和 TD-1 扫描仪** 可以加载，但没有用设备试过。解密 Bambu/Creality NFC 标签需要
   `pycryptodome` 库，应用没有内置；Happy Hare 会因此关闭这一功能。
 - **Happy Hare 面向 Mainsail 和 KlipperScreen 的专用界面** 是独立项目，通过 Moonraker 通信。

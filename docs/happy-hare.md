@@ -131,9 +131,9 @@ Checked with a generated Tradrack config, on Klipper and on Kalico:
 - **Real hardware:** gates, selector, servo, encoder, sensors and a full tool
   change were not run on a physical MMU.
 - **CAN and UART boards** are not reachable (see "What you need").
-- **Print Recovery** only saves and restores the active extruder, so a print
-  interrupted by a power loss cannot be resumed on the right gate.
-  See [Print recovery](print-recovery.md).
+- **Print Recovery** puts the right tool back before resuming (see
+  [Print recovery](print-recovery.md)), but this was only tested with a
+  simulated Happy Hare, not after a real power cut on an MMU.
 - **NFC/RFID readers and TD-1 scanners** load, but were not tried with a
   device. Decrypting Bambu/Creality NFC tags needs a library (`pycryptodome`)
   that the app does not bundle; Happy Hare then leaves that feature off.

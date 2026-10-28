@@ -136,9 +136,10 @@ Verificado com uma configuração Tradrack gerada, no Klipper e no Kalico:
 - **Hardware real:** gates, seletor, servo, encoder, sensores e uma troca de
   ferramenta completa não foram executados em uma MMU física.
 - **Placas CAN e UART** não são alcançadas (veja "O que você precisa").
-- **Recuperação de impressão** só salva e restaura o extrusor ativo, então uma
-  impressão interrompida por queda de energia não pode ser retomada no gate
-  certo. Veja [Recuperação de impressão](print-recovery.md).
+- **Recuperação de impressão** recoloca a ferramenta certa antes de retomar
+  (veja [Recuperação de impressão](print-recovery.md)), mas isso só foi
+  testado com um Happy Hare simulado, não após uma queda de energia real em uma
+  MMU.
 - **Leitores NFC/RFID e scanners TD-1** carregam, mas não foram testados com o
   dispositivo. Decifrar tags NFC Bambu/Creality exige uma biblioteca
   (`pycryptodome`) que o app não traz; o Happy Hare então deixa esse recurso
