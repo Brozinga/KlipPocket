@@ -37,6 +37,7 @@ object BundleInstaller {
                 unpack(assets, index, root, "moonraker")
                 unpack(assets, index, root, "octoeverywhere")
                 unpack(assets, index, root, "obico")
+                unpack(assets, index, root, "hh_wizard")
             }
 
             // Moonraker's file_manager registers "<klipper_path>/docs" as the

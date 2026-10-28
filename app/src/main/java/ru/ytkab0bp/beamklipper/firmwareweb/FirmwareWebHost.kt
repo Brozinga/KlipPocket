@@ -33,6 +33,7 @@ object FirmwareWebHost {
         val s = FirmwareWebServer(
             FirmwareWebServer.PORT, AndroidFirmwareBackend(app), AndroidControlBackend(app), pinStore,
             { path -> try { app.assets.open(path) } catch (e: IOException) { null } },
+            mmu = AndroidMmuBackend(app),
         )
         try {
             s.start()

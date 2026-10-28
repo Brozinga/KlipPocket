@@ -385,7 +385,8 @@ tasks.register('bundleKlipper') {
         var addonsVersion = addonsVersionFile.exists() ? addonsVersionFile.text.trim() : '0'
         var octoeverywhereVersion = file('src/main/octoeverywhere/vendor_version').exists() ? file('src/main/octoeverywhere/vendor_version').text.trim() : 'none'
         var obicoVersion = file('src/main/obico/vendor_version').exists() ? file('src/main/obico/vendor_version').text.trim() : 'none'
-        var version = 'klipper-' + getGitCommitHash(file('src/main/klipper')) + '_kalico-' + kalicoHash + '_moonraker-' + getGitCommitHash(file('src/main/moonraker')) + '_happyhare-' + getGitCommitHash(file('src/main/happyhare')) + '_klipper_tmc_autotune-' + getGitCommitHash(file('src/main/klipper_tmc_autotune')) + '_moonraker_timelapse-' + getGitCommitHash(file('src/main/moonraker_timelapse')) + '_beamext-' + file('src/main/assets/klipper/beam_ext/ext_version').text + '_addons-' + addonsVersion + '_octoeverywhere-' + octoeverywhereVersion + '_obico-' + obicoVersion
+        var hhWizardVersion = Integer.toHexString(file('src/main/hh_wizard/hh_wizard.py').text.hashCode())
+        var version = 'klipper-' + getGitCommitHash(file('src/main/klipper')) + '_kalico-' + kalicoHash + '_moonraker-' + getGitCommitHash(file('src/main/moonraker')) + '_happyhare-' + getGitCommitHash(file('src/main/happyhare')) + '_klipper_tmc_autotune-' + getGitCommitHash(file('src/main/klipper_tmc_autotune')) + '_moonraker_timelapse-' + getGitCommitHash(file('src/main/moonraker_timelapse')) + '_beamext-' + file('src/main/assets/klipper/beam_ext/ext_version').text + '_addons-' + addonsVersion + '_octoeverywhere-' + octoeverywhereVersion + '_obico-' + obicoVersion + '_hhwizard-' + hhWizardVersion
         if (!versionFile.exists() || versionFile.text != version) {
             var files = new ArrayList<File>()
             collectFiles(file('src/main/assets/klipper/klippy'), files)
@@ -393,6 +394,7 @@ tasks.register('bundleKlipper') {
             collectFiles(file('src/main/assets/moonraker/moonraker'), files)
             collectFiles(file('src/main/assets/octoeverywhere'), files)
             collectFiles(file('src/main/assets/obico'), files)
+            collectFiles(file('src/main/assets/hh_wizard'), files)
             files.each {
                 it.delete()
             }
@@ -533,6 +535,33 @@ tasks.register('bundleKlipper') {
 
                 index.put('kalico', arr)
             }
+
+            // Happy Hare setup wizard: the engine plus what the installer reads
+            // (its Kconfig menu, the config templates and the version constant)
+            arr = new JSONArray()
+            arr.put('hh_wizard.py')
+            var wizardCopy = new File(assets, 'hh_wizard/hh_wizard.py')
+            wizardCopy.getParentFile().mkdirs()
+            Files.copy(file('src/main/hh_wizard/hh_wizard.py').toPath(), wizardCopy.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            var hhRoot = file('src/main/happyhare')
+            ['installer', 'config'].each { dirName ->
+                var dir = new File(hhRoot, dirName)
+                files.clear()
+                collectFiles(dir, files)
+                files.each {
+                    if (it.getName().endsWith(".pyc") || it.getAbsolutePath().contains("__pycache__")) return
+                    var sub = dirName + '/' + it.getAbsolutePath().substring(dir.getAbsolutePath().length() + 1).replace('\\', '/')
+                    arr.put('happyhare/' + sub)
+                    var f = new File(assets, 'hh_wizard/happyhare/' + sub)
+                    f.getParentFile().mkdirs()
+                    Files.copy(it.toPath(), f.toPath(), StandardCopyOption.REPLACE_EXISTING)
+                }
+            }
+            arr.put('happyhare/extras/mmu/mmu_constants.py')
+            var constants = new File(assets, 'hh_wizard/happyhare/extras/mmu/mmu_constants.py')
+            constants.getParentFile().mkdirs()
+            Files.copy(new File(hhRoot, 'extras/mmu/mmu_constants.py').toPath(), constants.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            index.put('hh_wizard', arr)
 
             arr = new JSONArray()
             arr.put('bootstrap.py')
