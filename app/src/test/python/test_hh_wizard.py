@@ -320,6 +320,21 @@ class Generate(Base):
         baks = [n for n in os.listdir(self.dir) if n.startswith('printer.cfg.')]
         self.assertTrue(baks)
 
+    def test_the_lines_shown_for_a_manual_edit_are_the_ones_added(self):
+        for extra in ({}, {'INSTALL_CLIENT_MACROS': False},
+                      {'INSTALL_12864_MENU': True}):
+            with self.subTest(extra=extra):
+                self.write('printer.cfg', self.PRINTER)
+                w = self.wizard(dict(self.TRADRACK, **extra))
+                shown = w.generate()['includes']
+                w.add_to_printer()
+                text = self.read('printer.cfg')
+                for line in shown:
+                    self.assertIn(line, text)
+                added = [l for l in text.splitlines()
+                         if l.startswith('[include mmu/')]
+                self.assertEqual(sorted(added), sorted(shown))
+
     def test_moonraker_gets_mmu_server_and_no_update_manager(self):
         self.wizard(self.TRADRACK).generate(include_in_printer=True)
         text = self.read('moonraker.conf')

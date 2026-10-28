@@ -568,7 +568,16 @@ class Wizard:
 
     # ---- printer.cfg / moonraker.conf -----------------------------------
     def include_lines(self):
-        lines = ['[include mmu/base/*.cfg]', '[include mmu/macros/*.cfg]']
+        """The includes install_includes() puts in printer.cfg, in file order."""
+        def on(name):
+            sym = self.kc.syms.get(name)
+            return sym is not None and sym.str_value in ('y', '1')
+        lines = []
+        if on('INSTALL_12864_MENU'):
+            lines.append('[include mmu/optional/mmu_menu.cfg]')
+        lines += ['[include mmu/base/*.cfg]', '[include mmu/macros/*.cfg]']
+        if on('INSTALL_CLIENT_MACROS'):
+            lines.append('[include mmu/optional/client_macros.cfg]')
         return lines
 
     def moonraker_lines(self):

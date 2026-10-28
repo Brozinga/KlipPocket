@@ -136,6 +136,8 @@
     try {
       st = await api('GET', '/api/state');
       authed = true;
+      // the tab is remembered across reloads: its printers are not loaded by a click then
+      if (tab === 'hh' && !mmu.printers && !mmu.busy) mmuOpen();
       if (!store.get('kp_lang')) { const l = matchLanguage(st.language); if (l && l !== lang) { lang = l; applyLang(); } }
       if (!store.get('kp_theme')) { const th = st.dark ? 'dark' : 'light'; if (th !== theme) { theme = th; applyTheme(); } }
       // a write in progress, or a result nobody has closed yet, owns the page: also after a reload or on another device
