@@ -231,8 +231,21 @@ class Wizard:
             crumbs.reverse()
         for node in self._shown(menu):
             item = self._item(node, menu)
-            if item is not None:
-                items.append(item)
+            if item is None:
+                continue
+            items.append(item)
+            if isinstance(node.item, self.kl.Choice):
+                # What a choice carries besides its options (the device path
+                # asked after picking "Other / manually entered") is listed
+                # right below it
+                for sub in self._shown(node):
+                    if isinstance(sub.item, self.kl.Symbol) \
+                            and sub.item.choice is node.item:
+                        continue
+                    extra = self._item(sub, node)
+                    if extra is not None:
+                        extra['indent'] += 1
+                        items.append(extra)
         # Hidden answers the app decides itself
         items = [i for i in items if i.get('symbol') not in HIDDEN_SYMBOLS
                  and i.get('title') not in HIDDEN_MENUS]
@@ -258,7 +271,9 @@ class Wizard:
         base['indent'] = self._depth(node, menu)
         if item == kl.COMMENT:
             title = base['title']
-            if title in ('', '_'):
+            title = re.sub(r'^\(\"\)_\(\"\)\s*', '', title)
+            # The installer's ASCII hare is not a question or a note
+            if title in ('', '_') or re.fullmatch(r'[()\\_/*,\s"]+', title):
                 return None
             heading = title.startswith('_')
             base.update(kind='heading' if heading else 'note',

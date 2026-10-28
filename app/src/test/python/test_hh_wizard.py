@@ -213,6 +213,31 @@ class Questions(Base):
         self.assertNotRegex(text, r'\[\[(?:B|DIM|REV|U|C:|VALUE)')
 
 
+    def test_what_a_choice_asks_after_it_is_listed_under_it(self):
+        w = self.wizard(self.BOX_TURTLE)
+        top = w.page()['items']
+        mmu = [i for i, it in enumerate(top) if it['title'] == 'MMU Type'][0]
+        below = top[mmu + 1]
+        self.assertEqual(below['kind'], 'choice')
+        self.assertGreater(below['indent'], top[mmu]['indent'])
+        menu = [i for i in top if i['title'] == 'MCU connection'][0]
+        items = w.page(menu['path'])['items']
+        path = [i for i in items if i.get('symbol') == 'MMU_SERIAL_DEVICE_OTHER']
+        self.assertEqual(len(path), 1)
+        w.set_value('MMU_SERIAL_DEVICE_OTHER', '/data/serial/abc')
+        again = w.page(menu['path'])['items']
+        self.assertEqual([i['value'] for i in again
+                          if i.get('symbol') == 'MMU_SERIAL_DEVICE_OTHER'],
+                         ['/data/serial/abc'])
+
+    def test_the_installers_ascii_hare_is_not_listed(self):
+        items = self.wizard(self.TRADRACK).page()['items']
+        titles = [i['title'] for i in items]
+        self.assertFalse([t for t in titles if '(\\_/)' in t or '*,*' in t])
+        self.assertTrue(any(t.startswith('Configuration') for t in titles))
+        self.assertFalse(any(t.startswith('(")_(")') for t in titles))
+
+
 class Incomplete(Base):
     def test_a_type_without_a_board_is_reported_and_not_written(self):
         w = self.wizard({'MMU_TYPE_3D_CHAMELEON_1_0': True})
