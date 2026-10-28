@@ -81,8 +81,9 @@ class Base(unittest.TestCase):
             w.set_value(sym, value)
         return w
 
-    TRADRACK = {'MMU_TYPE_TRADRACK_1_0': True}
-    BOX_TURTLE = {'MMU_TYPE_BOX_TURTLE_1_0': True}
+    SERIAL = {'MMU_SERIAL_DEVICE_OTHER': '/data/serial/abc'}
+    TRADRACK = dict(SERIAL, MMU_TYPE_TRADRACK_1_0=True)
+    BOX_TURTLE = dict(SERIAL, MMU_TYPE_BOX_TURTLE_1_0=True)
 
 
 class MatchesTheInstaller(Base):
@@ -96,7 +97,8 @@ class MatchesTheInstaller(Base):
             with self.subTest(profile=name):
                 shutil.rmtree(os.path.join(self.dir, 'mmu'), True)
                 w = self.wizard(profile['symbols'])
-                w.generate()
+                # The installer's own defaults, which still ask for a device
+                w.generate(force=True)
                 made = tree(os.path.join(self.dir, 'mmu'))
                 made.pop('.mmu_config')
                 made = {k: v for k, v in made.items()
@@ -238,6 +240,17 @@ class Questions(Base):
         self.assertFalse(any(t.startswith('(")_(")') for t in titles))
 
 
+    def test_hard_wrapped_help_is_joined_into_paragraphs(self):
+        text = ('Enhancements to base design\nIf the base lacks a feature, there '
+                'are often\nmodifications available.\n\nOptions:\n  - one\n'
+                '  - two\nafter the list')
+        out = hw.Wizard.reflow(text)
+        self.assertIn('there are often modifications available.', out)
+        self.assertIn('Options:\n  - one\n  - two', out)
+        self.assertIn('\n\n', out)
+        self.assertEqual(hw.Wizard.reflow('a\n\nb'), 'a\n\nb')
+
+
 class Incomplete(Base):
     def test_a_type_without_a_board_is_reported_and_not_written(self):
         w = self.wizard({'MMU_TYPE_3D_CHAMELEON_1_0': True})
@@ -250,9 +263,17 @@ class Incomplete(Base):
 
     def test_the_answers_that_complete_it_are_accepted(self):
         w = self.wizard({'MMU_TYPE_3D_CHAMELEON_1_0': True,
+                         'MMU_SERIAL_DEVICE_OTHER': '/data/serial/abc',
                          'BOARD_TYPE_MMB_2_0': True,
                          'MMU_HAS_SENSOR_SHARED_EXIT': True,
                          'PIN_SHARED_EXIT_SENSOR': '^unit0:PC7'})
+        self.assertEqual(w.review()['problems'], [])
+
+    def test_the_example_device_path_is_not_an_answer(self):
+        w = self.wizard({'MMU_TYPE_BOX_TURTLE_1_0': True})
+        found = w.review()['problems']
+        self.assertTrue(any('-enter-device-path-' in p for p in found), found)
+        w.set_value('MMU_SERIAL_DEVICE_OTHER', '/data/serial/abc')
         self.assertEqual(w.review()['problems'], [])
 
     def test_a_complete_type_has_no_problems(self):
@@ -265,11 +286,12 @@ class Incomplete(Base):
         with open(os.path.join(out, 'base', 'mmu_hardware_unit0.cfg'),
                   'w') as f:
             f.write('# step_pin:\nstep_pin: unit0:PA1\ndir_pin:\n'
-                    'x_pin: ^:PD5\nname: [[X]]\n')
+                    'x_pin: ^:PD5\nname: [[X]]\n'
+                    'serial: -enter-device-path-\n')
         with open(os.path.join(out, 'base', 'mmu.cfg'), 'w') as f:
             f.write('extruder_switch_pin:\n')
         found = self.wizard().find_problems(out)
-        self.assertEqual(len(found), 3, found)
+        self.assertEqual(len(found), 4, found)
         self.assertFalse(any('mmu.cfg' in p for p in found))
 
 
@@ -409,6 +431,8 @@ class JsonEntryPoint(Base):
         self.assertTrue(opened['types'])
         self.assertTrue(self.call(op='set', symbol='MMU_TYPE_TRADRACK_1_0',
                                   value=True)['ok'])
+        self.assertTrue(self.call(op='set', symbol='MMU_SERIAL_DEVICE_OTHER',
+                                  value='/data/serial/abc')['ok'])
         top = self.call(op='page', path='')
         self.assertTrue(top['ok'])
         self.assertTrue(top['items'])

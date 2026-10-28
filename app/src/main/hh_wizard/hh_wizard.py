@@ -28,11 +28,13 @@ HIDDEN_SYMBOLS = ('REPETIER', 'REPETIER_NAME', 'OCTOPRINT',
 
 
 # Lines that mean the answers are not enough for a working config: a pin with
-# no board in front of it (":PD5"), a pin option left empty, or a template
-# token that was never filled in.
+# no board in front of it (":PD5"), a pin option left empty, a template token
+# that was never filled in, or an example answer that was never replaced.
 MALFORMED_PIN = re.compile(r'^\s*[A-Za-z_][A-Za-z_0-9]*\s*:\s*\^?~?!?:')
 EMPTY_PIN = re.compile(r'^\s*(?:step|dir|enable)_pin\s*:\s*$')
 TOKEN = re.compile(r'\[\[|\[%')
+# The installer's example answers for the device path and the CAN id
+PLACEHOLDER = re.compile(r'-enter-[a-z-]+-')
 
 
 class WizardError(Exception):
@@ -209,6 +211,25 @@ class Wizard:
             return res
         return rec(menu.list)
 
+    @staticmethod
+    def reflow(text):
+        """Join the hard-wrapped lines of a help text into paragraphs.
+
+        Lines stay apart where the text is a list, an indented block or a
+        heading that ends with a colon.
+        """
+        out = []
+        for line in text.split('\n'):
+            plain = line.strip()
+            if out and out[-1] and plain and not line[:1].isspace() \
+                    and not re.match(r'([-*]|\d+[.)])\s', plain) \
+                    and not out[-1].rstrip().endswith((':', '.', '!', '?')) \
+                    and not out[-1][:1].isspace():
+                out[-1] = out[-1].rstrip() + ' ' + plain
+            else:
+                out.append(line if line.strip() else '')
+        return '\n'.join(out)
+
     def _text(self, text):
         """Prompt or help text with the live [[VALUE:SYM]] parts filled in."""
         def value(m):
@@ -251,7 +272,7 @@ class Wizard:
                  and i.get('title') not in HIDDEN_MENUS]
         return {'path': path, 'crumbs': crumbs,
                 'title': crumbs[-1]['title'] if crumbs else 'Happy Hare',
-                'help': self._text(getattr(menu, 'help', '')) if path else '',
+                'help': self.reflow(self._text(getattr(menu, 'help', ''))) if path else '',
                 'items': items}
 
     def _depth(self, node, menu):
@@ -267,7 +288,7 @@ class Wizard:
         item = node.item
         base = {'id': self.paths[id(node)],
                 'title': self._text(node.prompt[0]) if node.prompt else '',
-                'help': self._text(getattr(node, 'help', ''))}
+                'help': self.reflow(self._text(getattr(node, 'help', '')))}
         base['indent'] = self._depth(node, menu)
         if item == kl.COMMENT:
             title = base['title']
@@ -316,8 +337,8 @@ class Wizard:
                 if self._visible(mnode):
                     options.append({'symbol': member.name,
                                     'title': self._text(mnode.prompt[0]),
-                                    'help': self._text(
-                                        getattr(mnode, 'help', ''))})
+                                    'help': self.reflow(self._text(
+                                        getattr(mnode, 'help', '')))})
                     break
         selected = choice.selection
         base.update(kind='choice', options=options,
@@ -497,7 +518,7 @@ class Wizard:
                     empty = name.startswith('mmu_hardware') \
                         and EMPTY_PIN.match(line)
                     if MALFORMED_PIN.match(line) or empty \
-                       or TOKEN.search(line):
+                       or TOKEN.search(line) or PLACEHOLDER.search(line):
                         found.append('%s:%d %s' % (name, n, line.strip()))
         return found
 
@@ -512,7 +533,8 @@ class Wizard:
             shutil.rmtree(stage, ignore_errors=True)
         return {'warnings': self.warnings(), 'problems': problems}
 
-    def generate(self, include_in_printer=False, keep_state=False):
+    def generate(self, include_in_printer=False, keep_state=False,
+                 force=False):
         """Replace the mmu/ folder with a freshly generated one.
 
         The old folder is deleted only after the new one has been built, so a
@@ -525,7 +547,7 @@ class Wizard:
         stage = tempfile.mkdtemp(prefix='hh-wizard-')
         try:
             built = self.render_all(stage, keep_state_from=keep)
-            problems = self.find_problems(built)
+            problems = [] if force else self.find_problems(built)
             if problems:
                 raise WizardError('the answers are not enough for a working '
                                   'config', problems)
