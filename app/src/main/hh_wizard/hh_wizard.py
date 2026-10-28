@@ -31,7 +31,7 @@ HIDDEN_SYMBOLS = ('REPETIER', 'REPETIER_NAME', 'OCTOPRINT',
 # no board in front of it (":PD5"), a pin option left empty, or a template
 # token that was never filled in.
 MALFORMED_PIN = re.compile(r'^\s*[A-Za-z_][A-Za-z_0-9]*\s*:\s*\^?~?!?:')
-EMPTY_PIN = re.compile(r'^\s*[A-Za-z_0-9]*pin[A-Za-z_0-9]*\s*:\s*$')
+EMPTY_PIN = re.compile(r'^\s*(?:step|dir|enable)_pin\s*:\s*$')
 TOKEN = re.compile(r'\[\[|\[%')
 
 
@@ -91,6 +91,7 @@ class Wizard:
         self.paths = {}
         self.loaded_from = None
         self.version = self._hh_version()
+        self.per_gate = False
         self.reset()
 
     # ---- Kconfig ---------------------------------------------------------
@@ -109,7 +110,10 @@ class Wizard:
             'CONFIG_KLIPPER_CONFIG_HOME': self.config_dir,
             'CONFIG_MOONRAKER_HOME': self.config_dir,
             'CONFIG_SERVICE_KLIPPER': 'klipper.service',
-            'F_PER_GATE_MCU': '', 'KCONFIG_PARENT': '',
+            # install.sh turns this on for an MMU with one MCU per gate (EMU):
+            # it changes which questions the Kconfig has
+            'F_PER_GATE_MCU': 'y' if self.per_gate else '',
+            'KCONFIG_PARENT': '',
             'KCONFIG_CONFIG': kconfig_path or self.saved_config,
             'UNIT_NAME': UNIT, 'MCU_NAME': UNIT, 'UNIT_INDEX': '0',
             'F_MULTI_UNIT': '', 'F_MULTI_UNIT_ENTRY_POINT': '',
@@ -123,12 +127,34 @@ class Wizard:
 
     def reset(self, load_saved=True):
         """Back to the defaults, or to the answers saved by the last run."""
+        self.per_gate = False
         self.kc = self._parse()
         self._index()
         self.loaded_from = None
         if load_saved and os.path.isfile(self.saved_config):
             self.kc.load_config(self.saved_config, filter_defaults=False)
             self.loaded_from = self.saved_config
+            self._sync_shape()
+
+    def _sync_shape(self):
+        """Re-read the Kconfig when the answers change its shape.
+
+        An MMU with one MCU per gate needs the tree parsed with
+        F_PER_GATE_MCU=y (and the reverse), keeping the answers given.
+        """
+        sym = self.kc.syms.get('MMU_HAS_PER_GATE_MCU')
+        want = sym is not None and sym.tri_value == 2
+        if want == self.per_gate:
+            return
+        kept = [(name, s.user_value) for name, s in self.kc.syms.items()
+                if s.user_value is not None]
+        self.per_gate = want
+        self.kc = self._parse()
+        self._index()
+        for name, value in kept:
+            target = self.kc.syms.get(name)
+            if target is not None:
+                target.set_value(value)
 
     def _index(self):
         self.nodes, self.paths = {}, {}
@@ -257,7 +283,9 @@ class Wizard:
             kind = {kl.INT: 'int', kl.HEX: 'int', kl.FLOAT: 'float'}.get(
                 sym.orig_type, 'text')
             base.update(kind=kind, value=sym.str_value,
-                        validator=getattr(sym, 'validator', None))
+                        validator=getattr(getattr(sym, 'validator', None),
+                                          'pattern',
+                                          getattr(sym, 'validator', None)))
             if getattr(sym, 'array_editor', None):
                 base['separator'] = sym.array_editor[0] \
                     if isinstance(sym.array_editor, (list, tuple)) \
@@ -295,6 +323,7 @@ class Wizard:
         else:
             text = str(value)
             pattern = getattr(sym, 'validator', None)
+            pattern = getattr(pattern, 'pattern', pattern)
             if pattern and not re.fullmatch(pattern, text.strip()):
                 raise WizardError('invalid value for %s' % symbol)
             if sym.orig_type in (kl.INT, kl.FLOAT, kl.HEX):
@@ -305,12 +334,14 @@ class Wizard:
             ok = sym.set_value(text)
         if not ok:
             raise WizardError('%s cannot be set to %r now' % (symbol, value))
+        self._sync_shape()
 
     def unset_value(self, symbol):
         sym = self.kc.syms.get(symbol)
         if sym is None:
             raise WizardError('unknown symbol %s' % symbol)
         sym.unset_value()
+        self._sync_shape()
 
     def values(self):
         """Every symbol the user set, for the review and for tests."""
