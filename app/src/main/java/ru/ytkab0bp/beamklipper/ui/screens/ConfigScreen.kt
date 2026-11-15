@@ -129,6 +129,9 @@ fun ConfigScreen(
     var showQr by remember { mutableStateOf(false) }
     var showLanguage by remember { mutableStateOf(false) }
     var showCameraSource by remember { mutableStateOf(false) }
+    var showCameraRotation by remember { mutableStateOf(false) }
+    var showCameraResolution by remember { mutableStateOf(false) }
+    var showCameraZoom by remember { mutableStateOf(false) }
     var octoEverywhereLinkUrl by remember { mutableStateOf<String?>(null) }
     var showOctoEverywhereNotReady by remember { mutableStateOf(false) }
     var showObicoServer by remember { mutableStateOf(false) }
@@ -335,13 +338,13 @@ fun ConfigScreen(
         KlipValueRow(
             title = stringResource(R.string.CameraRotation),
             value = "$cameraRotation°",
-            onClick = { viewModel.cycleCameraRotation() }
+            onClick = { showCameraRotation = true }
         )
         Spacer(Modifier.height(8.dp))
         KlipValueRow(
             title = stringResource(R.string.CameraResolution),
             value = viewModel.cameraResolutionTitle(cameraResolution),
-            onClick = { viewModel.cycleCameraResolution() }
+            onClick = { showCameraResolution = true }
         )
         Spacer(Modifier.height(8.dp))
         // Re-read on every source change: the steps depend on the camera.
@@ -351,7 +354,7 @@ fun ConfigScreen(
             value = if (zoomOptions.size > 1)
                 CameraZoom.label(viewModel.effectiveCameraZoom(cameraZoom))
             else stringResource(R.string.CameraZoomUnsupported),
-            onClick = { viewModel.cycleCameraZoom() }
+            onClick = { showCameraZoom = true }
         )
 
         Spacer(Modifier.height(28.dp))
@@ -618,6 +621,36 @@ fun ConfigScreen(
             selectedId = cameraSourceId,
             onSelect = { viewModel.setCameraSource(it) },
             onDismiss = { showCameraSource = false }
+        )
+    }
+    if (showCameraRotation) {
+        CameraValueDialog(
+            title = stringResource(R.string.CameraRotation),
+            options = listOf(0, 90, 180, 270),
+            selected = cameraRotation,
+            label = { "$it°" },
+            onSelect = { viewModel.setCameraRotation(it) },
+            onDismiss = { showCameraRotation = false }
+        )
+    }
+    if (showCameraResolution) {
+        CameraValueDialog(
+            title = stringResource(R.string.CameraResolution),
+            options = viewModel.cameraResolutionOptions(),
+            selected = cameraResolution,
+            label = { viewModel.cameraResolutionTitle(it) },
+            onSelect = { viewModel.setCameraResolution(it) },
+            onDismiss = { showCameraResolution = false }
+        )
+    }
+    if (showCameraZoom) {
+        CameraValueDialog(
+            title = stringResource(R.string.CameraZoom),
+            options = viewModel.cameraZoomOptions(),
+            selected = viewModel.effectiveCameraZoom(cameraZoom),
+            label = { CameraZoom.label(it) },
+            onSelect = { viewModel.setCameraZoom(it) },
+            onDismiss = { showCameraZoom = false }
         )
     }
     octoEverywhereLinkUrl?.let { url ->
@@ -1046,6 +1079,37 @@ internal fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
                 onClick = onDismiss
             )
         }
+    )
+}
+
+@Composable
+private fun <T> CameraValueDialog(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+    onDismiss: () -> Unit
+) {
+    KlipAlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title, style = MaterialTheme.typography.titleLarge, color = Ink) },
+        text = {
+            Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                options.forEach { option ->
+                    Text(
+                        label(option),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (option == selected) Accent else Ink,
+                        modifier = Modifier.fillMaxWidth().clip(KlipShape).clickable {
+                            onSelect(option)
+                            onDismiss()
+                        }.padding(vertical = 12.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = { KlipButton(text = stringResource(android.R.string.cancel), onClick = onDismiss) }
     )
 }
 

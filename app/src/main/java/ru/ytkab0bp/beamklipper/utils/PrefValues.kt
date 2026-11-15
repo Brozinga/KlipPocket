@@ -28,7 +28,7 @@ object PrefValues {
 
     fun resolution(value: Int, presetCount: Int): Int = value.coerceIn(0, presetCount - 1)
 
-    fun zoom(value: Float): Float = value.coerceAtLeast(1f)
+    fun zoom(value: Float): Float = if (value.isFinite() && value > 0f) value else 1f
 
     // Any URL is accepted (Obico Cloud or a self-hosted server); a blank one
     // falls back to the default.

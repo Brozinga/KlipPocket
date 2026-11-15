@@ -69,9 +69,9 @@ class PrefsSettersTest {
     }
 
     @Test
-    fun `a zoom below 1x is saved as 1x`() {
+    fun `a zoom below 1x is preserved`() {
         Prefs.cameraZoom = 0.3f
-        assertEquals(1f, raw().getFloat("camera_zoom", 0f), 0f)
+        assertEquals(0.3f, raw().getFloat("camera_zoom", 0f), 0f)
         Prefs.cameraZoom = 2f
         assertEquals(2f, Prefs.cameraZoom, 0f)
     }

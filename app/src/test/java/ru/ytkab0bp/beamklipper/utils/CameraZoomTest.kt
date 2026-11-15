@@ -5,6 +5,16 @@ import org.junit.Test
 
 class CameraZoomTest {
     @Test
+    fun `wide zoom ratios follow camera limits`() {
+        assertEquals(listOf(0.65f, 0.7f, 0.8f, 0.9f, 1f), CameraZoom.options(1f, 0.65f))
+        assertEquals(listOf(0.95f, 1f), CameraZoom.options(1f, 0.95f))
+        val minimum = 0.6000001f
+        assertEquals(minimum, CameraZoom.options(2f, minimum).first())
+        assertEquals("0.6×", CameraZoom.label(minimum))
+        assertEquals(0.6f, CameraZoom.options(1f, 0.6f).first())
+    }
+
+    @Test
     fun `a camera without zoom only offers 1x`() {
         assertEquals(listOf(1f), CameraZoom.options(1f))
         assertEquals(listOf(1f), CameraZoom.options(1.2f))
@@ -16,8 +26,8 @@ class CameraZoomTest {
     }
 
     @Test
-    fun `a camera reporting 3_9999 still offers 4x`() {
-        assertEquals(4f, CameraZoom.options(3.9999f).last())
+    fun `a camera does not offer zoom beyond its limit`() {
+        assertEquals(3f, CameraZoom.options(3.9999f).last())
     }
 
     @Test

@@ -152,6 +152,8 @@
     <string name="PrivacyNote">Everything runs on your device. No data leaves your phone.</string>
     <string name="SelectIcon">Choose an icon</string>
     <string name="Done">Done</string>
+    <string name="CameraServerAddress">Camera stream address</string>
+    <string name="CameraServerNoAddress">No network address available</string>
     <string name="CameraZoom">Camera zoom</string>
     <string name="CameraZoomUnsupported">Not supported by this camera</string>
     <string name="CameraPreview">Camera preview</string>
