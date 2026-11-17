@@ -56,8 +56,16 @@ class PrefsTest {
     }
 
     @Test
-    fun `a saved zoom below 1x reads as 1x`() {
+    fun `a saved zoom below 1x is kept for wide angle cameras`() {
         prefs("camera_zoom" to 0.5f)
+        assertEquals(0.5f, Prefs.cameraZoom, 0f)
+    }
+
+    @Test
+    fun `an invalid saved zoom reads as 1x`() {
+        prefs("camera_zoom" to 0f)
+        assertEquals(1f, Prefs.cameraZoom, 0f)
+        prefs("camera_zoom" to -2f)
         assertEquals(1f, Prefs.cameraZoom, 0f)
     }
 

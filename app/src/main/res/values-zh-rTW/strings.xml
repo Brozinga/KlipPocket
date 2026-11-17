@@ -140,6 +140,8 @@
     <string name="Done">完成</string>
     <string name="CameraZoom">相機縮放</string>
     <string name="CameraZoomUnsupported">此相機不支援</string>
+    <string name="CameraServerAddress">相機影像串流位址</string>
+    <string name="CameraServerNoAddress">沒有可用的網路位址</string>
     <string name="CameraPreview">相機預覽</string>
     <string name="CameraPreviewPermission">顯示預覽需要相機權限。</string>
     <string name="CameraPreviewGrant">授予相機權限</string>

@@ -143,6 +143,8 @@
     <string name="Done">Готово</string>
     <string name="CameraZoom">Зум камеры</string>
     <string name="CameraZoomUnsupported">Не поддерживается этой камерой</string>
+    <string name="CameraServerAddress">Адрес потока камеры</string>
+    <string name="CameraServerNoAddress">Нет доступного сетевого адреса</string>
     <string name="CameraPreview">Просмотр камеры</string>
     <string name="CameraPreviewPermission">Для просмотра требуется разрешение на использование камеры.</string>
     <string name="CameraPreviewGrant">Разрешить доступ к камере</string>

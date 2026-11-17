@@ -140,6 +140,8 @@
     <string name="Done">完成</string>
     <string name="CameraZoom">摄像头缩放</string>
     <string name="CameraZoomUnsupported">此摄像头不支持</string>
+    <string name="CameraServerAddress">摄像头视频流地址</string>
+    <string name="CameraServerNoAddress">没有可用的网络地址</string>
     <string name="CameraPreview">摄像头预览</string>
     <string name="CameraPreviewPermission">显示预览需要摄像头权限。</string>
     <string name="CameraPreviewGrant">授予摄像头权限</string>
