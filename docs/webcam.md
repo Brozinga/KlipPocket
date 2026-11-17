@@ -78,6 +78,61 @@ Fluidd/Mainsail see the new focus too because they receive the same stream.
 - Works on old phones too (Android 5.0+): it uses only the standard Camera2
   focus controls and checks what the camera reports before enabling itself.
 
+### Flash (phone light)
+
+With a camera that has a flash (usually the back camera), the **camera tab** —
+in the app and in the Dashboard — shows a **Flash on / Flash off** button that
+lights the print. The state is remembered. Cameras without a flash (front
+camera, USB webcams) show "This camera has no flash." instead.
+
+To switch it from **Fluidd/Mainsail**, add it to the printer's `moonraker.conf`
+as a power device; it then shows up with the other devices and can be toggled
+there:
+
+```ini
+[power phone_flash]
+type: http
+on_url: http://127.0.0.1:8889/torch/on
+off_url: http://127.0.0.1:8889/torch/off
+status_url: http://127.0.0.1:8889/torch/status
+response_template:
+  {% set resp = http_request.last_response().json() %}
+  {resp["state"]}
+```
+
+The flash only lights while the camera server is on. The `/torch/on`,
+`/torch/off`, `/torch/toggle` and `/torch/status` addresses only answer to the
+phone itself (the printer's Moonraker), never to other devices on the network.
+
+#### Macros (optional)
+
+G-code cannot call HTTP by itself, but Klipper can ask Moonraker to switch a
+power device. Add this to `printer.cfg` and run `RESTART`:
+
+```ini
+[gcode_macro FLASH_ON]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="on")}
+
+[gcode_macro FLASH_OFF]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="off")}
+
+[gcode_macro FLASH_TOGGLE]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="toggle")}
+```
+
+They show up as buttons in the Fluidd/Mainsail macro panel, and you can call
+`FLASH_ON` in `PRINT_START` and `FLASH_OFF` in `PRINT_END` to light the print
+only while it runs. The `device=` name must match the `[power phone_flash]`
+section above (no spaces in the name).
+
+Where the toggle appears: in **Fluidd** it is in the power menu of the top bar;
+in **Mainsail** it is in the header power menu and in the dashboard **Power**
+panel (when enabled in the interface settings). After editing
+`moonraker.conf`, restart Moonraker.
+
 ### USB webcam support
 
 This relies on the device exposing the USB webcam through Android's
