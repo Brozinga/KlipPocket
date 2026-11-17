@@ -150,6 +150,9 @@
     <string name="CameraPreviewFocusHint">点击预览画面即可对该位置对焦。</string>
     <string name="CameraPreviewFocusUnsupported">此摄像头不支持点击对焦。</string>
     <string name="CameraPreviewFocusReset">重置对焦</string>
+    <string name="CameraFlashOn">打开闪光灯</string>
+    <string name="CameraFlashOff">关闭闪光灯</string>
+    <string name="CameraFlashUnsupported">此摄像头没有闪光灯。</string>
     <string name="CameraPreviewFocusSaved">应用重启后会记住对焦。更换摄像头或其位置后请重置。</string>
     <string name="LogsSourceNotFound">未找到日志来源。</string>
     <string name="LogsLoadFailed">加载失败：%1$s</string>

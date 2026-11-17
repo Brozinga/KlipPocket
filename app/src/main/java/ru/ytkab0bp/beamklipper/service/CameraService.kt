@@ -42,6 +42,7 @@ import ru.ytkab0bp.beamklipper.KlipperApp
 import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.utils.CameraFocus
 import ru.ytkab0bp.beamklipper.utils.CameraZoom
+import ru.ytkab0bp.beamklipper.utils.CameraFlash
 import ru.ytkab0bp.beamklipper.utils.CameraHttp
 import ru.ytkab0bp.beamklipper.utils.CameraRules
 import ru.ytkab0bp.beamklipper.utils.JpegQualityController
@@ -711,7 +712,13 @@ class CameraService : Service() {
                     // JPEG body are separate write() calls below) — not
                     // needed on a streaming connection like this one.
                     try { sock.tcpNoDelay = true } catch (_: Exception) {}
-                    CameraHandlerThread(sock)
+                    // Same blocking read the handler always did, moved here
+                    // so a /torch request can be answered without a stream.
+                    val requestLine = try {
+                        BufferedReader(InputStreamReader(sock.getInputStream())).readLine()
+                    } catch (_: Exception) { null }
+                    val torch = CameraHttp.torchAction(requestLine)
+                    if (torch != null) answerTorch(sock, torch) else CameraHandlerThread(sock, requestLine)
                 }
                 socket.close()
             } catch (e: Exception) {
@@ -720,7 +727,7 @@ class CameraService : Service() {
         }
     }
 
-    private class CameraHandlerThread(sock: Socket) : HandlerThread("beam_camera_handler", -10) {
+    private class CameraHandlerThread(sock: Socket, requestLine: String?) : HandlerThread("beam_camera_handler", -10) {
         val socket: Socket = sock
         // Buffered so the boundary/headers/JPEG-body writes for one frame
         // coalesce into a single flush() instead of 3-4 separate small
@@ -733,9 +740,7 @@ class CameraService : Service() {
         val framesInFlight = AtomicBoolean(false)
 
         init {
-            val input = sock.getInputStream()
-            val r = BufferedReader(InputStreamReader(input))
-            oneShot = CameraHttp.isSnapshotRequest(r.readLine())
+            oneShot = CameraHttp.isSnapshotRequest(requestLine)
 
             start()
             handler = Handler(looper)
@@ -761,5 +766,35 @@ class CameraService : Service() {
             handlerThreads.remove(this@CameraHandlerThread)
             return super.quit()
         }
+    }
+}
+
+// The flash as an on/off switch for Moonraker's http power device. Only
+// the phone itself (Moonraker runs on it) may use it: the stream is open
+// to the LAN, a light switch should not be.
+private fun answerTorch(sock: Socket, action: CameraHttp.TorchAction) {
+    try {
+        sock.use {
+            val supported = CameraFlash.isSupportedForSelectedCamera(KlipperApp.INSTANCE)
+            val current = Prefs.isFlashlightEnabled
+            val next = CameraHttp.nextTorchState(action, current)
+            val reply = when {
+                !sock.inetAddress.isLoopbackAddress -> CameraHttp.torchResponse(403, current, supported)
+                next && !supported -> CameraHttp.torchResponse(409, false, false)
+                else -> {
+                    if (next != current) {
+                        // Prefs now, so a status request right after already sees it
+                        Prefs.isFlashlightEnabled = next
+                        KlipperApp.INSTANCE.sendBroadcast(
+                            Intent(CameraService.ACTION_TOGGLE_FLASHLIGHT).putExtra(CameraService.KEY_FLASHLIGHT, next),
+                            KlipperApp.PERMISSION)
+                    }
+                    CameraHttp.torchResponse(200, next, supported)
+                }
+            }
+            sock.getOutputStream().apply { write(reply.toByteArray()); flush() }
+        }
+    } catch (e: Exception) {
+        Log.e("beam_camera", "Failed to answer a torch request", e)
     }
 }

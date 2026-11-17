@@ -37,4 +37,7 @@ interface ControlBackend {
     fun focusAt(x: Float, y: Float)
 
     fun resetFocus()
+
+    /** Turns the flash of the camera on or off. */
+    fun setFlash(on: Boolean)
 }

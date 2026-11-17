@@ -153,6 +153,9 @@
     <string name="CameraPreviewFocusHint">Toque na pré-visualização para focar naquele ponto.</string>
     <string name="CameraPreviewFocusUnsupported">Esta câmera não suporta foco por toque.</string>
     <string name="CameraPreviewFocusReset">Redefinir foco</string>
+    <string name="CameraFlashOn">Ligar o flash</string>
+    <string name="CameraFlashOff">Desligar o flash</string>
+    <string name="CameraFlashUnsupported">Esta câmera não tem flash.</string>
     <string name="CameraPreviewFocusSaved">O foco é lembrado quando o app reinicia. Redefina-o ao trocar a câmera ou a posição dela.</string>
     <string name="LogsSourceNotFound">Fonte de log não encontrada.</string>
     <string name="LogsLoadFailed">Falha ao carregar: %1$s</string>

@@ -144,4 +144,42 @@ object CameraHttp {
         val query = target.substringAfter('?', "")
         return query.split('&').any { it == "action=snapshot" }
     }
+
+    // A "/torch" request: the phone's flash as a switch Moonraker's http power
+    // device can drive (and so Fluidd/Mainsail). null for any other request.
+    enum class TorchAction { ON, OFF, TOGGLE, STATUS }
+
+    fun torchAction(requestLine: String?): TorchAction? {
+        if (requestLine == null) return null
+        val target = PATH.find(requestLine)?.groupValues?.get(1) ?: return null
+        return when (target.substringBefore('?')) {
+            "/torch", "/torch/status" -> TorchAction.STATUS
+            "/torch/on" -> TorchAction.ON
+            "/torch/off" -> TorchAction.OFF
+            "/torch/toggle" -> TorchAction.TOGGLE
+            else -> null
+        }
+    }
+
+    // The state the flash ends up in after [action].
+    fun nextTorchState(action: TorchAction, current: Boolean): Boolean = when (action) {
+        TorchAction.ON -> true
+        TorchAction.OFF -> false
+        TorchAction.TOGGLE -> !current
+        TorchAction.STATUS -> current
+    }
+
+    // Reads {"state":"on"|"off",...}; null when it is not such an answer.
+    fun parseTorchState(json: String?): Boolean? {
+        val state = Regex("\"state\"\\s*:\\s*\"(on|off)\"").find(json ?: return null)?.groupValues?.get(1) ?: return null
+        return state == "on"
+    }
+
+    // Complete HTTP answer with a small JSON body: {"state":"on"|"off","supported":bool}.
+    fun torchResponse(code: Int, state: Boolean, supported: Boolean): String {
+        val reason = when (code) { 200 -> "OK"; 403 -> "Forbidden"; 409 -> "Conflict"; else -> "Error" }
+        val body = "{\"state\":\"${if (state) "on" else "off"}\",\"supported\":$supported}"
+        return "HTTP/1.0 $code $reason\r\nConnection: close\r\nCache-Control: no-cache, private\r\n" +
+            CORS + "Content-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n" + body
+    }
 }

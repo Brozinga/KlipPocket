@@ -71,6 +71,7 @@ private class FakeControl : ControlBackend {
     val controls = ArrayList<Pair<String?, String>>()
     var focus: Pair<Float, Float>? = null
     var focusReset = false
+    var flashOn = false
     var cameraOn = true
     override fun settings() = JSONObject("{\"engine\":{\"value\":\"klipper\",\"options\":[]}}")
     override fun applySetting(key: String, body: JSONObject): String? {
@@ -92,11 +93,12 @@ private class FakeControl : ControlBackend {
         added += listOf(name, config, autostart)
         return null
     }
-    override fun camera() = JSONObject("{\"enabled\":$cameraOn,\"permission\":true,\"focusSupported\":true}")
+    override fun camera() = JSONObject("{\"enabled\":$cameraOn,\"permission\":true,\"focusSupported\":true,\"flashSupported\":true,\"flash\":$flashOn}")
     override fun openCameraStream() = if (cameraOn) CameraFeed("multipart/x-mixed-replace; boundary=camera-frame",
         ByteArrayInputStream("--camera-frame\r\nframe".toByteArray())) else null
     override fun focusAt(x: Float, y: Float) { focus = x to y }
     override fun resetFocus() { focusReset = true }
+    override fun setFlash(on: Boolean) { flashOn = on }
 }
 
 /** Answers like the Happy Hare setup wizard would and remembers what the page sent. */
@@ -180,7 +182,7 @@ class FirmwareWebServerTest {
     }
 
     @Test fun everyApiRouteNeedsTheLogin() {
-        for ((m, p) in listOf("GET" to "/api/state", "GET" to "/api/files", "GET" to "/api/devices", "GET" to "/api/flash", "GET" to "/api/log", "GET" to "/api/dashboard", "GET" to "/api/metrics", "GET" to "/api/logs", "GET" to "/api/logs/read?id=app", "POST" to "/api/logs/clear", "GET" to "/api/settings", "POST" to "/api/settings", "POST" to "/api/control", "GET" to "/api/printers/new", "POST" to "/api/printers", "GET" to "/api/camera", "GET" to "/api/camera/stream", "POST" to "/api/camera/focus", "POST" to "/api/flash", "GET" to "/api/mmu/printers", "POST" to "/api/mmu")) {
+        for ((m, p) in listOf("GET" to "/api/state", "GET" to "/api/files", "GET" to "/api/devices", "GET" to "/api/flash", "GET" to "/api/log", "GET" to "/api/dashboard", "GET" to "/api/metrics", "GET" to "/api/logs", "GET" to "/api/logs/read?id=app", "POST" to "/api/logs/clear", "GET" to "/api/settings", "POST" to "/api/settings", "POST" to "/api/control", "GET" to "/api/printers/new", "POST" to "/api/printers", "GET" to "/api/camera", "GET" to "/api/camera/stream", "POST" to "/api/camera/focus", "POST" to "/api/camera/flash", "POST" to "/api/flash", "GET" to "/api/mmu/printers", "POST" to "/api/mmu")) {
             assertEquals("$m $p", 401, call(m, p, withCookie = false).code)
         }
         assertEquals(false, call("GET", "/api/session", withCookie = false).json().getBoolean("authenticated"))
@@ -418,6 +420,20 @@ class FirmwareWebServerTest {
         assertTrue(control.focusReset)
         control.cameraOn = false
         assertEquals(503, call("GET", "/api/camera/stream").code)
+    }
+
+    @Test fun theCameraFlashGoesThroughTheApp() {
+        login()
+        val cam = call("GET", "/api/camera").json()
+        assertTrue(cam.getBoolean("flashSupported"))
+        assertFalse(cam.getBoolean("flash"))
+        assertEquals(200, call("POST", "/api/camera/flash", json = JSONObject().put("on", true)).code)
+        assertTrue(control.flashOn)
+        assertTrue(call("GET", "/api/camera").json().getBoolean("flash"))
+        assertEquals(200, call("POST", "/api/camera/flash", json = JSONObject().put("on", false)).code)
+        assertFalse(control.flashOn)
+        assertEquals("not a boolean", 400, call("POST", "/api/camera/flash", json = JSONObject().put("on", "yes")).code)
+        assertEquals("no value", 400, call("POST", "/api/camera/flash", json = JSONObject()).code)
     }
 
     // --- Happy Hare setup ----------------------------------------------------------------------------------------
