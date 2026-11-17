@@ -206,12 +206,14 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         Prefs.cameraId = id
     }
 
-    fun cycleCameraRotation() {
-        Prefs.cameraRotation = PrefValues.nextRotation(Prefs.cameraRotation)
+    fun setCameraRotation(rotation: Int) {
+        Prefs.cameraRotation = rotation
     }
 
-    fun cycleCameraResolution() {
-        Prefs.cameraResolution = PrefValues.nextResolution(Prefs.cameraResolution, Prefs.CAMERA_RESOLUTION_PRESETS.size)
+    fun cameraResolutionOptions(): List<Int> = Prefs.CAMERA_RESOLUTION_PRESETS.indices.toList()
+
+    fun setCameraResolution(resolution: Int) {
+        Prefs.cameraResolution = resolution
     }
 
     // Mirrors CameraService.resolveCameraId() so the zoom steps offered here
@@ -228,7 +230,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
                         CameraCharacteristics.LENS_FACING_EXTERNAL
                 } catch (_: Throwable) { false }
             } ?: return listOf(1f)
-            CameraZoom.options(CameraZoom.maxZoom(manager.getCameraCharacteristics(id)))
+            CameraZoom.options(manager.getCameraCharacteristics(id))
         } catch (_: Throwable) {
             listOf(1f)
         }
@@ -239,10 +241,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     // Saved zoom may exceed what a newly selected camera supports.
     fun effectiveCameraZoom(zoom: Float): Float = CameraZoom.clamp(zoom, zoomOptionsForSelectedCamera())
 
-    fun cycleCameraZoom() {
-        val options = zoomOptionsForSelectedCamera()
-        if (options.size <= 1) return
-        Prefs.cameraZoom = CameraRules.nextZoom(Prefs.cameraZoom, options)
+    fun setCameraZoom(zoom: Float) {
+        if (zoomOptionsForSelectedCamera().contains(zoom)) Prefs.cameraZoom = zoom
     }
 
     fun cameraResolutionTitle(resolution: Int): String =

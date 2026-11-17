@@ -76,7 +76,7 @@ class CameraService : Service() {
         const val KEY_FOCUS = "focus"
         private const val TAG = "beam_camera"
         private const val DESCRIPTOR = "ru.ytkab0bp.beamklipper.ICameraService"
-        private const val PORT = 8889
+        const val PORT = 8889
         private const val ID = 400000
         private const val WRITE_TIMEOUT_MS = 4000L
         private val IO_POOL = Executors.newSingleThreadExecutor()
@@ -195,7 +195,7 @@ class CameraService : Service() {
         try {
             val chars = cameraManager.getCameraCharacteristics(id)
             if (!CameraFocus.isSupported(chars)) return
-            val zoom = CameraZoom.clamp(Prefs.cameraZoom, CameraZoom.options(CameraZoom.maxZoom(chars)))
+            val zoom = CameraZoom.clamp(Prefs.cameraZoom, CameraZoom.options(chars))
             val region = CameraFocus.region(chars, zoom, Prefs.cameraRotation, nx, ny) ?: return
             builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO)
             builder.set(CaptureRequest.CONTROL_AF_REGIONS, arrayOf(region))

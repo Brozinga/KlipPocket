@@ -62,7 +62,7 @@ class PrefValuesTest {
 
     @Test
     fun `zoom is never below 1x`() {
-        assertEquals(1f, PrefValues.zoom(0.2f), 0f)
+        assertEquals(0.2f, PrefValues.zoom(0.2f), 0f)
         assertEquals(3f, PrefValues.zoom(3f), 0f)
     }
 

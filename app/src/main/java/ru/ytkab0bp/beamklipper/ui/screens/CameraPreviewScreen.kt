@@ -63,6 +63,8 @@ import ru.ytkab0bp.beamklipper.ui.theme.Ink
 import java.io.BufferedInputStream
 import java.io.DataInputStream
 import java.io.InputStream
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.coroutines.coroutineContext
@@ -70,7 +72,7 @@ import kotlin.coroutines.coroutineContext
 private data class FocusTap(val point: Offset, val id: Int)
 
 // Local MJPEG endpoint served by CameraService (same stream Fluidd/Mainsail use).
-private const val STREAM_URL = "http://127.0.0.1:8889/"
+private const val STREAM_URL = "http://127.0.0.1:${CameraService.PORT}/"
 
 @Composable
 fun CameraPreviewScreen() {
@@ -108,11 +110,33 @@ fun CameraPreviewScreen() {
         }
     }
 
+    var addresses by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            addresses = withContext(Dispatchers.IO) {
+                try {
+                    NetworkInterface.getNetworkInterfaces().toList()
+                        .filter { it.isUp && !it.isLoopback }
+                        .flatMap { it.inetAddresses.toList() }
+                        .filterIsInstance<Inet4Address>()
+                        .filter { !it.isLoopbackAddress && !it.isLinkLocalAddress }
+                        .map { "http://${it.hostAddress}:${CameraService.PORT}/" }
+                        .distinct()
+                } catch (_: Exception) { emptyList() }
+            }
+            delay(5000)
+        }
+    }
+
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     // Scrollable so the preview can never push past the screen in landscape.
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text(stringResource(R.string.CameraPreview), style = MaterialTheme.typography.headlineMedium, color = Ink)
+        Spacer(Modifier.height(12.dp))
+        Text(stringResource(R.string.CameraServerAddress), style = MaterialTheme.typography.labelMedium, color = Ink)
+        if (addresses.isEmpty()) Text(stringResource(R.string.CameraServerNoAddress), color = Ink)
+        else addresses.forEach { Text(it, color = Ink) }
         Spacer(Modifier.height(12.dp))
         if (!granted) {
             Text(stringResource(R.string.CameraPreviewPermission), color = Ink)
