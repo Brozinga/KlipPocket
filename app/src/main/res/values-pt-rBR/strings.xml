@@ -143,6 +143,8 @@
     <string name="Done">Concluído</string>
     <string name="CameraZoom">Zoom da câmera</string>
     <string name="CameraZoomUnsupported">Não suportado por esta câmera</string>
+    <string name="CameraServerAddress">Endereço do stream da câmera</string>
+    <string name="CameraServerNoAddress">Nenhum endereço de rede disponível</string>
     <string name="CameraPreview">Pré-visualização da câmera</string>
     <string name="CameraPreviewPermission">A permissão da câmera é necessária para exibir a pré-visualização.</string>
     <string name="CameraPreviewGrant">Conceder permissão da câmera</string>
