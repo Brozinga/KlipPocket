@@ -21,7 +21,7 @@ OUT = os.path.join(ROOT, "app", "src", "main", "assets", "firmware_web", "i18n.j
 LANGS = {"en": "values", "pt-BR": "values-pt-rBR", "ru": "values-ru", "zh-CN": "values-zh", "zh-TW": "values-zh-rTW"}
 LANGUAGE_NAMES = {"en": "English", "pt-BR": "Português (BR)", "ru": "Русский", "zh-CN": "简体中文", "zh-TW": "繁體中文"}
 
-FROM_APP = """ListUSBTitle ListUSBNoDevices FirmwareTitle FirmwareDownload FirmwareInstall FirmwareDownloadHint FirmwareDownloadUrl
+FROM_APP = """ListUSBTitle ListUSBNoDevices UsbBaudRate UsbBaudHint FirmwareTitle FirmwareDownload FirmwareInstall FirmwareDownloadHint FirmwareDownloadUrl
 FirmwareDownloadStart FirmwareDownloading FirmwareDownloaded FirmwareDownloadFailed FirmwareFiles FirmwareNoFiles FirmwareDelete
 FirmwareStepOf FirmwareStepFile FirmwareStepDevice FirmwareStepMode FirmwareNext FirmwareBack FirmwareCancel FirmwareConfirm
 FirmwareRefresh FirmwareSelectDevice FirmwareModeUsb FirmwareModeUart FirmwareModeDfu FirmwareModeRp2040 FirmwareModeUsbDesc FirmwareModeUartDesc

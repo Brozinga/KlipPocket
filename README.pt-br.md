@@ -126,7 +126,7 @@ Hub é **suportado**, mas não é obrigatório se o seu aparelho conseguir falar
 - Alguns aparelhos resetam o caminho do dispositivo após reiniciar o firmware — nesse caso use nomeação por VID/PID
 - Sem SSH (você não vai compilar firmware nem rodar serviços extras no aparelho de qualquer forma)
 - Alguns aparelhos não suportam OTG e carga ao mesmo tempo — nesse caso é preciso soldar direto nos pinos da bateria (ou usar outro aparelho, você decide)
-- Só é suportado o baud rate 250000 (o autor não quis repassar essa configuração ao driver USB do Android; quase toda config usa 250000 mesmo)
+- **A velocidade serial (baud rate) é uma configuração avançada, escolhida por placa.** Cada impressora/MCU pode usar uma velocidade diferente, então consulte a que o firmware da sua placa usa (`CONFIG_SERIAL_BAUD`). Na maioria das vezes o padrão, 250000, já funciona bem: altere apenas se o KlipPocket não conseguir conectar ao MCU. Escolha em **Configurações → USB → Listar dispositivos USB** ou na lista de USB do Dashboard; ela é salva por placa só quando você a altera, e vale na hora. Para mais informações, veja [Trocando a taxa de transmissão (baud) do USB](docs/pt-br/usb-baud-rate.md).
 
 > **Problema mais comum:** se o seu celular não consegue carregar e falar com
 > a impressora ao mesmo tempo pelo mesmo cabo, é a limitação de OTG+carga

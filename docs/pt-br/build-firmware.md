@@ -150,7 +150,7 @@ para acertar:
 
 **Clock Reference** fica no padrão (*8 MHz crystal*). **Communication interface**
 é como a placa fala com o host, aqui *Serial (on USART1 PA10/PA9)*; o baud rate
-fica em 250000, o único que o KlipPocket suporta:
+fica em 250000, o padrão do KlipPocket (outra velocidade também funciona se você definir a mesma para a placa no app):
 
 ![Interface de comunicação](../images/firmware-menu/menuconfig-6-communication.png)
 
@@ -292,7 +292,7 @@ Rodada pelo *Make Firmware* e pela opção **5**:
 - O formato da imagem: checksums do Intel HEX (AVR), blocos UF2 (RP2040) e, em
   `.bin` ARM, uma tabela de vetores coerente ligada no offset do bootloader configurado.
 - A imagem foi feita para o MCU e o clock da configuração, e a versão é a do motor.
-- O baud rate é 250000 (o único que o KlipPocket suporta) ou a placa usa USB.
+- O baud rate é 250000 (o padrão do KlipPocket; para outro, defina a mesma velocidade para a placa no app) ou a placa usa USB.
 - O offset do bootloader deixa espaço e a imagem cabe na área da aplicação.
 - O perfil salvo não foi alterado depois da compilação.
 
@@ -409,7 +409,7 @@ Opções que importam para o KlipPocket:
   do dispositivo. Na maioria das placas OEM isso é uma ponte USB-serial
   embarcada ligada a uma UART, não o USB nativo do MCU. Escolha a UART em que a
   porta USB está ligada.
-- **Baud** — o KlipPocket só suporta **250000**.
+- **Baud** — **250000** é o padrão do KlipPocket e funciona na maioria das placas. Se o firmware da sua placa usa outra velocidade (por exemplo 115200), escolha a mesma para essa placa em **Configurações → USB → Listar dispositivos USB**.
 
 Uma config "known-good" da comunidade para a placa é um bom ponto de partida:
 carregue-a, rode `make menuconfig` uma vez para reconciliar, e salve.

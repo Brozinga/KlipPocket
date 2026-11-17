@@ -118,7 +118,9 @@ probe_points: 100, 100, 20
 
 Os nomes dos pinos dependem da placa; use os da documentação dela. Uma seção
 como `[mcu toolhead]` só precisa do `serial:`; não há linha `baud:` para
-configurar (o app cuida da conexão).
+configurar (o app cuida da conexão). A velocidade serial é escolhida por placa em
+**Configurações → USB → Listar dispositivos USB**; o padrão, 250000, funciona na
+maioria das placas, então altere só se uma placa não conectar.
 
 Salve e reinicie. No Fluidd/Mainsail o painel **System** lista os dois MCUs, e o
 `Klipper` deve chegar em **Ready**.

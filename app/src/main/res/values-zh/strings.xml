@@ -94,6 +94,8 @@
     <string name="ListUSB">列出 USB 设备</string>
     <string name="ListUSBTitle">USB 设备</string>
     <string name="ListUSBNoDevices">未找到 USB 设备</string>
+    <string name="UsbBaudRate">波特率</string>
+    <string name="UsbBaudHint">高级设置。每块主板可以使用不同的速率，且必须与主板固件一致。大多数主板使用 250000 即可：仅在主板无法连接时才修改。</string>
     <string name="USBDeviceNaming">设备命名</string>
     <string name="USBDeviceNamingByPath">按路径</string>
     <string name="USBDeviceNamingByVidPid">按 VID/PID</string>

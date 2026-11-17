@@ -16,6 +16,7 @@
 | [firmware-tab.md](firmware-tab.md) | 固件标签页——在应用内下载固件并写入 Pico（USB / RP2040 方式），分步说明。 |
 | [print-recovery.md](print-recovery.md) | 断电续打 —— 断电或断线后恢复打印。 |
 | [timelapse.md](timelapse.md) | 延时摄影 —— 启用、切片软件设置、渲染，以及生成的视频存放位置。 |
+| [usb-baud-rate.md](usb-baud-rate.md) | 更改 USB 波特率——高级的按主板设置，为什么主板不同，在应用和 Dashboard 中操作。 |
 | [webcam.md](webcam.md) | 摄像头 / USB 摄像头——来源选择器、旋转、如何添加到 Fluidd 和 Mainsail。 |
 | [build-app.md](build-app.md) | 构建 APK —— 一键设置脚本（Linux/macOS/Windows）加手动步骤。 |
 | [build-firmware.md](build-firmware.md) | 为任意受支持的主板构建 MCU 固件 —— 脚本或 Docker。 |

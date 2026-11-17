@@ -22,6 +22,10 @@ import ru.ytkab0bp.beamklipper.utils.CameraTorchClient
 import ru.ytkab0bp.beamklipper.utils.CameraZoom
 import ru.ytkab0bp.beamklipper.utils.Engines
 import ru.ytkab0bp.beamklipper.utils.Frontends
+import android.hardware.usb.UsbManager
+import ru.ytkab0bp.beamklipper.serial.KlipperProbeTable
+import ru.ytkab0bp.beamklipper.serial.UsbBaud
+import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import ru.ytkab0bp.beamklipper.utils.Languages
 import ru.ytkab0bp.beamklipper.utils.ObicoLink
 import ru.ytkab0bp.beamklipper.utils.Prefs
@@ -77,6 +81,15 @@ class AndroidControlBackend(private val ctx: Context) : ControlBackend {
             "engine" -> { val v = value as? String ?: return "value"; if (v !in listOf(Prefs.ENGINE_KLIPPER, Prefs.ENGINE_KALICO)) "value" else if (!Engines.isInstalled(app.filesDir, v)) "unavailable" else { settings.setEngine(v); null } }
             "frontend" -> { val v = value as? String ?: return "value"; if (v !in Frontends.ALL) "value" else { settings.setFrontend(v); null } }
             "usbNaming" -> { val v = (value as? Number)?.toInt() ?: return "value"; if (v != Prefs.USB_DEVICE_NAMING_BY_PATH && v != Prefs.USB_DEVICE_NAMING_BY_VID_PID) "value" else { Prefs.usbDeviceNaming = v; null } }
+            "usbBaud" -> {
+                val uid = body.optString("uid")
+                val v = (value as? Number)?.toInt() ?: return "value"
+                // only a board the app really opens as a serial port, at a speed on the list
+                val known = (ctx.getSystemService(Context.USB_SERVICE) as UsbManager).deviceList.values.any {
+                    KlipperProbeTable.getInstance().findDriver(it) != null && UsbSerialManager.getUID(it) == uid
+                }
+                if (!known || !UsbBaud.isValid(v)) "value" else { UsbSerialManager.setBaudRate(uid, v); null }
+            }
             "language" -> { val v = value as? String ?: return "value"; if (v !in Languages.ALL) "value" else { Prefs.appLanguage = v; null } }
             "cameraEnabled" -> {
                 val on = value as? Boolean ?: return "value"

@@ -94,6 +94,8 @@
     <string name="ListUSB">Listar dispositivos USB</string>
     <string name="ListUSBTitle">Dispositivos USB</string>
     <string name="ListUSBNoDevices">Nenhum dispositivo USB encontrado</string>
+    <string name="UsbBaudRate">Taxa de transmissão (baud)</string>
+    <string name="UsbBaudHint">Configuração avançada. Cada placa pode usar uma velocidade diferente, e ela precisa ser a mesma do firmware da placa. 250000 funciona na maioria das placas: altere só se a placa não conectar.</string>
     <string name="USBDeviceNaming">Nomeação de dispositivos</string>
     <string name="USBDeviceNamingByPath">Por caminho</string>
     <string name="USBDeviceNamingByVidPid">Por VID/PID</string>

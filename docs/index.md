@@ -16,6 +16,7 @@
 | [firmware-tab.md](firmware-tab.md) | The Firmware tab — download a firmware and flash a Pico (USB / RP2040 modes) from the app, step by step. |
 | [print-recovery.md](print-recovery.md) | Print recovery — resume a print after a power loss or disconnection. |
 | [timelapse.md](timelapse.md) | Timelapse — enabling it, slicer setup, rendering, and where the resulting video is. |
+| [usb-baud-rate.md](usb-baud-rate.md) | Changing the USB baud rate — an advanced, per-board setting, why boards differ, in the app and the Dashboard. |
 | [webcam.md](webcam.md) | Camera / USB webcam — source picker, rotation, adding it to Fluidd and Mainsail. |
 | [build-app.md](build-app.md) | Building the APK — one-shot setup script (Linux/macOS/Windows) plus manual steps. |
 | [build-firmware.md](build-firmware.md) | Building MCU firmware for any supported board — script or Docker. |
