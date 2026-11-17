@@ -16,6 +16,7 @@
 | [firmware-tab.md](firmware-tab.md) | A aba Firmware — baixar um firmware e gravar um Pico (modos USB / RP2040) pelo app, passo a passo. |
 | [print-recovery.md](print-recovery.md) | Recuperação de impressão — retomar após queda de energia ou desconexão. |
 | [timelapse.md](timelapse.md) | Timelapse — como ativar, configurar o fatiador, renderizar e onde fica o vídeo. |
+| [usb-baud-rate.md](usb-baud-rate.md) | Trocando a taxa de transmissão (baud) do USB — configuração avançada, por placa, por que as placas diferem, no app e no Dashboard. |
 | [webcam.md](webcam.md) | Câmera / webcam USB — seletor de fonte, rotação, como adicionar no Fluidd e Mainsail. |
 | [build-app.md](build-app.md) | Compilar o APK — script de setup em um comando (Linux/macOS/Windows) + passos manuais. |
 | [build-firmware.md](build-firmware.md) | Compilar firmware do MCU para qualquer placa suportada — script ou Docker. |

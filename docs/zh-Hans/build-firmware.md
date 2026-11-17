@@ -120,7 +120,7 @@ KlipPocket 在 Android 上运行 Klipper/Kalico 主机。打印机主板仍然�
 
 ![bootloader 偏移](../images/firmware-menu/menuconfig-5-bootloader.png)
 
-**Clock Reference** 保持默认（*8 MHz crystal*）。**Communication interface** 是主板与主机的通信方式，这里是 *Serial (on USART1 PA10/PA9)*；波特率保持 250000，这是 KlipPocket 唯一支持的：
+**Clock Reference** 保持默认（*8 MHz crystal*）。**Communication interface** 是主板与主机的通信方式，这里是 *Serial (on USART1 PA10/PA9)*；波特率保持 250000，这是 KlipPocket 的默认值（若设为其他速率，请在应用中为该主板设置相同的速率）：
 
 ![通信接口](../images/firmware-menu/menuconfig-6-communication.png)
 
@@ -227,7 +227,7 @@ MCU 自带 USB 的主板（例如许多 STM32 和 RP2040 主板）会把通信�
 - 文件存在、非空，并与构建时记录的哈希一致。
 - 镜像格式：Intel HEX 校验和（AVR）、UF2 块（RP2040），以及 ARM `.bin` 的向量表是否合理、是否链接在所配置的 bootloader 偏移处。
 - 镜像是为配置中的 MCU 和时钟构建的，版本就是该引擎的版本。
-- 波特率为 250000（KlipPocket 唯一支持的），或主板使用 USB。
+- 波特率为 250000（KlipPocket 的默认值；若为其他速率，请在应用中为该主板设置相同的速率），或主板使用 USB。
 - bootloader 偏移留有空间，镜像能放进应用区。
 - 保存的配置档在构建之后没有被更改。
 
@@ -320,7 +320,7 @@ make menuconfig
 - **处理器型号** —— 与芯片完全一致。
 - **Bootloader 偏移** —— 多数 OEM 主板有一个 8–32 KiB 的 bootloader 必须保留（例如 `CONFIG_FLASH_START_8000`）。这是主要的变砖风险。
 - **通信接口** —— KlipPocket 通过设备的 OTG 口用 **USB 串口**。多数 OEM 主板上这是板载 USB-串口桥接芯片接到某个 UART，而非 MCU 的原生 USB。选 USB 口所接的那个 UART。
-- **波特率** —— KlipPocket 只支持 **250000**。
+- **波特率** —— **250000** 是 KlipPocket 的默认值，大多数主板适用。如果主板固件使用其他速率（例如 115200），请在 **设置 → USB → 列出 USB 设备** 中为该主板选择相同的速率。
 
 社区里针对该主板的「known-good」配置是很好的起点：加载它，运行一次 `make menuconfig` 来调和，保存。
 

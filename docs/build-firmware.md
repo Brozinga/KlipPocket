@@ -148,7 +148,7 @@ important setting to get right:
 
 **Clock Reference** keeps the default (*8 MHz crystal*). **Communication
 interface** is how the board talks to the host, here *Serial (on USART1
-PA10/PA9)*; the baud rate stays at 250000, the only one KlipPocket supports:
+PA10/PA9)*; the baud rate stays at 250000, KlipPocket's default (another speed works if you set the same one for the board in the app):
 
 ![Communication interface](images/firmware-menu/menuconfig-6-communication.png)
 
@@ -292,7 +292,7 @@ Run by *Make Firmware* and by option **5**:
   `.bin` files a sane vector table linked at the configured bootloader offset.
 - The image was built for the MCU and clock in the configuration, and its
   version is the engine's version.
-- The baud rate is 250000 (the only one KlipPocket supports) or the board uses USB.
+- The baud rate is 250000 (KlipPocket's default; for another one, set the same speed for the board in the app) or the board uses USB.
 - The bootloader offset leaves room and the image fits the application area.
 - The saved profile was not changed after the build.
 
@@ -409,7 +409,7 @@ Settings that matter for KlipPocket:
   device's OTG port. On most OEM boards this is an onboard USB-serial bridge
   wired to a UART, not the MCU's native USB. Select the UART the USB port is
   wired to.
-- **Baud** — KlipPocket only supports **250000**.
+- **Baud** — **250000** is KlipPocket's default and works for most boards. If your board's firmware uses another speed (for example 115200), pick the same one for that board in **Settings → USB → List USB devices**.
 
 A community "known-good" config for the board is a good starting point: load it,
 run `make menuconfig` once to reconcile it, and save.

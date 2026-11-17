@@ -126,7 +126,7 @@ A hub is **supported**, but not required if your device can talk to the printer 
 - Some devices may reset device path on firmware restart, you should use VID/PID naming in that case
 - No SSH (You won't be able to build firmware or run additional autorun services anyway)
 - Some devices doesn't support OTG and charging at the same time, you must solder directly to the battery pins in that case (Or use different device, it's up to you)
-- Only 250000 baud rate is supported (I don't want to forward this setting into Android USB driver, almost all configurations use 250000 anyway)
+- **Serial speed (baud rate) is an advanced setting, chosen per board.** Each printer/MCU can use a different speed, so check the one your board's firmware uses (`CONFIG_SERIAL_BAUD`). In most cases the default, 250000, already works well: change it only if KlipPocket cannot connect to the MCU. Pick it in **Settings → USB → List USB devices** or on the Dashboard's USB list; it is saved per board only when you change it, and applies right away. For more information, see [Changing the USB baud rate](docs/usb-baud-rate.md).
 
 > **Most common snag:** if your phone can't charge and talk to the printer at
 > the same time over the same cable, that's the OTG+charging restriction above

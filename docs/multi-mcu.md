@@ -114,7 +114,9 @@ probe_points: 100, 100, 20
 
 Pin names depend on the board; use the pin names from its own documentation. A
 section such as `[mcu toolhead]` needs nothing else beyond `serial:`; there is
-no `baud:` line to set (the app handles the connection itself).
+no `baud:` line to set (the app handles the connection itself). The serial
+speed is chosen per board in **Settings → USB → List USB devices**; the default,
+250000, works for most boards, so change it only if a board does not connect.
 
 Save and restart. In Fluidd/Mainsail the **System** panel lists both MCUs, and
 `Klipper` should reach **Ready**.
