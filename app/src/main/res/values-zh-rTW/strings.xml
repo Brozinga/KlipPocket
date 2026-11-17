@@ -150,6 +150,9 @@
     <string name="CameraPreviewFocusHint">點擊預覽畫面即可對該位置對焦。</string>
     <string name="CameraPreviewFocusUnsupported">此相機不支援點擊對焦。</string>
     <string name="CameraPreviewFocusReset">重設對焦</string>
+    <string name="CameraFlashOn">開啟閃光燈</string>
+    <string name="CameraFlashOff">關閉閃光燈</string>
+    <string name="CameraFlashUnsupported">此相機沒有閃光燈。</string>
     <string name="CameraPreviewFocusSaved">應用程式重新啟動後會記住對焦。更換相機或其位置後請重設。</string>
     <string name="LogsSourceNotFound">找不到日誌來源。</string>
     <string name="LogsLoadFailed">載入失敗：%1$s</string>

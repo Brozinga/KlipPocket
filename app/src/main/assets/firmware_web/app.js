@@ -1039,6 +1039,11 @@
     return h('div', {}, body,
       cam.enabled && cam.permission ? h('div', {},
         h('p', { class: 'muted small', text: t(cam.focusSupported ? 'CameraPreviewFocusHint' : 'CameraPreviewFocusUnsupported') }),
+        cam.flashSupported
+          ? h('div', { class: 'actions' }, h('button', { class: 'btn secondary', onclick: async () => {
+              try { await api('POST', '/api/camera/flash', { on: !cam.flash }); cam.flash = !cam.flash; render(); } catch (_) {}
+            } }, t(cam.flash ? 'CameraFlashOff' : 'CameraFlashOn')))
+          : h('p', { class: 'muted small', text: t('CameraFlashUnsupported') }),
         cam.focusSupported ? h('p', { class: 'muted small', text: t('CameraPreviewFocusSaved') }) : null,
         cam.focusSupported ? h('div', { class: 'actions' }, h('button', { class: 'btn secondary', onclick: () => api('POST', '/api/camera/focus/reset', {}).then(() => toast(t('saved'))).catch(() => {}) }, t('CameraPreviewFocusReset'))) : null) : null);
   }

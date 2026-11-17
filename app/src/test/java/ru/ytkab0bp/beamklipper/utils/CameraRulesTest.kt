@@ -294,4 +294,64 @@ class CameraHttpTest {
         val part = CameraHttp.framePartHeader(77)
         assertEquals("--camera-frame\r\nContent-Type: image/jpeg\r\nContent-Length: 77\r\n\r\n", part)
     }
+
+    @Test
+    fun `the torch routes are recognised`() {
+        fun a(path: String) = CameraHttp.torchAction("GET $path HTTP/1.1")
+        assertEquals(CameraHttp.TorchAction.ON, a("/torch/on"))
+        assertEquals(CameraHttp.TorchAction.OFF, a("/torch/off"))
+        assertEquals(CameraHttp.TorchAction.TOGGLE, a("/torch/toggle"))
+        assertEquals(CameraHttp.TorchAction.STATUS, a("/torch/status"))
+        assertEquals(CameraHttp.TorchAction.STATUS, a("/torch"))
+        assertEquals(CameraHttp.TorchAction.ON, a("/torch/on?x=1"))
+    }
+
+    @Test
+    fun `other requests are not torch requests`() {
+        assertNull(CameraHttp.torchAction(null))
+        assertNull(CameraHttp.torchAction("GET / HTTP/1.1"))
+        assertNull(CameraHttp.torchAction("GET /webcam/?action=stream HTTP/1.1"))
+        assertNull(CameraHttp.torchAction("GET /torchlight HTTP/1.1"))
+        assertNull(CameraHttp.torchAction("GET /torch/on/extra HTTP/1.1"))
+        assertNull(CameraHttp.torchAction("POST /torch/on HTTP/1.1"))
+        assertNull(CameraHttp.torchAction("garbage"))
+    }
+
+    @Test
+    fun `a torch request is not taken for a snapshot or a stream`() {
+        assertFalse(CameraHttp.isSnapshotRequest("GET /torch/on HTTP/1.1"))
+    }
+
+    @Test
+    fun `the flash state follows the action`() {
+        for (current in listOf(false, true)) {
+            assertTrue(CameraHttp.nextTorchState(CameraHttp.TorchAction.ON, current))
+            assertFalse(CameraHttp.nextTorchState(CameraHttp.TorchAction.OFF, current))
+            assertEquals(!current, CameraHttp.nextTorchState(CameraHttp.TorchAction.TOGGLE, current))
+            assertEquals(current, CameraHttp.nextTorchState(CameraHttp.TorchAction.STATUS, current))
+        }
+    }
+
+    @Test
+    fun `the torch answer is json Moonraker can read`() {
+        val on = CameraHttp.torchResponse(200, true, true)
+        assertTrue(on.startsWith("HTTP/1.0 200 OK\r\n"))
+        assertTrue(on.endsWith("\r\n\r\n{\"state\":\"on\",\"supported\":true}"))
+        assertTrue(on.contains("Content-Type: application/json\r\n"))
+        assertTrue(on.contains("Content-Length: ${"{\"state\":\"on\",\"supported\":true}".length}\r\n"))
+        assertTrue(CameraHttp.torchResponse(200, false, true).endsWith("{\"state\":\"off\",\"supported\":true}"))
+        assertTrue(CameraHttp.torchResponse(409, false, false).startsWith("HTTP/1.0 409 Conflict\r\n"))
+        assertTrue(CameraHttp.torchResponse(403, false, true).startsWith("HTTP/1.0 403 Forbidden\r\n"))
+    }
+
+    @Test
+    fun `the torch state is read back from the answer`() {
+        assertEquals(true, CameraHttp.parseTorchState("{\"state\":\"on\",\"supported\":true}"))
+        assertEquals(false, CameraHttp.parseTorchState("{\"state\": \"off\",\"supported\":true}"))
+        assertNull(CameraHttp.parseTorchState("{\"state\":\"maybe\"}"))
+        assertNull(CameraHttp.parseTorchState("not json"))
+        assertNull(CameraHttp.parseTorchState(null))
+        val sent = CameraHttp.torchResponse(200, true, true).substringAfter("\r\n\r\n")
+        assertEquals(true, CameraHttp.parseTorchState(sent))
+    }
 }

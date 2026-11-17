@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,11 +54,15 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.ytkab0bp.beamklipper.KlipperApp
 import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.service.CameraService
+import ru.ytkab0bp.beamklipper.utils.CameraFlash
+import ru.ytkab0bp.beamklipper.utils.Prefs
 import ru.ytkab0bp.beamklipper.utils.CameraFocus
+import ru.ytkab0bp.beamklipper.utils.CameraTorchClient
 import ru.ytkab0bp.beamklipper.ui.components.KlipButton
 import ru.ytkab0bp.beamklipper.ui.theme.Ink
 import java.io.BufferedInputStream
@@ -83,6 +88,16 @@ fun CameraPreviewScreen() {
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted = it }
     var frame by remember { mutableStateOf<Bitmap?>(null) }
     val focusSupported = remember { CameraFocus.isSupportedForSelectedCamera(context) }
+    val scope = rememberCoroutineScope()
+    val flashSupported = remember { CameraFlash.isSupportedForSelectedCamera(context) }
+    var flashOn by remember { mutableStateOf(Prefs.isFlashlightEnabled) }
+    // The flash can also be switched from Fluidd/Mainsail or the Dashboard.
+    LaunchedEffect(Unit) {
+        while (true) {
+            flashOn = withContext(Dispatchers.IO) { CameraTorchClient.request("status") } ?: Prefs.isFlashlightEnabled
+            delay(2000)
+        }
+    }
     // Where the last tap landed (in box pixels) + a counter so repeated taps
     // on the same spot still restart the animation.
     var focusTap by remember { mutableStateOf<FocusTap?>(null) }
@@ -205,6 +220,20 @@ fun CameraPreviewScreen() {
                     modifier = Modifier.padding(16.dp)
                 )
             }
+        }
+        Spacer(Modifier.height(8.dp))
+        if (flashSupported) {
+            KlipButton(
+                text = stringResource(if (flashOn) R.string.CameraFlashOff else R.string.CameraFlashOn),
+                onClick = {
+                    val want = !flashOn
+                    scope.launch {
+                        flashOn = withContext(Dispatchers.IO) { CameraTorchClient.request(if (want) "on" else "off") } ?: flashOn
+                    }
+                }
+            )
+        } else {
+            Text(stringResource(R.string.CameraFlashUnsupported), style = MaterialTheme.typography.bodySmall, color = Ink)
         }
         Spacer(Modifier.height(8.dp))
         Text(

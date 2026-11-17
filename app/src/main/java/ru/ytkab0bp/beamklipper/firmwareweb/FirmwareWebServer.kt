@@ -185,6 +185,12 @@ class FirmwareWebServer(
                 control.focusAt(x, y)
                 ok()
             }
+            path == "/api/camera/flash" && s.method == Method.POST -> {
+                val b = json ?: return error(Status.BAD_REQUEST, "json")
+                if (!b.has("on") || b.opt("on") !is Boolean) return error(Status.BAD_REQUEST, "value")
+                control.setFlash(b.getBoolean("on"))
+                ok()
+            }
             path == "/api/camera/focus/reset" && s.method == Method.POST -> { control.resetFocus(); ok() }
             path == "/api/mmu/printers" && s.method == Method.GET -> ok((mmu ?: return error(Status.NOT_FOUND, "route")).printers())
             path == "/api/mmu" && s.method == Method.POST -> {

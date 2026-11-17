@@ -60,6 +60,55 @@ KlipPocket 可以推送实时摄像头画面用于监控打印——可以是设
 - 点击后该摄像头会切换为单次自动对焦；应用设置中的对焦模式会在下次摄像头重启时重新生效。
 - 旧设备（Android 5.0+）也可使用：仅使用标准 Camera2 对焦控制，并会先检查摄像头上报的能力再启用。
 
+### 闪光灯（手机补光）
+
+如果摄像头带闪光灯（通常是后置摄像头），应用和 Dashboard 的**摄像头标签页**会显示
+**打开闪光灯 / 关闭闪光灯**按钮，用来给打印件补光，状态会被记住。没有闪光灯的摄像头
+（前置、USB 摄像头）会显示“此摄像头没有闪光灯。”
+
+要在 **Fluidd/Mainsail** 中切换，请把它作为电源设备加入打印机的 `moonraker.conf`，
+它会和其他设备一起显示，可在那里开关：
+
+```ini
+[power phone_flash]
+type: http
+on_url: http://127.0.0.1:8889/torch/on
+off_url: http://127.0.0.1:8889/torch/off
+status_url: http://127.0.0.1:8889/torch/status
+response_template:
+  {% set resp = http_request.last_response().json() %}
+  {resp["state"]}
+```
+
+闪光灯只在摄像头服务器开启时才会亮。`/torch/on`、`/torch/off`、`/torch/toggle`、
+`/torch/status` 只响应手机本机（打印机的 Moonraker），不响应网络中的其他设备。
+
+#### 宏（可选）
+
+G-code 本身不能发起 HTTP 请求，但 Klipper 可以让 Moonraker 切换电源设备。把下面内容加入
+`printer.cfg` 并执行 `RESTART`：
+
+```ini
+[gcode_macro FLASH_ON]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="on")}
+
+[gcode_macro FLASH_OFF]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="off")}
+
+[gcode_macro FLASH_TOGGLE]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="toggle")}
+```
+
+它们会作为按钮出现在 Fluidd/Mainsail 的宏面板中；也可以在 `PRINT_START` 中调用 `FLASH_ON`、
+在 `PRINT_END` 中调用 `FLASH_OFF`，只在打印期间补光。`device=` 的名称必须与上面的
+`[power phone_flash]` 一致（名称中不要有空格）。
+
+开关出现的位置：**Fluidd** 在顶部栏的电源菜单；**Mainsail** 在页眉的电源菜单，以及仪表盘的
+**Power** 面板（需在界面设置中启用）。修改 `moonraker.conf` 后请重启 Moonraker。
+
 ### USB 摄像头支持
 
 这依赖设备通过 Android 标准 Camera2 API 将 USB 摄像头暴露为外部摄像头

@@ -81,6 +81,62 @@ e o Fluidd/Mainsail também veem o novo foco, pois recebem o mesmo stream.
 - Funciona em aparelhos antigos (Android 5.0+): usa só os controles de foco
   padrão da Camera2 e confere o que a câmera informa antes de se habilitar.
 
+### Flash (luz do celular)
+
+Com uma câmera que tenha flash (em geral a traseira), a **aba da câmera** — no
+app e no Dashboard — mostra o botão **Ligar o flash / Desligar o flash** para
+iluminar a impressão. O estado é lembrado. Câmeras sem flash (frontal, webcams
+USB) mostram "Esta câmera não tem flash.".
+
+Para ligar pelo **Fluidd/Mainsail**, adicione no `moonraker.conf` da impressora
+como um dispositivo de energia; ele aparece junto com os demais e pode ser
+alternado por lá:
+
+```ini
+[power phone_flash]
+type: http
+on_url: http://127.0.0.1:8889/torch/on
+off_url: http://127.0.0.1:8889/torch/off
+status_url: http://127.0.0.1:8889/torch/status
+response_template:
+  {% set resp = http_request.last_response().json() %}
+  {resp["state"]}
+```
+
+O flash só acende com o servidor de câmera ligado. Os endereços `/torch/on`,
+`/torch/off`, `/torch/toggle` e `/torch/status` só respondem ao próprio
+celular (o Moonraker da impressora), nunca a outros aparelhos da rede.
+
+#### Macros (opcional)
+
+O G-code não chama HTTP sozinho, mas o Klipper pode pedir ao Moonraker para
+mexer em um dispositivo de energia. Acrescente no `printer.cfg` e rode
+`RESTART`:
+
+```ini
+[gcode_macro FLASH_ON]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="on")}
+
+[gcode_macro FLASH_OFF]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="off")}
+
+[gcode_macro FLASH_TOGGLE]
+gcode:
+  {action_call_remote_method("set_device_power", device="phone_flash", state="toggle")}
+```
+
+Elas aparecem como botões no painel de macros do Fluidd/Mainsail, e você pode
+chamar `FLASH_ON` no `PRINT_START` e `FLASH_OFF` no `PRINT_END` para iluminar
+só durante a impressão. O nome em `device=` precisa ser igual ao da seção
+`[power phone_flash]` acima (sem espaços no nome).
+
+Onde o interruptor aparece: no **Fluidd**, no menu de energia da barra
+superior; no **Mainsail**, no menu de energia do cabeçalho e no painel
+**Power** do dashboard (quando ativado nas configurações da interface). Depois
+de editar o `moonraker.conf`, reinicie o Moonraker.
+
 ### Suporte a webcam USB
 
 Isso depende do aparelho expor a webcam USB pela API Camera2 padrão do

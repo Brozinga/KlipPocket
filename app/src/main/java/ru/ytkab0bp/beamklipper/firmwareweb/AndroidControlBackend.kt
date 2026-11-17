@@ -16,7 +16,9 @@ import ru.ytkab0bp.beamklipper.NewInstance
 import ru.ytkab0bp.beamklipper.ui.state.InstanceEditorViewModel
 import ru.ytkab0bp.beamklipper.ui.state.MainViewModel
 import ru.ytkab0bp.beamklipper.ui.state.SettingsViewModel
+import ru.ytkab0bp.beamklipper.utils.CameraFlash
 import ru.ytkab0bp.beamklipper.utils.CameraFocus
+import ru.ytkab0bp.beamklipper.utils.CameraTorchClient
 import ru.ytkab0bp.beamklipper.utils.CameraZoom
 import ru.ytkab0bp.beamklipper.utils.Engines
 import ru.ytkab0bp.beamklipper.utils.Frontends
@@ -156,6 +158,8 @@ class AndroidControlBackend(private val ctx: Context) : ControlBackend {
         .put("enabled", Prefs.isCameraEnabled)
         .put("permission", hasCameraPermission())
         .put("focusSupported", try { CameraFocus.isSupportedForSelectedCamera(ctx) } catch (_: Throwable) { false })
+        .put("flashSupported", CameraFlash.isSupportedForSelectedCamera(ctx))
+        .put("flash", CameraTorchClient.request("status") ?: Prefs.isFlashlightEnabled)
 
     override fun openCameraStream(): CameraFeed? {
         if (!Prefs.isCameraEnabled) return null
@@ -195,6 +199,11 @@ class AndroidControlBackend(private val ctx: Context) : ControlBackend {
             Intent(CameraService.ACTION_TAP_FOCUS).putExtra(CameraService.KEY_TAP_X, x).putExtra(CameraService.KEY_TAP_Y, y),
             KlipperApp.PERMISSION
         )
+    }
+
+    override fun setFlash(on: Boolean) {
+        // The camera server keeps the state; with it down, remember the wish for when it starts
+        if (CameraTorchClient.request(if (on) "on" else "off") == null) Prefs.isFlashlightEnabled = on
     }
 
     override fun resetFocus() {

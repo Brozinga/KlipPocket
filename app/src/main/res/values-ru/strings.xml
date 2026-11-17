@@ -153,6 +153,9 @@
     <string name="CameraPreviewFocusHint">Коснитесь изображения, чтобы сфокусироваться в этой точке.</string>
     <string name="CameraPreviewFocusUnsupported">Эта камера не поддерживает фокусировку касанием.</string>
     <string name="CameraPreviewFocusReset">Сбросить фокус</string>
+    <string name="CameraFlashOn">Включить вспышку</string>
+    <string name="CameraFlashOff">Выключить вспышку</string>
+    <string name="CameraFlashUnsupported">У этой камеры нет вспышки.</string>
     <string name="CameraPreviewFocusSaved">Фокус сохраняется после перезапуска приложения. Сбросьте его, если вы сменили камеру или её положение.</string>
     <string name="LogsSourceNotFound">Источник журнала не найден.</string>
     <string name="LogsLoadFailed">Не удалось загрузить: %1$s</string>
