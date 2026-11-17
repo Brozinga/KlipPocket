@@ -8,6 +8,8 @@ data class WebFile(val name: String, val kind: String, val size: Long)
 data class WebDevice(
     val id: String, val label: String, val vendor: String, val product: String, val path: String,
     val driver: String?, val serialPath: String?,
+    /** Id of the board for its serial speed and that speed; null for a device the app does not open as a serial port. */
+    val uid: String? = null, val baud: Int? = null,
 )
 
 /** [state]: idle, running, done or error. */

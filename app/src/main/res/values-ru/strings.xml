@@ -94,6 +94,8 @@
     <string name="ListUSB">Отобразить список USB устройств</string>
     <string name="ListUSBTitle">USB устройства</string>
     <string name="ListUSBNoDevices">USB устройства не найдены</string>
+    <string name="UsbBaudRate">Скорость (бод)</string>
+    <string name="UsbBaudHint">Расширенная настройка. Каждая плата может работать на своей скорости, и она должна совпадать с прошивкой платы. 250000 подходит большинству плат: меняйте, только если плата не подключается.</string>
     <string name="USBDeviceNaming">Наименование устройств</string>
     <string name="USBDeviceNamingByPath">По пути</string>
     <string name="USBDeviceNamingByVidPid">По VID/PID</string>

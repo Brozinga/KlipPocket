@@ -247,9 +247,9 @@ def cmd_validate(a):
         usb = cfg.get("CONFIG_USBSERIAL") == "y" or any(
             k.startswith("CONFIG_USB") and v == "y" for k, v in cfg.items())
         if baud is not None and baud != 250000:
-            r.warn("serial baud is %s — KlipPocket only supports 250000" % baud)
+            r.warn("serial baud is %s — set the same Baud rate for this board in KlipPocket (the default is 250000)" % baud)
         elif baud == 250000:
-            r.ok("serial baud 250000 (what KlipPocket expects)")
+            r.ok("serial baud 250000 (KlipPocket's default)")
         elif usb:
             r.ok("USB communication, id %s:%s (no UART baud to match)" % (
                 cfg.get("CONFIG_USB_VENDOR_ID", "?").replace("0x", ""),

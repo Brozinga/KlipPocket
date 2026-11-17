@@ -101,6 +101,8 @@
     <string name="ListUSB">List USB devices</string>
     <string name="ListUSBTitle">USB devices</string>
     <string name="ListUSBNoDevices">USB devices not found</string>
+    <string name="UsbBaudRate">Baud rate</string>
+    <string name="UsbBaudHint">Advanced setting. Each board can use its own speed, and it must match the board\'s firmware. 250000 works for most boards: change it only if the board does not connect.</string>
     <string name="USBDeviceNaming">Device naming</string>
     <string name="USBDeviceNamingByPath">By path</string>
     <string name="USBDeviceNamingByVidPid">By VID/PID</string>

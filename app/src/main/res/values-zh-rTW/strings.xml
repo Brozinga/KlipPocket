@@ -94,6 +94,8 @@
     <string name="ListUSB">列出 USB 裝置</string>
     <string name="ListUSBTitle">USB 裝置</string>
     <string name="ListUSBNoDevices">找不到 USB 裝置</string>
+    <string name="UsbBaudRate">鮑率</string>
+    <string name="UsbBaudHint">進階設定。每塊主機板可以使用不同的速率，且必須與主機板韌體一致。大多數主機板使用 250000 即可：僅在主機板無法連線時才修改。</string>
     <string name="USBDeviceNaming">裝置命名</string>
     <string name="USBDeviceNamingByPath">依路徑</string>
     <string name="USBDeviceNamingByVidPid">依 VID/PID</string>

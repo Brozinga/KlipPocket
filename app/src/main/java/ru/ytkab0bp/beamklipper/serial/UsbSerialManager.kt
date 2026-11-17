@@ -20,7 +20,6 @@ import ru.ytkab0bp.beamklipper.utils.Prefs
 import ru.ytkab0bp.beamklipper.utils.ViewUtils
 import java.io.File
 import java.io.IOException
-import java.util.concurrent.atomic.AtomicInteger
 
 object UsbSerialManager {
     const val ACTION_ON_DEVICE_CONNECTED = "${BuildConfig.APPLICATION_ID}.action.DEVICE_CONNECTED"
@@ -148,9 +147,10 @@ object UsbSerialManager {
         }
 
         val resetArduino = (flags and FLAG_RESET_ARDUINO) != 0
-        val currentBaudRate = AtomicInteger(250000)
         val port = drv.ports[0]
         val uid = getUID(drv.device)
+        // 250000 unless the user picked another speed for this board
+        val baudRate = Prefs.usbBaud(uid)
 
         // Drop a stale connection first, otherwise its release would delete the new port file
         entries.remove(uid)?.let { release(it, true) }
@@ -162,7 +162,7 @@ object UsbSerialManager {
             if (resetArduino) {
                 port.dtr = true
             }
-            port.setParameters(currentBaudRate.get(), UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+            port.setParameters(baudRate, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to open device ${drv.device}", e)
             try {
@@ -218,6 +218,20 @@ object UsbSerialManager {
         if (!entries.removeIfCurrent(uid, entry)) return
         release(entry, true)
         retryConnect(port.device, 0, 1)
+    }
+
+    // The user picks another speed for a board: saved, and applied right away when it is connected.
+    // Returns false when the speed is not one of UsbBaud.OPTIONS.
+    fun setBaudRate(uid: String, baud: Int): Boolean {
+        if (!UsbBaud.isValid(baud)) return false
+        Prefs.setUsbBaud(uid, baud)
+        val port = entries.get(uid)?.port ?: return true
+        try {
+            port.setParameters(baud, UsbSerialPort.DATABITS_8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to change the baud rate of $uid", e)
+        }
+        return true
     }
 
     fun getDevice(uid: String): UsbDevice? = entries.get(uid)?.port?.device

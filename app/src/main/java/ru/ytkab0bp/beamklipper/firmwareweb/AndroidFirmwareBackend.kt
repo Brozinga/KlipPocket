@@ -18,6 +18,7 @@ import ru.ytkab0bp.beamklipper.firmware.Picoboot
 import ru.ytkab0bp.beamklipper.firmware.isExperimental
 import ru.ytkab0bp.beamklipper.serial.KlipperProbeTable
 import ru.ytkab0bp.beamklipper.serial.UsbDeviceLabel
+import ru.ytkab0bp.beamklipper.serial.UsbBaud
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -82,6 +83,7 @@ class AndroidFirmwareBackend(private val ctx: Context) : FirmwareBackend {
             WebDevice(
                 d.deviceName, names[i], Integer.toHexString(d.vendorId), Integer.toHexString(d.productId), d.deviceName,
                 drv?.name, if (drv != null) File(KlipperApp.INSTANCE.filesDir, "serial/" + UsbSerialManager.getUID(d)).absolutePath else null,
+                if (drv != null) UsbSerialManager.getUID(d) else null, if (drv != null) Prefs.usbBaud(UsbSerialManager.getUID(d)) else null,
             )
         }
     }
@@ -125,7 +127,9 @@ class AndroidFirmwareBackend(private val ctx: Context) : FirmwareBackend {
         val usb = JSONArray()
         devices().forEach {
             usb.put(JSONObject().put("label", it.label).put("vendor", it.vendor).put("product", it.product)
-                .put("path", it.path).put("driver", it.driver ?: JSONObject.NULL).put("serialPath", it.serialPath ?: JSONObject.NULL))
+                .put("path", it.path).put("driver", it.driver ?: JSONObject.NULL).put("serialPath", it.serialPath ?: JSONObject.NULL)
+                .put("uid", it.uid ?: JSONObject.NULL).put("baud", it.baud ?: JSONObject.NULL)
+                .put("baudOptions", if (it.uid != null) JSONArray(UsbBaud.OPTIONS) else JSONObject.NULL))
         }
         return collector.info(usb)
     }

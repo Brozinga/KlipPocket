@@ -161,4 +161,32 @@ class PrefsTest {
         prefs("obico_server_url" to 5)
         assertEquals("5", Prefs.obicoServerUrl)
     }
+
+    @Test
+    fun `a board uses 250000 until the user changes it`() {
+        val fake = prefs()
+        assertEquals(250000, Prefs.usbBaud("printer"))
+        assertNull("nothing is written for a board nobody touched", fake.getString("usb_baud", null))
+    }
+
+    @Test
+    fun `the speed is saved per board`() {
+        prefs()
+        Prefs.setUsbBaud("printer", 115200)
+        Prefs.setUsbBaud("mmu", 500000)
+        assertEquals(115200, Prefs.usbBaud("printer"))
+        assertEquals(500000, Prefs.usbBaud("mmu"))
+        assertEquals(250000, Prefs.usbBaud("toolhead"))
+        Prefs.setUsbBaud("printer", 250000)
+        assertEquals(250000, Prefs.usbBaud("printer"))
+        assertEquals(500000, Prefs.usbBaud("mmu"))
+    }
+
+    @Test
+    fun `an invalid speed is not saved`() {
+        val fake = prefs()
+        Prefs.setUsbBaud("printer", 12345)
+        assertEquals(250000, Prefs.usbBaud("printer"))
+        assertNull(fake.getString("usb_baud", null))
+    }
 }

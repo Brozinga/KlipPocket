@@ -218,6 +218,18 @@
       selected ? h('div', { class: 'dot' }) : null);
   }
 
+  // the serial speed of a board the app opens as a serial port: an advanced setting, saved only when the user changes it
+  function baudRow(d) {
+    if (!d.uid || !d.baudOptions) return null;
+    return h('div', { class: 'box' },
+      h('label', { class: 'frow' }, h('span', { class: 'flabel', text: t('UsbBaudRate') }),
+        h('select', { id: 'baud-' + d.uid, onchange: async (e) => {
+          try { await api('POST', '/api/settings', { key: 'usbBaud', uid: d.uid, value: Number(e.target.value) }); toast(t('saved')); await pollDashboard(); render(true); }
+          catch (err) { toast(t('serverError'), true); await pollDashboard(); render(true); }
+        } }, d.baudOptions.map((o) => h('option', { value: String(o), selected: o === d.baud }, String(o))))),
+      h('p', { class: 'muted small', text: t('UsbBaudHint') }));
+  }
+
   async function refreshDevices() {
     try { const r = await api('GET', '/api/devices'); st.devices = r.devices; render(true); } catch (e) { /* offline banner handles it */ }
   }
@@ -563,7 +575,7 @@
         mcuRows(i))),
       h('h2', { class: 'section', text: t('ListUSBTitle') }),
       dash.usb.length === 0 ? h('p', { class: 'muted', text: t('ListUSBNoDevices') })
-        : dash.usb.map((d) => deviceRow({ label: d.label, vendor: d.vendor, product: d.product, path: d.path, driver: d.driver, serialPath: d.serialPath }, null, false)));
+        : dash.usb.map((d) => h('div', {}, deviceRow({ label: d.label, vendor: d.vendor, product: d.product, path: d.path, driver: d.driver, serialPath: d.serialPath }, null, false), baudRow(d))));
   }
 
   // ---- the cards at the top: all of them always, three per row at most, each row fills the line ----

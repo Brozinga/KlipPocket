@@ -41,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -78,6 +79,7 @@ import ru.ytkab0bp.beamklipper.R
 import ru.ytkab0bp.beamklipper.utils.CameraZoom
 import ru.ytkab0bp.beamklipper.serial.KlipperProbeTable
 import ru.ytkab0bp.beamklipper.serial.UsbDeviceLabel
+import ru.ytkab0bp.beamklipper.serial.UsbBaud
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import ru.ytkab0bp.beamklipper.ui.components.KlipButton
 import ru.ytkab0bp.beamklipper.ui.components.KlipSwitch
@@ -624,7 +626,7 @@ fun ConfigScreen(
         )
     }
     if (showCameraRotation) {
-        CameraValueDialog(
+        ValueListDialog(
             title = stringResource(R.string.CameraRotation),
             options = listOf(0, 90, 180, 270),
             selected = cameraRotation,
@@ -634,7 +636,7 @@ fun ConfigScreen(
         )
     }
     if (showCameraResolution) {
-        CameraValueDialog(
+        ValueListDialog(
             title = stringResource(R.string.CameraResolution),
             options = viewModel.cameraResolutionOptions(),
             selected = cameraResolution,
@@ -644,7 +646,7 @@ fun ConfigScreen(
         )
     }
     if (showCameraZoom) {
-        CameraValueDialog(
+        ValueListDialog(
             title = stringResource(R.string.CameraZoom),
             options = viewModel.cameraZoomOptions(),
             selected = viewModel.effectiveCameraZoom(cameraZoom),
@@ -1034,6 +1036,10 @@ internal fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
     val names = UsbDeviceLabel.numbered(devices.map {
         UsbDeviceLabel.baseName(try { it.productName } catch (e: SecurityException) { null })
     })
+    // The serial speed of each board is an advanced setting: picked here, saved only when changed.
+    var baudVersion by remember { mutableIntStateOf(0) }
+    var baudPick by remember { mutableStateOf<String?>(null) }
+    val uids = devices.map { dev -> if (KlipperProbeTable.getInstance().findDriver(dev) != null) UsbSerialManager.getUID(dev) else null }
     val list = mutableListOf<AnnotatedString>()
     for ((i, dev) in devices.withIndex()) {
         val drv = KlipperProbeTable.getInstance().findDriver(dev)
@@ -1065,10 +1071,23 @@ internal fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
                             color = Ink,
                             modifier = Modifier.padding(vertical = 6.dp)
                         )
+                        uids[i]?.let { uid ->
+                            val baud = remember(baudVersion) { Prefs.usbBaud(uid) }
+                            Text(
+                                stringResource(R.string.UsbBaudRate) + ": " + baud,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Accent,
+                                modifier = Modifier.clip(KlipShape).clickable { baudPick = uid }.padding(vertical = 8.dp)
+                            )
+                        }
                         // a line under each item separates it from the next one
                         if (i < list.lastIndex) {
                             Box(Modifier.fillMaxWidth().height(1.dp).background(Line))
                         }
+                    }
+                    if (uids.any { it != null }) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.UsbBaudHint), style = MaterialTheme.typography.bodySmall, color = Ink)
                     }
                 }
             }
@@ -1080,10 +1099,20 @@ internal fun ListUsbDialog(context: Context, onDismiss: () -> Unit) {
             )
         }
     )
+    baudPick?.let { uid ->
+        ValueListDialog(
+            title = stringResource(R.string.UsbBaudRate),
+            options = UsbBaud.OPTIONS,
+            selected = Prefs.usbBaud(uid),
+            label = { it.toString() },
+            onSelect = { UsbSerialManager.setBaudRate(uid, it); baudVersion++ },
+            onDismiss = { baudPick = null }
+        )
+    }
 }
 
 @Composable
-private fun <T> CameraValueDialog(
+private fun <T> ValueListDialog(
     title: String,
     options: List<T>,
     selected: T,

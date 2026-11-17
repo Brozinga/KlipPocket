@@ -247,7 +247,8 @@ class FirmwareWebServer(
     private fun devices() = JSONArray().also { a ->
         backend.devices().forEach {
             a.put(JSONObject().put("id", it.id).put("label", it.label).put("vendor", it.vendor).put("product", it.product)
-                .put("path", it.path).put("driver", it.driver ?: JSONObject.NULL).put("serialPath", it.serialPath ?: JSONObject.NULL))
+                .put("path", it.path).put("driver", it.driver ?: JSONObject.NULL).put("serialPath", it.serialPath ?: JSONObject.NULL)
+                .put("uid", it.uid ?: JSONObject.NULL).put("baud", it.baud ?: JSONObject.NULL))
         }
     }
 

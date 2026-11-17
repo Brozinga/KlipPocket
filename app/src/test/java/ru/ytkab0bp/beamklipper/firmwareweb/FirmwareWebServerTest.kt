@@ -422,6 +422,14 @@ class FirmwareWebServerTest {
         assertEquals(503, call("GET", "/api/camera/stream").code)
     }
 
+    @Test fun theSerialSpeedOfABoardGoesThroughTheSettings() {
+        login()
+        val body = JSONObject().put("key", "usbBaud").put("uid", "_dev_bus_usb_001_002").put("value", 115200)
+        assertEquals(200, call("POST", "/api/settings", json = body).code)
+        assertEquals("usbBaud" to 115200, control.applied.last().let { it.first to it.second.getInt("value") })
+        assertEquals("_dev_bus_usb_001_002", control.applied.last().second.getString("uid"))
+    }
+
     @Test fun theCameraFlashGoesThroughTheApp() {
         login()
         val cam = call("GET", "/api/camera").json()

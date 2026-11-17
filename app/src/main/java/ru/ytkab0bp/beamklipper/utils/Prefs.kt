@@ -14,6 +14,7 @@ import ru.ytkab0bp.beamklipper.events.CameraSourceChangedEvent
 import ru.ytkab0bp.beamklipper.events.EngineChangedEvent
 import ru.ytkab0bp.beamklipper.events.ObicoConfigChangedEvent
 import ru.ytkab0bp.beamklipper.events.WebFrontendChangedEvent
+import ru.ytkab0bp.beamklipper.serial.UsbBaud
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import ru.ytkab0bp.beamklipper.ui.state.AppState
 
@@ -285,6 +286,16 @@ object Prefs {
 
     val isObicoLinked: Boolean
         get() = !obicoAuthToken.isNullOrBlank()
+
+    // Serial speed per USB board (see UsbBaud); only boards the user changed are stored.
+    fun usbBaud(uid: String): Int = UsbBaud.resolve(UsbBaud.decode(mPrefs.getString("usb_baud", null)), uid)
+
+    fun setUsbBaud(uid: String, baud: Int) {
+        val saved = UsbBaud.decode(mPrefs.getString("usb_baud", null))
+        val next = UsbBaud.with(saved, uid, baud)
+        if (next == saved) return
+        mPrefs.edit().putString("usb_baud", UsbBaud.encode(next)).apply()
+    }
 
     var usbDeviceNaming: Int
         get() = getSafeInt("usb_device_naming", USB_DEVICE_NAMING_BY_PATH)
