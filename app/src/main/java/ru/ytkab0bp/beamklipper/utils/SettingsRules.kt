@@ -33,6 +33,7 @@ object Languages {
     // The languages the in-app picker offers, in order; "system" follows the device.
     val ALL: List<String> = listOf(
         Prefs.LANGUAGE_SYSTEM, Prefs.LANGUAGE_ENGLISH, Prefs.LANGUAGE_PORTUGUESE_BRAZIL,
+        Prefs.LANGUAGE_SPANISH,
         Prefs.LANGUAGE_RUSSIAN, Prefs.LANGUAGE_CHINESE_SIMPLIFIED, Prefs.LANGUAGE_CHINESE_TRADITIONAL
     )
 
@@ -40,6 +41,7 @@ object Languages {
         Prefs.LANGUAGE_ENGLISH -> R.string.LanguageEnglish
         Prefs.LANGUAGE_PORTUGUESE_BRAZIL -> R.string.LanguagePortuguese
         Prefs.LANGUAGE_RUSSIAN -> R.string.LanguageRussian
+        Prefs.LANGUAGE_SPANISH -> R.string.LanguageSpanish
         Prefs.LANGUAGE_CHINESE_SIMPLIFIED -> R.string.LanguageChineseSimplified
         Prefs.LANGUAGE_CHINESE_TRADITIONAL -> R.string.LanguageChineseTraditional
         else -> R.string.LanguageSystem
