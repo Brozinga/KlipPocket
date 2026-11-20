@@ -1,6 +1,6 @@
 # Using OctoEverywhere
 
-**Languages: [English](octoeverywhere.md) · [Português (BR)](pt-br/octoeverywhere.md) · [简体中文](zh-Hans/octoeverywhere.md)**
+**Languages: [English](octoeverywhere.md) · [Português (BR)](pt-br/octoeverywhere.md) · [Español](es/octoeverywhere.md) · [简体中文](zh-Hans/octoeverywhere.md)**
 
 [OctoEverywhere](https://octoeverywhere.com) gives you remote access to your
 printer (webcam, status, control) from octoeverywhere.com or its mobile app,

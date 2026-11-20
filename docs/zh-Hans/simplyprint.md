@@ -1,6 +1,6 @@
 # 使用 SimplyPrint
 
-**语言: [English](../simplyprint.md) · [Português (BR)](../pt-br/simplyprint.md) · [简体中文](simplyprint.md)**
+**语言: [English](../simplyprint.md) · [Português (BR)](../pt-br/simplyprint.md) · [Español](../es/simplyprint.md) · [简体中文](simplyprint.md)**
 
 [SimplyPrint](https://simplyprint.io) 是一个 3D 打印平台，提供远程监控、打印管理和 AI 故障检测。
 KlipPocket 内置的 Moonraker 已经包含 SimplyPrint 连接，因此无需安装任何东西：

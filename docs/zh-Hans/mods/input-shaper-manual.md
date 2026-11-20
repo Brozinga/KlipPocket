@@ -1,6 +1,6 @@
 # 无加速度计调 input shaper（ringing tower 方法）
 
-**语言: [English](../../mods/input-shaper-manual.md) · [Português (BR)](../../pt-br/mods/input-shaper-manual.md) · [简体中文](input-shaper-manual.md)**
+**语言: [English](../../mods/input-shaper-manual.md) · [Português (BR)](../../pt-br/mods/input-shaper-manual.md) · [Español](../../es/mods/input-shaper-manual.md) · [简体中文](input-shaper-manual.md)**
 
 Klipper 的自动共振测试（`TEST_RESONANCES`、`SHAPER_CALIBRATE`）需要打印头上有一个 ADXL345 / LIS2DW / MPU-9250 加速度计。许多打印机没有，而在 KlipPocket 上加装一个需要把 SPI/I²C 传感器接到打印机 MCU（Android 设备帮不上忙）。
 

@@ -1,6 +1,6 @@
 # Firmware tab — download and install MCU firmware from the app
 
-**Languages: [English](firmware-tab.md) · [Português (BR)](pt-br/firmware-tab.md) · [简体中文](zh-Hans/firmware-tab.md)**
+**Languages: [English](firmware-tab.md) · [Português (BR)](pt-br/firmware-tab.md) · [Español](es/firmware-tab.md) · [简体中文](zh-Hans/firmware-tab.md)**
 
 The **Firmware** tab (the chip icon in the top bar) lets you fetch a firmware
 file and write it to a board plugged into the phone/tablet, without a PC. It is

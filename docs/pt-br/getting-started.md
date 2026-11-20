@@ -1,6 +1,6 @@
 # Primeiros passos — instalar o KlipPocket e configurar sua primeira impressora
 
-**Idiomas: [English](../getting-started.md) · [Português (BR)](getting-started.md) · [简体中文](../zh-Hans/getting-started.md)**
+**Idiomas: [English](../getting-started.md) · [Português (BR)](getting-started.md) · [Español](../es/getting-started.md) · [简体中文](../zh-Hans/getting-started.md)**
 
 Um passo a passo para quem nunca fez isso antes. Os passos servem para qualquer
 impressora que já rode o firmware Klipper.

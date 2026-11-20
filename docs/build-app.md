@@ -1,6 +1,6 @@
 # Building the APK
 
-**Languages: [English](build-app.md) · [Português (BR)](pt-br/build-app.md) · [简体中文](zh-Hans/build-app.md)**
+**Languages: [English](build-app.md) · [Português (BR)](pt-br/build-app.md) · [Español](es/build-app.md) · [简体中文](zh-Hans/build-app.md)**
 
 The build needs the Android SDK/NDK, a JDK, and a **Python 3.10** interpreter
 (Chaquopy compiles the bundled Python against 3.10). Nothing is committed that

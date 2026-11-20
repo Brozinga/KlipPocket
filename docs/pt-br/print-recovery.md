@@ -1,6 +1,6 @@
 # Recuperação de impressão — retomar após queda de energia
 
-**Idiomas: [English](../print-recovery.md) · [Português (BR)](print-recovery.md) · [简体中文](../zh-Hans/print-recovery.md)**
+**Idiomas: [English](../print-recovery.md) · [Português (BR)](print-recovery.md) · [Español](../es/print-recovery.md) · [简体中文](../zh-Hans/print-recovery.md)**
 
 Se a impressora perder energia, o cabo USB soltar ou o Klipper desligar no meio
 de uma impressão, o KlipPocket pode oferecer para **continuar a impressão de

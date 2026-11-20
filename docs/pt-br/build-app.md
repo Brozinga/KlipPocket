@@ -1,6 +1,6 @@
 # Compilando o APK
 
-**Idiomas: [English](../build-app.md) · [Português (BR)](build-app.md) · [简体中文](../zh-Hans/build-app.md)**
+**Idiomas: [English](../build-app.md) · [Português (BR)](build-app.md) · [Español](../es/build-app.md) · [简体中文](../zh-Hans/build-app.md)**
 
 O build precisa do Android SDK/NDK, de um JDK e de um interpretador **Python
 3.10** (o Chaquopy compila o Python embutido contra 3.10). Nada que exponha

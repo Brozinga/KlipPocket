@@ -1,6 +1,6 @@
 # 固件标签页 —— 在应用内下载并安装 MCU 固件
 
-**语言：[English](../firmware-tab.md) · [Português (BR)](../pt-br/firmware-tab.md) · [简体中文](firmware-tab.md)**
+**语言：[English](../firmware-tab.md) · [Português (BR)](../pt-br/firmware-tab.md) · [Español](../es/firmware-tab.md) · [简体中文](firmware-tab.md)**
 
 **固件**标签页（顶部栏的芯片图标）可以获取固件文件，并写入连接到手机/平板的主板，无需电脑。
 它相当于 [PC 菜单](build-firmware.md)中选项 **6 Flash Firmware** 在设备上的版本：

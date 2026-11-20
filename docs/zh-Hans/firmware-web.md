@@ -1,6 +1,6 @@
 # 固件网页 —— 用浏览器写入固件（端口 4400）
 
-**Languages: [English](../firmware-web.md) · [Português (BR)](../pt-br/firmware-web.md) · [简体中文](firmware-web.md)**
+**Languages: [English](../firmware-web.md) · [Português (BR)](../pt-br/firmware-web.md) · [Español](../es/firmware-web.md) · [简体中文](firmware-web.md)**
 
 [KlipPocket Dashboard](dashboard.md) 的 **固件** 标签页（应用在 **4400 端口**提供的网页），功能与[固件标签页](firmware-tab.md)相同，但可以在同一网络中
 电脑或另一部手机的浏览器里使用：上传固件文件、粘贴下载链接、查看连接到手机的 USB 设备并写入主板。

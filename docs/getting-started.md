@@ -1,6 +1,6 @@
 # Getting started — install KlipPocket and set up your first printer
 
-**Languages: [English](getting-started.md) · [Português (BR)](pt-br/getting-started.md) · [简体中文](zh-Hans/getting-started.md)**
+**Languages: [English](getting-started.md) · [Português (BR)](pt-br/getting-started.md) · [Español](es/getting-started.md) · [简体中文](zh-Hans/getting-started.md)**
 
 A step-by-step guide for people who have never done this before. The steps
 work for any printer that already runs Klipper firmware.

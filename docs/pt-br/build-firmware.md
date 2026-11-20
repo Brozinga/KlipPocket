@@ -1,6 +1,6 @@
 # Compilando o firmware do MCU
 
-**Idiomas: [English](../build-firmware.md) · [Português (BR)](build-firmware.md) · [简体中文](../zh-Hans/build-firmware.md)**
+**Idiomas: [English](../build-firmware.md) · [Português (BR)](build-firmware.md) · [Español](../es/build-firmware.md) · [简体中文](../zh-Hans/build-firmware.md)**
 
 O KlipPocket roda o host Klipper/Kalico no Android. A placa da impressora ainda
 precisa do firmware do MCU, compilado e gravado uma vez num PC (o Android não

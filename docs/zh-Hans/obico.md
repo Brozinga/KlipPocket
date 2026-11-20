@@ -1,6 +1,6 @@
 # 使用 Obico
 
-**语言: [English](../obico.md) · [Português (BR)](../pt-br/obico.md) · [简体中文](obico.md)**
+**语言: [English](../obico.md) · [Português (BR)](../pt-br/obico.md) · [Español](../es/obico.md) · [简体中文](obico.md)**
 
 [Obico](https://www.obico.io) 是一个社区构建的开源智能 3D 打印平台：远程监
 控、打印失败检测和远程控制，可以连接 Obico Cloud，也可以连接你自己搭建的

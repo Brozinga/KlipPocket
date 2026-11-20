@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin / Jetpack Compose">
 </p>
 
-**Leia em outros idiomas: [English](README.md) · [Português (BR)](README.pt-br.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
+**Leia em outros idiomas: [English](README.md) · [Português (BR)](README.pt-br.md) · [Español](README.es.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
 
 **O KlipPocket transforma um celular ou tablet Android no cérebro da sua impressora 3D.**
 Conecte-o à impressora por USB e ele roda o [Klipper](https://github.com/KevinOConnor/klipper) ou o [Kalico](https://github.com/KalicoCrew/kalico) para você — sem Raspberry Pi, sem SSH, sem Linux para manter.
@@ -63,7 +63,7 @@ Siga estes passos, na ordem:
 
 ## Documentação
 
-Todos os guias ficam em [`docs/`](docs/pt-br/index.md) (também em English e 简体中文):
+Todos os guias ficam em [`docs/`](docs/pt-br/index.md) (também em English, Español e 简体中文):
 
 - [Primeiros passos](docs/pt-br/getting-started.md) — instale o app e configure sua primeira impressora, passo a passo
 - [Compilando o firmware da MCU](docs/pt-br/build-firmware.md) — gere o firmware para gravar na placa da impressora

@@ -1,6 +1,6 @@
 # Klipper add-on mods bundled in KlipPocket
 
-**Languages: [English](klipper-addons.md) · [Português (BR)](../pt-br/mods/klipper-addons.md) · [简体中文](../zh-Hans/mods/klipper-addons.md)**
+**Languages: [English](klipper-addons.md) · [Português (BR)](../pt-br/mods/klipper-addons.md) · [Español](../es/mods/klipper-addons.md) · [简体中文](../zh-Hans/mods/klipper-addons.md)**
 
 These add-ons are bundled but inactive — Klipper loads one only when the matching
 `[section]` is present in `printer.cfg`, so a configuration that does not

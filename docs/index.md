@@ -1,6 +1,6 @@
 # KlipPocket — Documentation
 
-**Languages: [English](index.md) · [Português (BR)](pt-br/index.md) · [简体中文](zh-Hans/index.md)**
+**Languages: [English](index.md) · [Português (BR)](pt-br/index.md) · [Español](es/index.md) · [简体中文](zh-Hans/index.md)**
 
 | Document | Contents |
 |---|---|

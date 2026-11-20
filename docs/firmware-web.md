@@ -1,6 +1,6 @@
 # Firmware web page — flash firmware from a browser (port 4400)
 
-**Languages: [English](firmware-web.md) · [Português (BR)](pt-br/firmware-web.md) · [简体中文](zh-Hans/firmware-web.md)**
+**Languages: [English](firmware-web.md) · [Português (BR)](pt-br/firmware-web.md) · [Español](es/firmware-web.md) · [简体中文](zh-Hans/firmware-web.md)**
 
 The **Firmware** tab of the [KlipPocket Dashboard](dashboard.md) — the web page the app serves on **port 4400** — does what the
 [Firmware tab](firmware-tab.md) does, but from the browser of a PC or another

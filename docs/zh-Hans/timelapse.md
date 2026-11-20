@@ -1,6 +1,6 @@
 # 延时摄影（Timelapse）
 
-**语言: [English](../timelapse.md) · [Português (BR)](../pt-br/timelapse.md) · [简体中文](timelapse.md)**
+**语言: [English](../timelapse.md) · [Português (BR)](../pt-br/timelapse.md) · [Español](../es/timelapse.md) · [简体中文](timelapse.md)**
 
 KlipPocket 内置了 Moonraker-timelapse 组件。打印过程中它会在每一层拍一张打印机的照片，打印结束后再把这些照片合成为视频——全部在手机上完成，不需要电脑或云端。你可以在 Fluidd 或 Mainsail 的 **Timelapse** 页面进行控制。
 

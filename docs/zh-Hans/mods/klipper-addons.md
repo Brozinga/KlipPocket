@@ -1,6 +1,6 @@
 # KlipPocket 内置的 Klipper 附加模块
 
-**语言: [English](../../mods/klipper-addons.md) · [Português (BR)](../../pt-br/mods/klipper-addons.md) · [简体中文](klipper-addons.md)**
+**语言: [English](../../mods/klipper-addons.md) · [Português (BR)](../../pt-br/mods/klipper-addons.md) · [Español](../../es/mods/klipper-addons.md) · [简体中文](klipper-addons.md)**
 
 这些附加模块已随包附带但处于非激活状态 —— 只有当 `printer.cfg` 中存在对应的 `[section]` 时 Klipper 才会加载其中之一，因此不引用它们的配置不受影响。它们的选择标准是能在 Android / Chaquopy 下运行（Python 3.10，设备上没有编译器，用户没有 `pip`）。
 

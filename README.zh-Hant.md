@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin / Jetpack Compose">
 </p>
 
-**其他語言: [English](README.md) · [Português (BR)](README.pt-br.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
+**其他語言: [English](README.md) · [Português (BR)](README.pt-br.md) · [Español](README.es.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
 
 **KlipPocket 把一臺 Android 手機或平板變成 3D 印表機的“大腦”。**
 透過 USB 連線印表機，它就能為你執行 [Klipper](https://github.com/KevinOConnor/klipper) 或 [Kalico](https://github.com/KalicoCrew/kalico) —— 不需要樹莓派，不需要 SSH，也不用維護 Linux。

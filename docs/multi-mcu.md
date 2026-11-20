@@ -1,6 +1,6 @@
 # Using more than one MCU (multi-MCU)
 
-**Languages: [English](multi-mcu.md) · [Português (BR)](pt-br/multi-mcu.md) · [简体中文](zh-Hans/multi-mcu.md)**
+**Languages: [English](multi-mcu.md) · [Português (BR)](pt-br/multi-mcu.md) · [Español](es/multi-mcu.md) · [简体中文](zh-Hans/multi-mcu.md)**
 
 Some printers use a second board next to the main one: a toolhead board, a
 board that adds ports (stepper drivers, endstops, fans), or a small board that

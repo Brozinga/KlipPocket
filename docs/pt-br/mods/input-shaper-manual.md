@@ -1,6 +1,6 @@
 # Input shaper sem acelerômetro (método da torre de ringing)
 
-**Idiomas: [English](../../mods/input-shaper-manual.md) · [Português (BR)](input-shaper-manual.md) · [简体中文](../../zh-Hans/mods/input-shaper-manual.md)**
+**Idiomas: [English](../../mods/input-shaper-manual.md) · [Português (BR)](input-shaper-manual.md) · [Español](../../es/mods/input-shaper-manual.md) · [简体中文](../../zh-Hans/mods/input-shaper-manual.md)**
 
 O teste automático de ressonância do Klipper (`TEST_RESONANCES`,
 `SHAPER_CALIBRATE`) precisa de um acelerômetro ADXL345 / LIS2DW / MPU-9250 no

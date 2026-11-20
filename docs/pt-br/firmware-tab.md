@@ -1,6 +1,6 @@
 # Aba Firmware — baixar e instalar o firmware do MCU pelo app
 
-**Idiomas: [English](../firmware-tab.md) · [Português (BR)](firmware-tab.md) · [简体中文](../zh-Hans/firmware-tab.md)**
+**Idiomas: [English](../firmware-tab.md) · [Português (BR)](firmware-tab.md) · [Español](../es/firmware-tab.md) · [简体中文](../zh-Hans/firmware-tab.md)**
 
 A aba **Firmware** (o ícone de chip na barra superior) permite obter um arquivo
 de firmware e gravá-lo numa placa ligada ao celular/tablet, sem PC. É o

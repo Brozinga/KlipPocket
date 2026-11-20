@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/kotlin-Jetpack%20Compose-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin / Jetpack Compose">
 </p>
 
-**Read this in other languages: [English](README.md) · [Português (BR)](README.pt-br.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
+**Read this in other languages: [English](README.md) · [Português (BR)](README.pt-br.md) · [Español](README.es.md) · [简体中文](README.zh-Hans.md) · [繁體中文](README.zh-Hant.md)**
 
 **KlipPocket turns an Android phone or tablet into the brain of your 3D printer.**
 Plug it into the printer over USB and it runs [Klipper](https://github.com/KevinOConnor/klipper) or [Kalico](https://github.com/KalicoCrew/kalico) for you — no Raspberry Pi, no SSH, no Linux to maintain.
@@ -63,7 +63,7 @@ Follow these steps in order:
 
 ## Documentation
 
-All guides live in [`docs/`](docs/index.md) (also available in Português and 简体中文):
+All guides live in [`docs/`](docs/index.md) (also available in Português, Español and 简体中文):
 
 - [Getting Started](docs/getting-started.md) — install the app and set up your first printer, step by step
 - [Building the MCU firmware](docs/build-firmware.md) — interactive menu for Klipper or Kalico firmware (Docker): build, validate, flash (USB, UART, DFU, RP2040) and verify

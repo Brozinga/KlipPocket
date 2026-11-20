@@ -1,6 +1,6 @@
 # 更改 USB 波特率
 
-**语言: [English](../usb-baud-rate.md) · [Português (BR)](../pt-br/usb-baud-rate.md) · [简体中文](usb-baud-rate.md)**
+**语言: [English](../usb-baud-rate.md) · [Português (BR)](../pt-br/usb-baud-rate.md) · [Español](../es/usb-baud-rate.md) · [简体中文](usb-baud-rate.md)**
 
 **波特率**是 KlipPocket 与主板微控制器（MCU）之间串口链路的速度。它是**高级设置**，**按主板分别选择**，
 **大多数情况下默认的 250000 就能正常工作**。仅在 KlipPocket 无法连接 MCU 时才修改。

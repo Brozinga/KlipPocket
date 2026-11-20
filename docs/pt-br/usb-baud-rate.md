@@ -1,6 +1,6 @@
 # Trocando a taxa de transmissão (baud) do USB
 
-**Idiomas: [English](../usb-baud-rate.md) · [Português (BR)](usb-baud-rate.md) · [简体中文](../zh-Hans/usb-baud-rate.md)**
+**Idiomas: [English](../usb-baud-rate.md) · [Português (BR)](usb-baud-rate.md) · [Español](../es/usb-baud-rate.md) · [简体中文](../zh-Hans/usb-baud-rate.md)**
 
 A **taxa de transmissão (baud rate)** é a velocidade do enlace serial entre o
 KlipPocket e o microcontrolador (MCU) de uma placa. É uma **configuração

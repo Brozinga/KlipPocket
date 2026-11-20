@@ -1,6 +1,6 @@
 # KlipPocket Dashboard — see the phone, the printers and the logs from a browser (port 4400)
 
-**Languages: [English](dashboard.md) · [Português (BR)](pt-br/dashboard.md) · [简体中文](zh-Hans/dashboard.md)**
+**Languages: [English](dashboard.md) · [Português (BR)](pt-br/dashboard.md) · [Español](es/dashboard.md) · [简体中文](zh-Hans/dashboard.md)**
 
 The app serves a web page called **KlipPocket Dashboard** on **port 4400**. From
 the browser of a PC or another phone on the same network you can watch how the

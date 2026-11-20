@@ -1,6 +1,6 @@
 # Changing the USB baud rate
 
-**Languages: [English](usb-baud-rate.md) · [Português (BR)](pt-br/usb-baud-rate.md) · [简体中文](zh-Hans/usb-baud-rate.md)**
+**Languages: [English](usb-baud-rate.md) · [Português (BR)](pt-br/usb-baud-rate.md) · [Español](es/usb-baud-rate.md) · [简体中文](zh-Hans/usb-baud-rate.md)**
 
 The **baud rate** is the speed of the serial link between KlipPocket and a
 board's microcontroller (MCU). It is an **advanced setting**, chosen **per
