@@ -203,6 +203,19 @@
     <string name="FrontendUpdateDone">Update complete</string>
     <string name="FrontendUpdateError">Update failed: %1$s</string>
     <string name="FrontendUpdateErrorGeneric">Update failed</string>
+    <string name="AppUpdateChannel">App updates</string>
+    <string name="AppUpdateAvailableTitle">KlipPocket update available</string>
+    <string name="AppUpdateAvailableText">Version %1$s is out. Open Settings to update.</string>
+    <string name="AppUpdateReadyTitle">KlipPocket update ready</string>
+    <string name="AppUpdateReadyText">Tap to install KlipPocket %1$s.</string>
+    <string name="AppUpdateTitle">KlipPocket</string>
+    <string name="AppUpdateNotes">What\'s new</string>
+    <string name="AppUpdateNoNotes">No release notes.</string>
+    <string name="AppUpdateDownloading">Downloading… %1$d%%</string>
+    <string name="AppUpdateVerifying">Checking the download…</string>
+    <string name="AppUpdateReady">The installer is open — confirm there to finish.</string>
+    <string name="AppUpdateNeedsPermission">Allow KlipPocket to install apps, then tap Update again.</string>
+    <string name="AppUpdateError">Update failed: %1$s</string>
 
     <!-- Firmware tab -->
     <string name="FirmwareTitle">Firmware</string>

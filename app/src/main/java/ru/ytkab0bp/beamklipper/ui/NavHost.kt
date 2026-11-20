@@ -75,6 +75,11 @@ fun NavHost(
     LaunchedEffect(cameraEnabled) {
         if (!cameraEnabled && nav == NAV_CAMERA) nav = NAV_HOME
     }
+    // The "update available" notification was tapped: show Settings.
+    val openUpdate by ru.ytkab0bp.beamklipper.update.AppUpdateChecker.openRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(openUpdate) {
+        if (openUpdate) nav = NAV_CONFIG
+    }
     val statusInsets = WindowInsets.statusBars.asPaddingValues()
     val navBarInsets = WindowInsets.navigationBars.asPaddingValues()
 

@@ -187,6 +187,19 @@
     <string name="FrontendUpdateDone">Actualización completada</string>
     <string name="FrontendUpdateError">Error al actualizar: %1$s</string>
     <string name="FrontendUpdateErrorGeneric">Error al actualizar</string>
+    <string name="AppUpdateChannel">Actualizaciones de la app</string>
+    <string name="AppUpdateAvailableTitle">Actualización de KlipPocket disponible</string>
+    <string name="AppUpdateAvailableText">Ya salió la versión %1$s. Abre Ajustes para actualizar.</string>
+    <string name="AppUpdateReadyTitle">Actualización de KlipPocket lista</string>
+    <string name="AppUpdateReadyText">Toca para instalar KlipPocket %1$s.</string>
+    <string name="AppUpdateTitle">KlipPocket</string>
+    <string name="AppUpdateNotes">Novedades</string>
+    <string name="AppUpdateNoNotes">Sin notas de la versión.</string>
+    <string name="AppUpdateDownloading">Descargando… %1$d%%</string>
+    <string name="AppUpdateVerifying">Verificando la descarga…</string>
+    <string name="AppUpdateReady">El instalador está abierto: confirma allí para terminar.</string>
+    <string name="AppUpdateNeedsPermission">Permite que KlipPocket instale apps y toca Actualizar de nuevo.</string>
+    <string name="AppUpdateError">Error en la actualización: %1$s</string>
 
     <!-- Firmware tab -->
     <string name="FirmwareTitle">Firmware</string>

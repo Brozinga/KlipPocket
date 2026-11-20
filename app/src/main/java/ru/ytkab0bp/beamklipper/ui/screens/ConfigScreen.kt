@@ -39,6 +39,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -87,6 +89,8 @@ import ru.ytkab0bp.beamklipper.ui.components.KlipTextButton
 import ru.ytkab0bp.beamklipper.ui.components.KlipTile
 import ru.ytkab0bp.beamklipper.ui.components.klipScrollbar
 import ru.ytkab0bp.beamklipper.ui.state.SettingsViewModel
+import ru.ytkab0bp.beamklipper.update.AppUpdateChecker
+import ru.ytkab0bp.beamklipper.update.AppUpdateStep
 import ru.ytkab0bp.beamklipper.update.FrontendUpdateStep
 import ru.ytkab0bp.beamklipper.update.VersionCompare
 import ru.ytkab0bp.beamklipper.ui.theme.Accent
@@ -125,6 +129,10 @@ fun ConfigScreen(
     val fluiddVersion by viewModel.fluiddVersion.collectAsStateWithLifecycle()
     val mainsailVersion by viewModel.mainsailVersion.collectAsStateWithLifecycle()
     val voyagerVersion by viewModel.voyagerVersion.collectAsStateWithLifecycle()
+    val appUpdate by AppUpdateChecker.status.collectAsStateWithLifecycle()
+    val appUpdateStep by AppUpdateChecker.step.collectAsStateWithLifecycle()
+    var showAppNotes by remember { mutableStateOf(false) }
+    var showAppProgress by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     var showListUsb by remember { mutableStateOf(false) }
@@ -147,6 +155,7 @@ fun ConfigScreen(
     // timer (see FrontendUpdateChecker).
     LaunchedEffect(Unit) {
         viewModel.refreshVersionChecks()
+        AppUpdateChecker.checkNow()
     }
 
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
@@ -156,6 +165,15 @@ fun ConfigScreen(
     }
 
     val scrollState = rememberScrollState()
+    // Opened from the "update available" notification: scroll to the software versions.
+    val openUpdate by AppUpdateChecker.openRequest.collectAsStateWithLifecycle()
+    var versionsTop by remember { mutableIntStateOf(-1) }
+    LaunchedEffect(openUpdate, versionsTop) {
+        if (openUpdate && versionsTop >= 0) {
+            scrollState.animateScrollTo(versionsTop)
+            AppUpdateChecker.consumeOpenRequest()
+        }
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -221,7 +239,18 @@ fun ConfigScreen(
         }
 
         Spacer(Modifier.height(28.dp))
-        KlipSectionHeader(stringResource(R.string.SoftwareVersions))
+        Box(Modifier.onGloballyPositioned { versionsTop = it.positionInParent().y.toInt() }) {
+            KlipSectionHeader(stringResource(R.string.SoftwareVersions))
+        }
+        KlipUpdatableRow(
+            title = stringResource(R.string.AppUpdateTitle),
+            value = if (appUpdate.available) stringResource(R.string.FrontendVersionAvailable, appUpdate.current, appUpdate.latest?.tag ?: "?")
+            else stringResource(R.string.FrontendVersionUpToDate, appUpdate.current),
+            showUpdateButton = appUpdate.available,
+            onUpdateClick = { AppUpdateChecker.resetStep(); showAppProgress = true; AppUpdateChecker.startInstall(fromUi = true) },
+            onTextClick = if (appUpdate.available) ({ showAppNotes = true }) else null
+        )
+        Spacer(Modifier.height(8.dp))
         KlipInfoRow(
             title = stringResource(R.string.KlipperApp),
             value = versionStatusText(klipperVersion.bundled, klipperVersion.latest)
@@ -682,6 +711,49 @@ fun ConfigScreen(
             onDismiss = { showObicoLink = false }
         )
     }
+    if (showAppNotes) {
+        val latest = appUpdate.latest
+        KlipAlertDialog(
+            onDismissRequest = { showAppNotes = false },
+            title = { Text(stringResource(R.string.AppUpdateNotes) + " · " + (latest?.tag ?: ""), style = MaterialTheme.typography.titleLarge, color = Ink) },
+            text = { Text(latest?.notes?.ifBlank { null } ?: stringResource(R.string.AppUpdateNoNotes), color = Ink) },
+            confirmButton = {
+                KlipButton(text = stringResource(R.string.FrontendUpdateAction), onClick = {
+                    showAppNotes = false
+                    AppUpdateChecker.resetStep(); showAppProgress = true; AppUpdateChecker.startInstall(fromUi = true)
+                })
+            },
+            dismissButton = { KlipButton(text = stringResource(android.R.string.cancel), onClick = { showAppNotes = false }) }
+        )
+    }
+    if (showAppProgress) {
+        val step = appUpdateStep
+        val busy = step is AppUpdateStep.Downloading || step is AppUpdateStep.Verifying || step == AppUpdateStep.Idle
+        KlipAlertDialog(
+            onDismissRequest = { if (!busy) showAppProgress = false },
+            title = { Text(stringResource(R.string.FrontendUpdateAction), style = MaterialTheme.typography.titleLarge, color = Ink) },
+            text = {
+                when (val st = step) {
+                    is AppUpdateStep.Downloading -> Column {
+                        Text(stringResource(R.string.AppUpdateDownloading, st.percent), color = Ink)
+                        Spacer(Modifier.height(12.dp))
+                        Box(Modifier.fillMaxWidth().height(12.dp).background(PaperAlt, KlipShape).border(2.dp, Line, KlipShape)) {
+                            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction = (st.percent / 100f).coerceIn(0f, 1f)).background(Accent, KlipShape))
+                        }
+                    }
+                    AppUpdateStep.Idle -> Text(stringResource(R.string.AppUpdateDownloading, 0), color = Ink)
+                    AppUpdateStep.Verifying -> Text(stringResource(R.string.AppUpdateVerifying), color = Ink)
+                    AppUpdateStep.Ready -> Text(stringResource(R.string.AppUpdateReady), color = Ink)
+                    AppUpdateStep.NeedsPermission -> Text(stringResource(R.string.AppUpdateNeedsPermission), color = Ink)
+                    is AppUpdateStep.Error -> Text(stringResource(R.string.AppUpdateError, st.message ?: "?"), color = Accent)
+                }
+            },
+            confirmButton = {
+                if (!busy) KlipButton(text = stringResource(android.R.string.ok), onClick = { showAppProgress = false })
+            }
+        )
+    }
+
     confirmUpdateFrontend?.let { frontend ->
         val status = when (frontend) {
             Prefs.FRONTEND_FLUIDD -> fluiddVersion
@@ -818,14 +890,16 @@ private fun KlipUpdatableRow(
     title: String,
     value: String,
     showUpdateButton: Boolean,
-    onUpdateClick: () -> Unit
+    onUpdateClick: () -> Unit,
+    // Tapping the text itself (not the button), e.g. to read the release notes.
+    onTextClick: (() -> Unit)? = null
 ) {
     KlipTile(modifier = Modifier.fillMaxWidth(), background = PaperAlt) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f).then(if (onTextClick != null) Modifier.clickable(onClick = onTextClick) else Modifier)) {
                 Text(text = title, style = MaterialTheme.typography.bodyLarge, color = Ink)
                 Text(
                     text = value,

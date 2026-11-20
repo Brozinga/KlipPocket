@@ -35,6 +35,7 @@ FirmwareStartAddressHint FirmwareDeleteAll FirmwareDeleteOneConfirm FirmwareDele
 EngineFrontend FirmwareEngine WebFrontend USB USBDeviceNaming Camera EnableCamera CameraSource CameraRotation CameraResolution CameraZoom CameraZoomUnsupported CameraFlashOn CameraFlashOff CameraFlashUnsupported RemoteAccess EnableOctoEverywhere LinkOctoEverywhere Obico EnableObico ObicoServer ObicoServerCloud ObicoServerSelfHosted ObicoServerSelfHostedHint ObicoServerHint ObicoLink ObicoLinked ObicoNotLinked ObicoLinkHint ObicoGeneratedCodeLabel ObicoOpenLink ObicoWaitingForCode ObicoManualCodeHint ObicoLinkCodeHint ObicoLinkAction ObicoUnlink ObicoInvalidCode ObicoNetworkError ObicoAlreadyLinkedHint AppSettings AppLanguage CameraPreviewFocusHint CameraPreviewFocusSaved CameraPreviewFocusReset CameraPreviewFocusUnsupported CameraPreviewConnecting LinkOctoEverywhereNotReady
 NewInstance InstanceName InstanceDefaultNameHint InstanceConfig InstanceConfigHint InstanceConfigLoading Autostart InstanceCreate
 HappyHare HappyHareSubtitle HHChoosePrinter HHNoPrinters HHConfigured HHNotConfigured HHStart HHEdit HHStartOver HHChooseMmu HHReview HHProblemsTitle HHProblemsHelp HHWarningsTitle HHIncludePrinter HHIncludeHelp HHResetState HHReplaceNote HHInstall HHDone HHDoneRestart HHManualTitle HHManualPrinter HHManualMoonraker HHAddNow HHAdded HHUsbPick HHWorking HHFailed HHRestoreDefault HHNothingHere
+AppUpdateTitle AppUpdateNotes AppUpdateNoNotes AppUpdateDownloading AppUpdateVerifying AppUpdateReady AppUpdateNeedsPermission AppUpdateError FrontendUpdateAction FrontendVersionAvailable FrontendVersionUpToDate
 LogsLoading LogsRefresh LogsCopy LogsCopied LogsClear LogsClearTitle LogsClearMessage LogsCleared LogsClearFailed""".split()
 
 # Texts that exist only on the page. {0}, {1} are filled in by the page.
@@ -170,7 +171,7 @@ def unescape(text):
 
 
 def to_placeholders(text):
-    return re.sub(r"%(\d+)\$[sd]", lambda m: "{%d}" % (int(m.group(1)) - 1), text)
+    return re.sub(r"%(\d+)\$[sd]", lambda m: "{%d}" % (int(m.group(1)) - 1), text).replace("%%", "%")
 
 
 def load(folder):

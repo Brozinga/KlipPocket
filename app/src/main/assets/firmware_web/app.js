@@ -825,7 +825,7 @@
     tab = next;
     store.set('kp_tab', tab);
     if (tab === 'dashboard') { pollDashboard(); pollMetrics(); }
-    if (tab === 'settings') loadSettings();
+    if (tab === 'settings') { loadSettings(); if (authed) api('POST', '/api/settings', { key: 'appUpdateCheck' }).catch(() => {}); }
     if (tab === 'hh') mmuOpen();
     if (tab === 'camera') loadCamera().then(startStream);
     render(true);
@@ -880,6 +880,20 @@
 
   function settingsCard(title, children) { return h('div', { class: 'card' }, h('h3', { text: title }), children); }
 
+  function appUpdateCard(u) {
+    const stateText = u.state === 'downloading' ? t('AppUpdateDownloading', u.percent)
+      : u.state === 'verifying' ? t('AppUpdateVerifying')
+      : u.state === 'ready' ? t('AppUpdateReady')
+      : u.state === 'permission' ? t('AppUpdateNeedsPermission')
+      : u.state === 'error' ? t('AppUpdateError', u.error || '?') : '';
+    const busy = u.state === 'downloading' || u.state === 'verifying';
+    return settingsCard(t('AppUpdateTitle'), [
+      h('p', { class: u.available ? '' : 'okc', text: u.available ? t('FrontendVersionAvailable', u.current, u.latest) : t('FrontendVersionUpToDate', u.current) }),
+      u.available ? h('details', {}, h('summary', { text: t('AppUpdateNotes') }), h('pre', { class: 'box', text: u.notes || t('AppUpdateNoNotes') })) : null,
+      stateText ? h('p', { class: u.state === 'error' ? 'error' : 'muted small', id: 'app-update-state', text: stateText }) : null,
+      u.available ? h('div', { class: 'actions' }, h('button', { class: 'btn', id: 'app-update-btn', disabled: busy, onclick: () => setSetting('appUpdateInstall', {}) }, t('FrontendUpdateAction'))) : null]);
+  }
+
   function settingsView() {
     if (!cfg) return h('div', { class: 'center' }, h('div', { class: 'spinner' }));
     const cam = cfg.camera, ob = cfg.obico;
@@ -888,6 +902,7 @@
     return h('div', {},
       h('p', { class: 'muted', text: t('settingsHint') }),
       h('div', { class: 'cols' },
+        cfg.appUpdate ? appUpdateCard(cfg.appUpdate) : null,
         settingsCard(t('EngineFrontend'), [
           selectRow(t('FirmwareEngine'), cfg.engine, (v) => setSetting('engine', { value: v }), 's-engine'),
           selectRow(t('WebFrontend'), cfg.frontend, (v) => setSetting('frontend', { value: v }), 's-frontend')]),

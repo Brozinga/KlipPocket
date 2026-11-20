@@ -188,6 +188,19 @@
     <string name="FrontendUpdateDone">更新完成</string>
     <string name="FrontendUpdateError">更新失败：%1$s</string>
     <string name="FrontendUpdateErrorGeneric">更新失败</string>
+    <string name="AppUpdateChannel">应用更新</string>
+    <string name="AppUpdateAvailableTitle">KlipPocket 有可用更新</string>
+    <string name="AppUpdateAvailableText">版本 %1$s 已发布。请打开设置进行更新。</string>
+    <string name="AppUpdateReadyTitle">KlipPocket 更新已就绪</string>
+    <string name="AppUpdateReadyText">点按以安装 KlipPocket %1$s。</string>
+    <string name="AppUpdateTitle">KlipPocket</string>
+    <string name="AppUpdateNotes">更新内容</string>
+    <string name="AppUpdateNoNotes">没有版本说明。</string>
+    <string name="AppUpdateDownloading">正在下载… %1$d%%</string>
+    <string name="AppUpdateVerifying">正在校验下载…</string>
+    <string name="AppUpdateReady">安装程序已打开 — 请在其中确认以完成。</string>
+    <string name="AppUpdateNeedsPermission">请允许 KlipPocket 安装应用，然后再次点按“更新”。</string>
+    <string name="AppUpdateError">更新失败：%1$s</string>
 
     <!-- Firmware tab -->
     <string name="FirmwareTitle">固件</string>
