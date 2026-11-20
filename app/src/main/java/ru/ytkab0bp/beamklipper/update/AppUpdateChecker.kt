@@ -66,7 +66,8 @@ object AppUpdateChecker {
     private const val NOTIFICATION_ID = 0x4B50
     private const val CHECK_INTERVAL_MS = 12L * 60 * 60 * 1000
     private const val RETRY_INTERVAL_MS = 3L * 60 * 60 * 1000
-    private const val FIRST_CHECK_DELAY_MS = 30_000L
+    private const val FIRST_CHECK_DELAY_MS = 10_000L
+    private const val MIN_GAP_MS = 10L * 60 * 1000
 
     private val _status = MutableStateFlow(AppUpdateStatus(BuildConfig.VERSION_NAME, null, 0L))
     val status: StateFlow<AppUpdateStatus> = _status
@@ -89,8 +90,8 @@ object AppUpdateChecker {
 
     private val updatesDir: File get() = File(KlipperApp.INSTANCE.cacheDir, "app_update")
 
-    // Call once from the main process. The wait is measured from the last
-    // successful check (saved), so restarting the app never causes extra checks.
+    // Call once from the main process. While the app process lives it looks
+    // again every 12 h (twice a day); a failed look is retried after 3 h.
     fun startPeriodic() {
         if (!periodicStarted.compareAndSet(false, true)) return
         KlipperApp.appScope.launch(Dispatchers.IO) {
@@ -98,15 +99,26 @@ object AppUpdateChecker {
             updatesDir.deleteRecursively()
             delay(FIRST_CHECK_DELAY_MS)
             while (true) {
-                val since = System.currentTimeMillis() - Prefs.appUpdateLastCheck
-                if (since >= CHECK_INTERVAL_MS || since < 0) {
-                    val ok = check(notify = true)
-                    delay(if (ok) CHECK_INTERVAL_MS else RETRY_INTERVAL_MS)
-                } else {
-                    delay(CHECK_INTERVAL_MS - since)
-                }
+                val ok = checkIfDue()
+                delay(if (ok) CHECK_INTERVAL_MS else RETRY_INTERVAL_MS)
             }
         }
+    }
+
+    // The app screen was opened (also from a process that kept running in the
+    // background): look now. Only a look from the last few minutes holds it back,
+    // so switching back and forth never hammers GitHub.
+    fun onAppOpened() {
+        KlipperApp.appScope.launch(Dispatchers.IO) { checkIfDue() }
+    }
+
+    @Volatile private var lastAttemptMs = 0L
+
+    private fun checkIfDue(): Boolean {
+        val now = System.currentTimeMillis()
+        if (now - lastAttemptMs in 0 until MIN_GAP_MS) return true
+        lastAttemptMs = now
+        return check(notify = true)
     }
 
     // Opening Settings (or the Dashboard) asks right away.
@@ -127,12 +139,11 @@ object AppUpdateChecker {
             val tag = release?.tagName ?: return false
             val info = toInfo(tag, release)
             val now = System.currentTimeMillis()
-            Prefs.appUpdateLastCheck = now
             val status = AppUpdateStatus(BuildConfig.VERSION_NAME, info, now)
             _status.value = status
-            if (status.available && Prefs.appUpdateNotifiedTag != tag) {
-                // seen in Settings counts as told; only the background check rings
-                if (notify) postAvailableNotification(KlipperApp.INSTANCE, info)
+            // One notification per version; the look from Settings stays quiet (the screen already shows it).
+            if (notify && status.available && Prefs.appUpdateNotifiedTag != tag) {
+                postAvailableNotification(KlipperApp.INSTANCE, info)
                 Prefs.appUpdateNotifiedTag = tag
             }
             return true
