@@ -55,7 +55,7 @@ class SettingsRulesTest {
     @Test
     fun `the language picker starts with the device language`() {
         assertEquals(Prefs.LANGUAGE_SYSTEM, Languages.ALL.first())
-        assertEquals(6, Languages.ALL.size)
+        assertEquals(7, Languages.ALL.size)
     }
 
     @Test
