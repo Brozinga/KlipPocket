@@ -1,6 +1,6 @@
 # 快速上手 — 安装 KlipPocket 并设置第一台打印机
 
-**语言: [English](../getting-started.md) · [Português (BR)](../pt-br/getting-started.md) · [简体中文](getting-started.md)**
+**语言: [English](../getting-started.md) · [Português (BR)](../pt-br/getting-started.md) · [Español](../es/getting-started.md) · [简体中文](getting-started.md)**
 
 写给第一次接触的用户的分步指南。只要打印机已经运行
 Klipper 固件，步骤都是一样的。

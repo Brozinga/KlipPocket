@@ -1,6 +1,6 @@
 # Timelapse
 
-**Idiomas: [English](../timelapse.md) · [Português (BR)](timelapse.md) · [简体中文](../zh-Hans/timelapse.md)**
+**Idiomas: [English](../timelapse.md) · [Português (BR)](timelapse.md) · [Español](../es/timelapse.md) · [简体中文](../zh-Hans/timelapse.md)**
 
 O KlipPocket traz embutido o componente Moonraker-timelapse. Durante a
 impressão ele tira uma foto da impressora a cada camada e, quando a impressão

@@ -1,6 +1,6 @@
 # 使用 Happy Hare（多耗材 / MMU）
 
-**语言：[English](../happy-hare.md) · [Português (BR)](../pt-br/happy-hare.md) · [简体中文](happy-hare.md)**
+**语言：[English](../happy-hare.md) · [Português (BR)](../pt-br/happy-hare.md) · [Español](../es/happy-hare.md) · [简体中文](happy-hare.md)**
 
 [Happy Hare](https://github.com/moggieuk/Happy-Hare) 是 Klipper 上用于多材料单元（MMU）的驱动：ERCF、Tradrack、BoxTurtle、3MS、3D Chameleon、HTLF、KMS、MMX 等。KlipPocket 内置 **Happy Hare v4.1.0** 及其 Moonraker 组件，同时支持 Klipper 和 [Kalico](kalico.md)。只有配置文件里要求时才会启用，没有 MMU 的打印机不受影响。
 

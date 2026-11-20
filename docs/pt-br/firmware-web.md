@@ -1,6 +1,6 @@
 # Página web de firmware — grave firmware pelo navegador (porta 4400)
 
-**Languages: [English](../firmware-web.md) · [Português (BR)](firmware-web.md) · [简体中文](../zh-Hans/firmware-web.md)**
+**Languages: [English](../firmware-web.md) · [Português (BR)](firmware-web.md) · [Español](../es/firmware-web.md) · [简体中文](../zh-Hans/firmware-web.md)**
 
 A aba **Firmware** do [KlipPocket Dashboard](dashboard.md) — a página web que o app serve na **porta 4400** — faz o que a
 [aba Firmware](firmware-tab.md) faz, mas pelo navegador de um PC ou de outro

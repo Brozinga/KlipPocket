@@ -1,6 +1,6 @@
 # KlipPocket Dashboard — 在浏览器中查看手机、打印机和日志（端口 4400）
 
-**Languages: [English](../dashboard.md) · [Português (BR)](../pt-br/dashboard.md) · [简体中文](dashboard.md)**
+**Languages: [English](../dashboard.md) · [Português (BR)](../pt-br/dashboard.md) · [Español](../es/dashboard.md) · [简体中文](dashboard.md)**
 
 应用在 **4400 端口**提供一个名为 **KlipPocket Dashboard** 的网页。在同一网络的电脑或另一部手机的浏览器中，你可以查看运行 Klipper 的手机状态、打印机和 MCU，阅读（并清除）与应用 **日志** 页面相同的日志，并使用[固件](firmware-web.md)工具。页面沿用应用的风格（浅色/深色），在手机屏幕上也能使用。
 

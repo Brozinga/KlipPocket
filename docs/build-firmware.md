@@ -1,6 +1,6 @@
 # Building MCU firmware
 
-**Languages: [English](build-firmware.md) · [Português (BR)](pt-br/build-firmware.md) · [简体中文](zh-Hans/build-firmware.md)**
+**Languages: [English](build-firmware.md) · [Português (BR)](pt-br/build-firmware.md) · [Español](es/build-firmware.md) · [简体中文](zh-Hans/build-firmware.md)**
 
 KlipPocket runs the Klipper/Kalico host on Android. The printer mainboard still
 needs MCU firmware, built and flashed once on a PC (Android cannot compile).

@@ -1,6 +1,6 @@
 # Using Happy Hare (multi-filament / MMU)
 
-**Languages: [English](happy-hare.md) · [Português (BR)](pt-br/happy-hare.md) · [简体中文](zh-Hans/happy-hare.md)**
+**Languages: [English](happy-hare.md) · [Português (BR)](pt-br/happy-hare.md) · [Español](es/happy-hare.md) · [简体中文](zh-Hans/happy-hare.md)**
 
 [Happy Hare](https://github.com/moggieuk/Happy-Hare) is the Klipper driver for
 multi-material units (MMU): ERCF, Tradrack, BoxTurtle, 3MS, 3D Chameleon, HTLF,

@@ -1,6 +1,6 @@
 # 使用多个 MCU（multi-MCU）
 
-**语言：[English](../multi-mcu.md) · [Português (BR)](../pt-br/multi-mcu.md) · [简体中文](multi-mcu.md)**
+**语言：[English](../multi-mcu.md) · [Português (BR)](../pt-br/multi-mcu.md) · [Español](../es/multi-mcu.md) · [简体中文](multi-mcu.md)**
 
 有些打印机在主板之外还会再接一块板：工具头板、用来扩展接口（驱动、限位、风扇）的板，
 或只负责传感器（加速度计、涡流探头）的小板。在 Klipper 里，每一块都是一个额外的

@@ -1,6 +1,6 @@
 # Usando o Obico
 
-**Idiomas: [English](../obico.md) · [Português (BR)](obico.md) · [简体中文](../zh-Hans/obico.md)**
+**Idiomas: [English](../obico.md) · [Português (BR)](obico.md) · [Español](../es/obico.md) · [简体中文](../zh-Hans/obico.md)**
 
 O [Obico](https://www.obico.io) é uma plataforma de impressão 3D "smart",
 open-source e feita pela comunidade: monitoramento remoto, detecção de falha

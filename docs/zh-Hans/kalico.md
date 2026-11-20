@@ -1,6 +1,6 @@
 # 使用 Kalico
 
-**语言：[English](../kalico.md) · [Português (BR)](../pt-br/kalico.md) · [简体中文](kalico.md)**
+**语言：[English](../kalico.md) · [Português (BR)](../pt-br/kalico.md) · [Español](../es/kalico.md) · [简体中文](kalico.md)**
 
 [Kalico](https://github.com/KalicoCrew/kalico) 是 Klipper 的社区分支，允许使用
 Klipper 因可能有风险而不提供的功能和行为。KlipPocket 在 Klipper 之外还内置了

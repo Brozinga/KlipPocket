@@ -1,6 +1,6 @@
 # 使用摄像头 / USB 摄像头
 
-**语言: [English](../webcam.md) · [Português (BR)](../pt-br/webcam.md) · [简体中文](webcam.md)**
+**语言: [English](../webcam.md) · [Português (BR)](../pt-br/webcam.md) · [Español](../es/webcam.md) · [简体中文](webcam.md)**
 
 KlipPocket 可以推送实时摄像头画面用于监控打印——可以是设备自带的摄像头，也可以
 是通过 OTG/集线器连接的 USB UVC 摄像头。

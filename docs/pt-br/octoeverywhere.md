@@ -1,6 +1,6 @@
 # Usando o OctoEverywhere
 
-**Idiomas: [English](../octoeverywhere.md) · [Português (BR)](octoeverywhere.md) · [简体中文](../zh-Hans/octoeverywhere.md)**
+**Idiomas: [English](../octoeverywhere.md) · [Português (BR)](octoeverywhere.md) · [Español](../es/octoeverywhere.md) · [简体中文](../zh-Hans/octoeverywhere.md)**
 
 O [OctoEverywhere](https://octoeverywhere.com) dá acesso remoto à sua
 impressora (webcam, status, controle) pelo site octoeverywhere.com ou pelo

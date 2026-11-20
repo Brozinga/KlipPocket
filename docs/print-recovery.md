@@ -1,6 +1,6 @@
 # Print recovery — resume a print after a power loss
 
-**Languages: [English](print-recovery.md) · [Português (BR)](pt-br/print-recovery.md) · [简体中文](zh-Hans/print-recovery.md)**
+**Languages: [English](print-recovery.md) · [Português (BR)](pt-br/print-recovery.md) · [Español](es/print-recovery.md) · [简体中文](zh-Hans/print-recovery.md)**
 
 If the printer loses power, the USB cable comes loose or Klipper shuts down in
 the middle of a print, KlipPocket can offer to **continue that print from where

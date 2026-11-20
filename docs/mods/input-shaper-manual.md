@@ -1,6 +1,6 @@
 # Input shaper without an accelerometer (ringing-tower method)
 
-**Languages: [English](input-shaper-manual.md) · [Português (BR)](../pt-br/mods/input-shaper-manual.md) · [简体中文](../zh-Hans/mods/input-shaper-manual.md)**
+**Languages: [English](input-shaper-manual.md) · [Português (BR)](../pt-br/mods/input-shaper-manual.md) · [Español](../es/mods/input-shaper-manual.md) · [简体中文](../zh-Hans/mods/input-shaper-manual.md)**
 
 Klipper's automatic resonance testing (`TEST_RESONANCES`, `SHAPER_CALIBRATE`)
 needs an ADXL345 / LIS2DW / MPU-9250 accelerometer on the toolhead. Many printers

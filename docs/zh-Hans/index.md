@@ -1,6 +1,6 @@
 # KlipPocket — 文档
 
-**语言: [English](../index.md) · [Português (BR)](../pt-br/index.md) · [简体中文](index.md)**
+**语言: [English](../index.md) · [Português (BR)](../pt-br/index.md) · [Español](../es/index.md) · [简体中文](index.md)**
 
 | 文档 | 内容 |
 |---|---|

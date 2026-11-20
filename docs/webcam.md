@@ -1,6 +1,6 @@
 # Using the camera / USB webcam
 
-**Languages: [English](webcam.md) · [Português (BR)](pt-br/webcam.md) · [简体中文](zh-Hans/webcam.md)**
+**Languages: [English](webcam.md) · [Português (BR)](pt-br/webcam.md) · [Español](es/webcam.md) · [简体中文](zh-Hans/webcam.md)**
 
 KlipPocket can stream a live camera feed for print monitoring — either the
 device's own built-in camera, or a USB UVC webcam plugged in via OTG/a hub.

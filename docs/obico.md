@@ -1,6 +1,6 @@
 # Using Obico
 
-**Languages: [English](obico.md) · [Português (BR)](pt-br/obico.md) · [简体中文](zh-Hans/obico.md)**
+**Languages: [English](obico.md) · [Português (BR)](pt-br/obico.md) · [Español](es/obico.md) · [简体中文](zh-Hans/obico.md)**
 
 [Obico](https://www.obico.io) is a community-built, open-source smart 3D
 printing platform: remote monitoring, print failure detection and remote

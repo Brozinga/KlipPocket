@@ -1,6 +1,6 @@
 # Timelapse
 
-**Languages: [English](timelapse.md) · [Português (BR)](pt-br/timelapse.md) · [简体中文](zh-Hans/timelapse.md)**
+**Languages: [English](timelapse.md) · [Português (BR)](pt-br/timelapse.md) · [Español](es/timelapse.md) · [简体中文](zh-Hans/timelapse.md)**
 
 KlipPocket bundles the Moonraker-timelapse component. During a print it takes
 a photo of the printer at every layer, and when the print ends it turns those

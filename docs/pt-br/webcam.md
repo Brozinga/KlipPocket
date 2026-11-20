@@ -1,6 +1,6 @@
 # Usando a câmera / webcam USB
 
-**Idiomas: [English](../webcam.md) · [Português (BR)](webcam.md) · [简体中文](../zh-Hans/webcam.md)**
+**Idiomas: [English](../webcam.md) · [Português (BR)](webcam.md) · [Español](../es/webcam.md) · [简体中文](../zh-Hans/webcam.md)**
 
 O KlipPocket consegue transmitir uma imagem de câmera ao vivo para
 monitorar a impressão — a câmera do próprio aparelho, ou uma webcam USB

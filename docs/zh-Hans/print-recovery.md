@@ -1,6 +1,6 @@
 # 断电续打 —— 断电后恢复打印
 
-**语言：[English](../print-recovery.md) · [Português (BR)](../pt-br/print-recovery.md) · [简体中文](print-recovery.md)**
+**语言：[English](../print-recovery.md) · [Português (BR)](../pt-br/print-recovery.md) · [Español](../es/print-recovery.md) · [简体中文](print-recovery.md)**
 
 打印中如果打印机断电、USB 线松脱或 Klipper 关机，KlipPocket 可以让你**从中断处继续打印**。这是尽力而为的功能：模型仍牢固粘在热床上时效果最好。手机有电池，因此即使打印机断电，打印位置也不会丢失。
 

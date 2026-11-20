@@ -1,6 +1,6 @@
 # Add-ons do Klipper embutidos no KlipPocket
 
-**Idiomas: [English](../../mods/klipper-addons.md) · [Português (BR)](klipper-addons.md) · [简体中文](../../zh-Hans/mods/klipper-addons.md)**
+**Idiomas: [English](../../mods/klipper-addons.md) · [Português (BR)](klipper-addons.md) · [Español](../../es/mods/klipper-addons.md) · [简体中文](../../zh-Hans/mods/klipper-addons.md)**
 
 Estes add-ons são embutidos mas inativos — o Klipper carrega um deles apenas
 quando a `[seção]` correspondente está presente no `printer.cfg`, então uma

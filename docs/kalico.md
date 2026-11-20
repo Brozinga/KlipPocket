@@ -1,6 +1,6 @@
 # Using Kalico
 
-**Languages: [English](kalico.md) · [Português (BR)](pt-br/kalico.md) · [简体中文](zh-Hans/kalico.md)**
+**Languages: [English](kalico.md) · [Português (BR)](pt-br/kalico.md) · [Español](es/kalico.md) · [简体中文](zh-Hans/kalico.md)**
 
 [Kalico](https://github.com/KalicoCrew/kalico) is a community fork of Klipper
 that allows features and behaviors Klipper keeps out because they can be risky.

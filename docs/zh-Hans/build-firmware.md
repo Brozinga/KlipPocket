@@ -1,6 +1,6 @@
 # 构建 MCU 固件
 
-**语言: [English](../build-firmware.md) · [Português (BR)](../pt-br/build-firmware.md) · [简体中文](build-firmware.md)**
+**语言: [English](../build-firmware.md) · [Português (BR)](../pt-br/build-firmware.md) · [Español](../es/build-firmware.md) · [简体中文](build-firmware.md)**
 
 KlipPocket 在 Android 上运行 Klipper/Kalico 主机。打印机主板仍然需要 MCU 固件，在 PC 上构建并烧录一次（Android 不能编译）。
 

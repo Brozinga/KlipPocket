@@ -1,6 +1,6 @@
 # Usando mais de um MCU (multi-MCU)
 
-**Idiomas: [English](../multi-mcu.md) · [Português (BR)](multi-mcu.md) · [简体中文](../zh-Hans/multi-mcu.md)**
+**Idiomas: [English](../multi-mcu.md) · [Português (BR)](multi-mcu.md) · [Español](../es/multi-mcu.md) · [简体中文](../zh-Hans/multi-mcu.md)**
 
 Algumas impressoras usam uma segunda placa junto da principal: uma placa de
 cabeçote, uma placa que adiciona portas (drivers, endstops, ventoinhas) ou uma

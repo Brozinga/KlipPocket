@@ -1,6 +1,6 @@
 # 使用 OctoEverywhere
 
-**语言: [English](../octoeverywhere.md) · [Português (BR)](../pt-br/octoeverywhere.md) · [简体中文](octoeverywhere.md)**
+**语言: [English](../octoeverywhere.md) · [Português (BR)](../pt-br/octoeverywhere.md) · [Español](../es/octoeverywhere.md) · [简体中文](octoeverywhere.md)**
 
 [OctoEverywhere](https://octoeverywhere.com) 让你无需在路由器上开放端口，就能
 通过 octoeverywhere.com 网站或手机应用远程访问打印机（摄像头、状态、控制）。

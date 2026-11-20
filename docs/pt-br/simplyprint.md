@@ -1,6 +1,6 @@
 # Usando o SimplyPrint
 
-**Idiomas: [English](../simplyprint.md) · [Português (BR)](simplyprint.md) · [简体中文](../zh-Hans/simplyprint.md)**
+**Idiomas: [English](../simplyprint.md) · [Português (BR)](simplyprint.md) · [Español](../es/simplyprint.md) · [简体中文](../zh-Hans/simplyprint.md)**
 
 O [SimplyPrint](https://simplyprint.io) é uma plataforma de impressão 3D com
 monitoramento remoto, gerenciamento de impressões e detecção de falhas por IA.

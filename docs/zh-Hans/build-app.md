@@ -1,6 +1,6 @@
 # 构建 APK
 
-**语言: [English](../build-app.md) · [Português (BR)](../pt-br/build-app.md) · [简体中文](build-app.md)**
+**语言: [English](../build-app.md) · [Português (BR)](../pt-br/build-app.md) · [Español](../es/build-app.md) · [简体中文](build-app.md)**
 
 构建需要 Android SDK/NDK、一个 JDK，以及一个 **Python 3.10** 解释器（Chaquopy 会针对
 3.10 编译内置的 Python）。不会提交任何泄露本地路径的东西 —— `local.properties`、

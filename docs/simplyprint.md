@@ -1,6 +1,6 @@
 # Using SimplyPrint
 
-**Languages: [English](simplyprint.md) · [Português (BR)](pt-br/simplyprint.md) · [简体中文](zh-Hans/simplyprint.md)**
+**Languages: [English](simplyprint.md) · [Português (BR)](pt-br/simplyprint.md) · [Español](es/simplyprint.md) · [简体中文](zh-Hans/simplyprint.md)**
 
 [SimplyPrint](https://simplyprint.io) is a 3D printing platform with remote
 monitoring, print management and AI failure detection. The Moonraker bundled
