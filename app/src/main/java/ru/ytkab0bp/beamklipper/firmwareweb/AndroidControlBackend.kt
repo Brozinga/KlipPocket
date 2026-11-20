@@ -28,6 +28,8 @@ import ru.ytkab0bp.beamklipper.serial.UsbBaud
 import ru.ytkab0bp.beamklipper.serial.UsbSerialManager
 import ru.ytkab0bp.beamklipper.utils.Languages
 import ru.ytkab0bp.beamklipper.utils.ObicoLink
+import ru.ytkab0bp.beamklipper.update.AppUpdateChecker
+import ru.ytkab0bp.beamklipper.update.AppUpdateStep
 import ru.ytkab0bp.beamklipper.utils.Prefs
 import ru.ytkab0bp.beamklipper.utils.UsbNaming
 import java.io.FilterInputStream
@@ -50,6 +52,7 @@ class AndroidControlBackend(private val ctx: Context) : ControlBackend {
         val octoUrl = if (Prefs.isOctoEverywhereEnabled) settings.octoEverywhereLinkUrl() else null
         val obicoStatus = if (Prefs.isObicoEnabled && !Prefs.isObicoLinked) settings.syncObicoLinkStatus() else null
         return JSONObject()
+            .put("appUpdate", appUpdateJson())
             .put("engine", JSONObject().put("value", Prefs.engine).put("options", options(engines, { it }, { settings.engineTitle(it) })))
             .put("frontend", JSONObject().put("value", Prefs.webFrontend).put("options", options(Frontends.ALL, { it }, { settings.frontendTitle(it) })))
             .put("usbNaming", JSONObject().put("value", Prefs.usbDeviceNaming).put("options",
@@ -75,9 +78,33 @@ class AndroidControlBackend(private val ctx: Context) : ControlBackend {
 
     private fun hasCameraPermission() = ctx.checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
 
+    // The KlipPocket release check, for the update card of the Settings tab.
+    private fun appUpdateJson(): JSONObject {
+        val st = AppUpdateChecker.status.value
+        val step = AppUpdateChecker.step.value
+        val (state, percent, error) = when (step) {
+            is AppUpdateStep.Downloading -> Triple("downloading", step.percent, "")
+            AppUpdateStep.Verifying -> Triple("verifying", 100, "")
+            AppUpdateStep.Ready -> Triple("ready", 100, "")
+            AppUpdateStep.NeedsPermission -> Triple("permission", 0, "")
+            is AppUpdateStep.Error -> Triple("error", 0, step.message ?: "")
+            AppUpdateStep.Idle -> Triple("idle", 0, "")
+        }
+        return JSONObject()
+            .put("current", st.current)
+            .put("latest", st.latest?.tag ?: "")
+            .put("available", st.available)
+            .put("notes", if (st.available) st.latest?.notes ?: "" else "")
+            .put("state", state).put("percent", percent).put("error", error)
+    }
+
     override fun applySetting(key: String, body: JSONObject): String? {
         val value = body.opt("value")
         return when (key) {
+            // the page was opened on Settings: look for a newer release now
+            "appUpdateCheck" -> { AppUpdateChecker.checkNow(); null }
+            // download it on the phone; Android's installer then asks the user there (a notification carries the tap)
+            "appUpdateInstall" -> if (!AppUpdateChecker.status.value.available) "unavailable" else { AppUpdateChecker.resetStep(); AppUpdateChecker.startInstall(fromUi = false); null }
             "engine" -> { val v = value as? String ?: return "value"; if (v !in listOf(Prefs.ENGINE_KLIPPER, Prefs.ENGINE_KALICO)) "value" else if (!Engines.isInstalled(app.filesDir, v)) "unavailable" else { settings.setEngine(v); null } }
             "frontend" -> { val v = value as? String ?: return "value"; if (v !in Frontends.ALL) "value" else { settings.setFrontend(v); null } }
             "usbNaming" -> { val v = (value as? Number)?.toInt() ?: return "value"; if (v != Prefs.USB_DEVICE_NAMING_BY_PATH && v != Prefs.USB_DEVICE_NAMING_BY_VID_PID) "value" else { Prefs.usbDeviceNaming = v; null } }

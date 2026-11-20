@@ -36,6 +36,28 @@ object GitHubReleases {
         return VersionCompare.highestTag(tags.mapNotNull { it.name })
     }
 
+    internal data class ReleaseAsset(
+        @SerializedName("name") val name: String?,
+        @SerializedName("browser_download_url") val url: String?,
+        @SerializedName("size") val size: Long?,
+    )
+
+    // The full release: the tag, the Markdown text the author wrote and the
+    // attached files (the APKs and the checksums).
+    internal data class ReleaseDetails(
+        @SerializedName("tag_name") val tagName: String?,
+        @SerializedName("body") val body: String?,
+        @SerializedName("html_url") val htmlUrl: String?,
+        @SerializedName("assets") val assets: List<ReleaseAsset>?,
+    )
+
+    internal fun parseRelease(json: String): ReleaseDetails? = gson.fromJson(json, ReleaseDetails::class.java)
+
+    internal fun latestRelease(owner: String, repo: String): ReleaseDetails? =
+        parseRelease(get("https://api.github.com/repos/$owner/$repo/releases/latest"))
+
+    fun fetchText(urlStr: String): String = get(urlStr)
+
     private fun get(urlStr: String): String {
         val conn = URL(urlStr).openConnection() as HttpURLConnection
         conn.connectTimeout = TIMEOUT_MS

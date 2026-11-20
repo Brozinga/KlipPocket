@@ -62,6 +62,8 @@ class KlipperApp : MultiDexApplication() {
             watchdog.enableVibration(true)
             watchdog.setShowBadge(true)
             nm.createNotificationChannel(watchdog)
+            nm.createNotificationChannel(
+                NotificationChannel(ru.ytkab0bp.beamklipper.update.AppUpdateChecker.UPDATE_CHANNEL, getString(R.string.AppUpdateChannel), NotificationManager.IMPORTANCE_DEFAULT))
         }
 
         if (isMainProcess) {
@@ -71,6 +73,8 @@ class KlipperApp : MultiDexApplication() {
                 // WebService or Settings ever look at the override tree.
                 FrontendUpdateChecker.cleanupOrphansOnStartup()
             }
+            // Twice a day while the app lives: is there a newer KlipPocket release?
+            ru.ytkab0bp.beamklipper.update.AppUpdateChecker.startPeriodic()
             appScope.launch {
                 Log.i("beam_app", "Loading instances from DB (bundle install deferred until START press)")
                 KlipperInstance.resetSlotsForFreshStart()

@@ -191,6 +191,19 @@
     <string name="FrontendUpdateDone">Обновление завершено</string>
     <string name="FrontendUpdateError">Ошибка обновления: %1$s</string>
     <string name="FrontendUpdateErrorGeneric">Ошибка обновления</string>
+    <string name="AppUpdateChannel">Обновления приложения</string>
+    <string name="AppUpdateAvailableTitle">Доступно обновление KlipPocket</string>
+    <string name="AppUpdateAvailableText">Вышла версия %1$s. Откройте настройки, чтобы обновить.</string>
+    <string name="AppUpdateReadyTitle">Обновление KlipPocket готово</string>
+    <string name="AppUpdateReadyText">Нажмите, чтобы установить KlipPocket %1$s.</string>
+    <string name="AppUpdateTitle">KlipPocket</string>
+    <string name="AppUpdateNotes">Что нового</string>
+    <string name="AppUpdateNoNotes">Нет описания версии.</string>
+    <string name="AppUpdateDownloading">Загрузка… %1$d%%</string>
+    <string name="AppUpdateVerifying">Проверка загрузки…</string>
+    <string name="AppUpdateReady">Установщик открыт — подтвердите установку в нём.</string>
+    <string name="AppUpdateNeedsPermission">Разрешите KlipPocket устанавливать приложения и снова нажмите «Обновить».</string>
+    <string name="AppUpdateError">Сбой обновления: %1$s</string>
 
     <!-- Firmware tab -->
     <string name="FirmwareTitle">Прошивка</string>

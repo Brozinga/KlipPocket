@@ -92,6 +92,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun processIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(ru.ytkab0bp.beamklipper.update.AppUpdateChecker.EXTRA_OPEN_UPDATE, false) == true) {
+            ru.ytkab0bp.beamklipper.update.AppUpdateChecker.requestOpen()
+        }
         if (intent != null && intent.action == UsbManager.ACTION_USB_DEVICE_ATTACHED) {
             val prober = UsbSerialProber(KlipperProbeTable.getInstance())
             val manager = getSystemService(Context.USB_SERVICE) as UsbManager

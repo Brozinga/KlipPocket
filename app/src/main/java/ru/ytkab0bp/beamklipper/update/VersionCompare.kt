@@ -52,4 +52,14 @@ object VersionCompare {
         val l = latest?.let { tagKey(it) } ?: return false
         return compareBy<Triple<Int, Int, Int>>({ it.first }, { it.second }, { it.third }).compare(l, b) > 0
     }
+
+    // The app itself: a release is an update only when its version is
+    // strictly higher than the installed one (so a debug build or a newer
+    // local build never gets offered an "update" down to an older release).
+    // Unreadable versions never claim an update.
+    fun tagNewer(current: String?, latest: String?): Boolean {
+        val c = current?.let { tagKey(it) } ?: return false
+        val l = latest?.let { tagKey(it) } ?: return false
+        return compareBy<Triple<Int, Int, Int>>({ it.first }, { it.second }, { it.third }).compare(l, c) > 0
+    }
 }
