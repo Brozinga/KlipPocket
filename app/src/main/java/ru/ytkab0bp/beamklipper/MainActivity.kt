@@ -68,6 +68,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        ru.ytkab0bp.beamklipper.update.AppUpdateChecker.onAppOpened()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         AppState.stop()

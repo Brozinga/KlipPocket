@@ -345,11 +345,7 @@ object Prefs {
             .apply()
     }
 
-    /** When GitHub last answered the check for a newer KlipPocket release (ms), and the version the user was already told about. */
-    var appUpdateLastCheck: Long
-        get() = try { mPrefs.getLong("app_update_last_check", 0L) } catch (_: ClassCastException) { 0L }
-        set(value) { mPrefs.edit().putLong("app_update_last_check", value).apply() }
-
+    /** The KlipPocket release the user was already notified about. */
     var appUpdateNotifiedTag: String?
         get() = getSafeStringNullable("app_update_notified_tag")
         set(value) { mPrefs.edit().putString("app_update_notified_tag", value).apply() }
