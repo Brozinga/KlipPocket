@@ -32,6 +32,7 @@ object Prefs {
     const val LANGUAGE_ENGLISH = "en"
     const val LANGUAGE_PORTUGUESE_BRAZIL = "pt-BR"
     const val LANGUAGE_RUSSIAN = "ru"
+    const val LANGUAGE_SPANISH = "es"
     const val LANGUAGE_CHINESE_SIMPLIFIED = "zh-CN"
     const val LANGUAGE_CHINESE_TRADITIONAL = "zh-TW"
 
