@@ -1,7 +1,7 @@
 <#
   MCU-firmware builder for Windows.
 
-    .\scripts\build_firmware.ps1 <board> [-KlipperTag v0.13.0]
+    .\scripts\build_firmware.ps1 <board> [-KlipperTag v0.14.0]
 
   Native Klipper firmware builds need a Unix toolchain (make + gcc-arm-none-eabi),
   so on Windows this wraps the Docker image (firmware/docker-compose.yml), which

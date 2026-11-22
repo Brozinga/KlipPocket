@@ -24,8 +24,8 @@ $State   = Repo-Path 'firmware/.menu-state.json'
 $Image   = 'klippocket-firmware'
 
 $kalicoFile = Repo-Path 'app/src/main/kalico/kalico_version'
-$kalicoDefault = if (Test-Path $kalicoFile) { (Get-Content $kalicoFile -Raw).Trim() } else { 'v2026.10.00' }
-$S = [ordered]@{ Engine = 'klipper'; Profile = 'my-board'; KlipperTag = 'v0.13.0'; KalicoTag = $kalicoDefault }
+$kalicoDefault = if (Test-Path $kalicoFile) { (Get-Content $kalicoFile -Raw).Trim() } else { 'v2026.11.00' }
+$S = [ordered]@{ Engine = 'klipper'; Profile = 'my-board'; KlipperTag = 'v0.14.0'; KalicoTag = $kalicoDefault }
 if (Test-Path $State) {
     try { $saved = Get-Content $State -Raw | ConvertFrom-Json
           foreach ($k in @($S.Keys)) { if ($saved.$k) { $S[$k] = [string]$saved.$k } } } catch {}
