@@ -6,7 +6,11 @@
 
 <!-- List the changes included in this pull request. -->
 
+<<<<<<< HEAD
 - 
+=======
+-
+>>>>>>> 608c79a (docs: add pull request template)
 
 ## Type of change
 
@@ -28,4 +32,8 @@
 
 ## Additional notes
 
+<<<<<<< HEAD
 <!-- Add any additional information for reviewers. -->
+=======
+<!-- Add any additional information for reviewers. -->
+>>>>>>> 608c79a (docs: add pull request template)
