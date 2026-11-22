@@ -10,6 +10,7 @@ import mathutil
 
 from . import hx71x
 from . import ads1220
+from . import cs1237
 from . import ads131m0x
 from . import probe, manual_probe, trigger_analog, load_cell
 
@@ -673,6 +674,7 @@ class LoadCellPrinterProbe:
         sensors = {}
         sensors.update(hx71x.HX71X_SENSOR_TYPES)
         sensors.update(ads1220.ADS1220_SENSOR_TYPE)
+        sensors.update(cs1237.CS1237_SENSOR_TYPE)
         sensors.update(ads131m0x.ADS131M0X_SENSOR_TYPES)
         sensor_class = config.getchoice('sensor_type', sensors)
         sensor = sensor_class(config)
@@ -698,7 +700,8 @@ class LoadCellPrinterProbe:
         tap_session = TapSession(config, self._tapping_move,
                                  self._probe_offsets, self._param_helper)
         self._probe_session = probe.SampleAveragingHelper(config,
-            self._param_helper, tap_session.start_probe_session)
+            self._param_helper, tap_session.start_probe_session,
+            nozzle_probe=True)
         # printer integration
         LoadCellProbeCommands(config, load_cell_probing_move)
         probe.HomingViaProbeHelper(config, self.get_offsets()[2])

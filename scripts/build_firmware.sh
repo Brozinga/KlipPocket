@@ -14,7 +14,7 @@
 #                  to any Klipper .config you saved with `make menuconfig`.
 #   [output-name]  filename to write into firmware/output/ (default: the config's
 #                  "#! flash_filename:" directive, else "klipper.bin").
-#   [klipper-tag]  overrides the config's "#! klipper_tag:" (default: v0.13.0).
+#   [klipper-tag]  overrides the config's "#! klipper_tag:" (default: v0.14.0).
 #
 # Environment (set by the Docker image / scripts/firmware_menu.*):
 #   FW_KLIPPER_SRC   engine source tree to build (Klipper OR Kalico checkout)
@@ -44,7 +44,7 @@ OUTPUT_DIR="${FW_OUTPUT_DIR:-$REPO_ROOT/firmware/output}"
 TOOLCHAIN_DIR="$REPO_ROOT/firmware/toolchain"
 BUILD_DIR="${FW_BUILD_DIR:-$REPO_ROOT/firmware/.klipper-build}"
 
-DEFAULT_KLIPPER_TAG="v0.13.0"
+DEFAULT_KLIPPER_TAG="v0.14.0"
 KLIPPER_REPO="https://github.com/Klipper3d/klipper.git"
 [ "${FW_ENGINE:-klipper}" = kalico ] && KLIPPER_REPO="https://github.com/KalicoCrew/kalico.git"
 TOOLCHAIN_VERSION="${FW_TOOLCHAIN_VERSION:-10.3-2021.07}"

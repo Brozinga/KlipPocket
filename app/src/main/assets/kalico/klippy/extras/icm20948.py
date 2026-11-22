@@ -138,7 +138,7 @@ class ICM20948:
         dev_id = self.read_reg(REG_DEVID)
         if dev_id not in ICM_DEV_IDS.keys():
             raise self.printer.command_error(
-                "Invalid mpu id (got %x).\n"
+                "Invalid icm20948 id (got %x).\n"
                 "This is generally indicative of connection problems\n"
                 "(e.g. faulty wiring) or a faulty chip." % (dev_id)
             )
@@ -178,14 +178,14 @@ class ICM20948:
         self.set_reg(REG_PWR_MGMT_2, SET_PWR_MGMT_2_OFF)
 
     def _process_batch(self, eventtime):
-        samples = self.ffreader.pull_samples()
+        samples, _ = self.ffreader.pull_samples()
         self._convert_samples(samples)
         if not samples:
             return {}
         return {
             "data": samples,
             "errors": self.last_error_count,
-            "overflows": self.ffreader.get_last_overflows(),
+            "overflows": self.ffreader.get_total_overflows(),
         }
 
 

@@ -21,9 +21,9 @@ IMAGE="klippocket-firmware"
 
 ENGINE="klipper"
 PROFILE="my-board"
-KLIPPER_TAG="v0.13.0"
+KLIPPER_TAG="v0.14.0"
 KALICO_TAG="$(cat "$ROOT/app/src/main/kalico/kalico_version" 2>/dev/null | tr -d '[:space:]')"
-KALICO_TAG="${KALICO_TAG:-v2026.10.00}"
+KALICO_TAG="${KALICO_TAG:-v2026.11.00}"
 # shellcheck disable=SC1090
 [ -f "$STATE" ] && . "$STATE"
 

@@ -24,7 +24,7 @@ Many "classic" printers still run slow, closed Marlin boards. KlipPocket brings 
 
 ## Features
 
-- **Klipper 0.13 and earlier** — compatible with current and older Klipper firmware (Kalico v2026.10.00 also supported)
+- **Klipper 0.14 and earlier** — compatible with current and older Klipper firmware (Kalico v2026.11.00 also supported)
 - **Up-to-date software** — recent Moonraker, Fluidd, Mainsail and Voyager UI bundled in the app
 - **Remote connection** — reach your printer from anywhere with OctoEverywhere, Obico and others
 - **AI failure detection** — spot failed prints early through Obico

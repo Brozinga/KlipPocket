@@ -24,7 +24,7 @@
 
 ## 功能
 
-- **支持 Klipper 0.13 及更早版本** —— 兼容当前和较旧的 Klipper 固件（同时支持 Kalico v2026.10.00）
+- **支持 Klipper 0.14 及更早版本** —— 兼容当前和较旧的 Klipper 固件（同时支持 Kalico v2026.11.00）
 - **软件保持最新** —— 应用内置较新的 Moonraker、Fluidd、Mainsail 和 Voyager UI
 - **远程连接** —— 通过 OctoEverywhere、Obico 等随时随地访问打印机
 - **AI 故障检测** —— 借助 Obico 及早发现失败的打印

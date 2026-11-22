@@ -137,7 +137,12 @@ class AccelCommandHelper:
         name_parts = config.get_name().split()
         self.base_name = name_parts[0]
         self.name = name_parts[-1]
-        self.register_commands(self.name)
+        try:
+            self.register_commands(self.name)
+        except config.error:
+            raise config.error(
+                "Accelerometer with name '%s' already defined" % self.name
+            )
         if len(name_parts) == 1:
             if self.name == "adxl345" or not config.has_section("adxl345"):
                 self.register_commands(None)
@@ -406,14 +411,14 @@ class ADXL345:
         logging.info("ADXL345 finished '%s' measurements", self.name)
 
     def _process_batch(self, eventtime):
-        samples = self.ffreader.pull_samples()
+        samples, _ = self.ffreader.pull_samples()
         self._convert_samples(samples)
         if not samples:
             return {}
         return {
             "data": samples,
             "errors": self.last_error_count,
-            "overflows": self.ffreader.get_last_overflows(),
+            "overflows": self.ffreader.get_total_overflows(),
         }
 
 

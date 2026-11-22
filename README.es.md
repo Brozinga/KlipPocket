@@ -24,7 +24,7 @@ Muchas impresoras «clásicas» siguen usando placas Marlin lentas y cerradas. K
 
 ## Funcionalidades
 
-- **Klipper 0.13 y anteriores** — compatible con el firmware actual y antiguo de Klipper (también se admite Kalico v2026.10.00)
+- **Klipper 0.14 y anteriores** — compatible con el firmware actual y antiguo de Klipper (también se admite Kalico v2026.11.00)
 - **Software actualizado** — Moonraker, Fluidd, Mainsail y Voyager UI recientes incluidos en la app
 - **Conexión remota** — accede a tu impresora desde cualquier lugar con OctoEverywhere, Obico y otros
 - **Detección de fallos con IA** — detecta a tiempo las impresiones fallidas mediante Obico

@@ -41,7 +41,7 @@ KlipPocket 在 Android 上运行 Klipper/Kalico 主机。打印机主板仍然�
 
 | 选项 | 作用 |
 |---|---|
-| **1 Select engine** | Klipper（v0.13.0）或 Kalico（v2026.10.00）。 |
+| **1 Select engine** | Klipper（v0.14.0）或 Kalico（v2026.11.00）。 |
 | **2 Select or create a profile** | 配置档就是一份保存的配置：`firmware/configs/<配置档>.config`。 |
 | **3 Firmware Configuration** | 引擎真正的 `make menuconfig`。 |
 | **4 Make Firmware** | 在 Docker 中编译并验证结果。 |
@@ -275,7 +275,7 @@ Klipper 没有 MCU↔主机版本锁 —— MCU 在连接时把命令字典发�
 在仓库根目录运行：
 
 ```bash
-# 构建一次镜像（固定 Klipper v0.13.0 + Kalico v2026.10.00 + ARM gcc 10.3-2021.07）
+# 构建一次镜像（固定 Klipper v0.14.0 + Kalico v2026.11.00 + ARM gcc 10.3-2021.07）
 docker compose -f firmware/docker-compose.yml build
 
 # 为 firmware/configs/ 里有配置的主板构建固件

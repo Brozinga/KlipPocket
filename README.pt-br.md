@@ -24,7 +24,7 @@ Muitas impressoras "clássicas" ainda usam placas Marlin lentas e fechadas. O Kl
 
 ## Funcionalidades
 
-- **Klipper 0.13 e anteriores** — compatível com o firmware Klipper atual e com versões antigas (Kalico v2026.10.00 também é suportado)
+- **Klipper 0.14 e anteriores** — compatível com o firmware Klipper atual e com versões antigas (Kalico v2026.11.00 também é suportado)
 - **Softwares atualizados** — Moonraker, Fluidd, Mainsail e Voyager UI recentes embutidos no app
 - **Conexão remota** — acesse sua impressora de qualquer lugar com OctoEverywhere, Obico e outros
 - **Detecção de falhas por IA** — perceba impressões com problema cedo, via Obico

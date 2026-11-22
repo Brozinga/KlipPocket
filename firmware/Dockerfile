@@ -14,8 +14,8 @@
 FROM debian:bookworm-slim
 
 ARG TOOLCHAIN_VERSION=10.3-2021.07
-ARG KLIPPER_TAG=v0.13.0
-ARG KALICO_TAG=v2026.10.00
+ARG KLIPPER_TAG=v0.14.0
+ARG KALICO_TAG=v2026.11.00
 
 # build-essential: host gcc (the "Linux process" MCU) + make.
 # gcc-avr/avr-libc/binutils-avr: AVR boards (atmega2560, atmega1284p, ...).

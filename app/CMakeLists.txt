@@ -72,6 +72,7 @@ add_library(kalico_chelper
         src/main/kalico/klippy/chelper/pyhelper.c
         src/main/kalico/klippy/chelper/serialqueue.c
         src/main/kalico/klippy/chelper/stepcompress.c
+        src/main/kalico/klippy/chelper/steppersync.c
         src/main/kalico/klippy/chelper/trapq.c
         src/main/kalico/klippy/chelper/trdispatch.c
 )
