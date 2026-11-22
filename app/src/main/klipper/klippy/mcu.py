@@ -110,6 +110,7 @@ class CommandQueryWrapper:
 class CommandWrapper:
     def __init__(self, conn_helper, msgformat, cmd_queue=None):
         self._serial = serial = conn_helper.get_serial()
+        self._error = conn_helper.get_mcu().get_printer().command_error
         msgparser = serial.get_msgparser()
         self._cmd = msgparser.lookup_command(msgformat)
         if cmd_queue is None:
@@ -124,7 +125,11 @@ class CommandWrapper:
         self._serial.raw_send(cmd, minclock, reqclock, self._cmd_queue)
     def send_wait_ack(self, data=(), minclock=0, reqclock=0):
         cmd = self._cmd.encode(data)
-        self._serial.raw_send_wait_ack(cmd, minclock, reqclock, self._cmd_queue)
+        try:
+            self._serial.raw_send_wait_ack(cmd, minclock, reqclock,
+                                           self._cmd_queue)
+        except serialhdl.error as e:
+            raise self._error(str(e))
     def get_command_tag(self):
         return self._msgtag
 
@@ -637,12 +642,17 @@ class MCU_adc:
         if self._callback is not None:
             self._callback([(last_read_time, last_value)])
     def _handle_analog_in_state(self, params):
-        values = self._unpack_from(params['values'])
+        # Extract adc values and their sample time
         next_clock = self._mcu.clock32_to_clock64(params['next_clock'])
         ctpt = self._mcu.clock_to_print_time
-        num = len(values)
+        raw_values = params['values']
+        BYTES_PER_SAMPLE = 2
+        num = len(raw_values) // BYTES_PER_SAMPLE
         samples = [(ctpt(next_clock - (num - i)*self._report_clock),
-                    values[i] * self._inv_max_adc) for i in range(num)]
+                    (self._unpack_from(raw_values, i*BYTES_PER_SAMPLE)[0]
+                     * self._inv_max_adc))
+                   for i in range(num)]
+        # Report the data
         self._last_state = samples[-1]
         if self._callback is not None:
             self._callback(samples)
@@ -930,6 +940,7 @@ class MCUConnectHelper:
                      self._name, eventtime)
         self._printer.invoke_shutdown("Lost communication with MCU '%s'" % (
             self._name,))
+        self._serial.abort_wait_acks()
     def is_shutdown(self):
         return self._is_shutdown
     def get_shutdown_msg(self):
