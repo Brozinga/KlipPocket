@@ -4,7 +4,7 @@
 
 [Kalico](https://github.com/KalicoCrew/kalico) 是 Klipper 的社区分支，允许使用
 Klipper 因可能有风险而不提供的功能和行为。KlipPocket 在 Klipper 之外还内置了
-**Kalico v2026.10.00**，由你选择用哪一个来运行打印机。
+**Kalico v2026.11.00**，由你选择用哪一个来运行打印机。
 
 ## 切换引擎
 

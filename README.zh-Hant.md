@@ -24,7 +24,7 @@
 
 ## 功能
 
-- **支援 Klipper 0.13 及更早版本** —— 相容當前和較舊的 Klipper 韌體（同時支援 Kalico v2026.10.00）
+- **支援 Klipper 0.14 及更早版本** —— 相容當前和較舊的 Klipper 韌體（同時支援 Kalico v2026.11.00）
 - **軟體保持最新** —— 應用內建較新的 Moonraker、Fluidd、Mainsail 和 Voyager UI
 - **遠端連線** —— 透過 OctoEverywhere、Obico 等隨時隨地訪問印表機
 - **AI 故障檢測** —— 藉助 Obico 及早發現失敗的列印

@@ -4,7 +4,7 @@
 
 [Kalico](https://github.com/KalicoCrew/kalico) es un fork comunitario de Klipper
 que permite funciones y comportamientos que Klipper deja fuera por ser
-potencialmente arriesgados. KlipPocket incluye **Kalico v2026.10.00** junto a
+potencialmente arriesgados. KlipPocket incluye **Kalico v2026.11.00** junto a
 Klipper, para que elijas cuál mueve tu impresora.
 
 ## Cambiar el motor

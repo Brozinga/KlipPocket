@@ -4,7 +4,7 @@
 
 [Kalico](https://github.com/KalicoCrew/kalico) is a community fork of Klipper
 that allows features and behaviors Klipper keeps out because they can be risky.
-KlipPocket bundles **Kalico v2026.10.00** next to Klipper, so you can pick the
+KlipPocket bundles **Kalico v2026.11.00** next to Klipper, so you can pick the
 one that runs your printer.
 
 ## Switching the engine

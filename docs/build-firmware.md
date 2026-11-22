@@ -47,7 +47,7 @@ The top shows the engine and the profile in use and the **requirements**
 
 | Option | What it does |
 |---|---|
-| **1 Select engine** | Klipper (v0.13.0) or Kalico (v2026.10.00). |
+| **1 Select engine** | Klipper (v0.14.0) or Kalico (v2026.11.00). |
 | **2 Select or create a profile** | A profile is one saved configuration: `firmware/configs/<profile>.config`. |
 | **3 Firmware Configuration** | The engine's real `make menuconfig`. |
 | **4 Make Firmware** | Compiles in Docker and validates the result. |
@@ -352,7 +352,7 @@ app's bundled Klipper exactly.
 Run from the repository root:
 
 ```bash
-# build the image once (pins Klipper v0.13.0 + Kalico v2026.10.00 + ARM gcc 10.3-2021.07)
+# build the image once (pins Klipper v0.14.0 + Kalico v2026.11.00 + ARM gcc 10.3-2021.07)
 docker compose -f firmware/docker-compose.yml build
 
 # build firmware for a board that has a config in firmware/configs/
