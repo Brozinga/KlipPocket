@@ -330,4 +330,5 @@
     <string name="HHRestoreDefault">Restaurar el valor predeterminado</string>
     <string name="HHNothingHere">No hay nada que preguntar aquí.</string>
     <string name="HHFixedValue">Este valor está fijado por tus otras respuestas.</string>
+    <string name="LastFailure">Última falla</string>
 </resources>

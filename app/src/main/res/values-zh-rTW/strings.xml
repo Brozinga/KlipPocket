@@ -331,4 +331,5 @@
     <string name="HHRestoreDefault">還原預設值</string>
     <string name="HHNothingHere">這裡沒有要回答的問題。</string>
     <string name="HHFixedValue">此值由您的其他回答決定。</string>
+    <string name="LastFailure">最後一次失敗</string>
 </resources>
