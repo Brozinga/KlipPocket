@@ -346,4 +346,5 @@
     <string name="HHRestoreDefault">Restore the default</string>
     <string name="HHNothingHere">Nothing to ask here.</string>
     <string name="HHFixedValue">This value is fixed by your other answers.</string>
+    <string name="LastFailure">Last failure</string>
 </resources>

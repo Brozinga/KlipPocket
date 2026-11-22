@@ -334,4 +334,5 @@
     <string name="HHRestoreDefault">Вернуть значение по умолчанию</string>
     <string name="HHNothingHere">Здесь нечего спрашивать.</string>
     <string name="HHFixedValue">Это значение задано другими вашими ответами.</string>
+    <string name="LastFailure">последняя неудача</string>
 </resources>
