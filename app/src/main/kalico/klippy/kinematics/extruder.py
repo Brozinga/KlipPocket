@@ -30,7 +30,7 @@ class ExtruderStepper:
         self.stepper = stepper.PrinterStepper(config)
         ffi_main, ffi_lib = chelper.get_ffi()
         self.sk_extruder = ffi_main.gc(
-            ffi_lib.extruder_stepper_alloc(), ffi_lib.free
+            ffi_lib.extruder_stepper_alloc(), ffi_lib.extruder_stepper_free
         )
         self.stepper.set_stepper_kinematics(self.sk_extruder)
         self.motion_queue = None
@@ -70,8 +70,6 @@ class ExtruderStepper:
         )
 
     def _handle_connect(self):
-        toolhead = self.printer.lookup_object("toolhead")
-        toolhead.register_step_generator(self.stepper.generate_steps)
         self._set_pressure_advance(self.config_pa, self.config_smooth_time)
 
     def get_status(self, eventtime):
@@ -88,9 +86,11 @@ class ExtruderStepper:
     def sync_to_extruder(self, extruder_name):
         toolhead = self.printer.lookup_object("toolhead")
         toolhead.flush_step_generation()
+        motion_queuing = self.printer.lookup_object("motion_queuing")
         if not extruder_name:
             self.stepper.set_trapq(None)
             self.motion_queue = None
+            motion_queuing.check_step_generation_scan_windows()
             return
         extruder = self.printer.lookup_object(extruder_name, None)
         if extruder is None or not isinstance(extruder, PrinterExtruder):
@@ -100,6 +100,7 @@ class ExtruderStepper:
         self.stepper.set_position([extruder.last_position, 0.0, 0.0])
         self.stepper.set_trapq(extruder.get_trapq())
         self.motion_queue = extruder_name
+        motion_queuing.check_step_generation_scan_windows()
 
     def set_rotation_distance(self, rotation_dist):
         self.stepper.set_rotation_distance(rotation_dist)
@@ -116,12 +117,24 @@ class ExtruderStepper:
         if not pressure_advance:
             new_smooth_time = 0.0
         toolhead = self.printer.lookup_object("toolhead")
-        toolhead.note_step_generation_scan_time(
-            new_smooth_time * 0.5, old_delay=old_smooth_time * 0.5
-        )
         ffi_main, ffi_lib = chelper.get_ffi()
         espa = ffi_lib.extruder_set_pressure_advance
-        espa(self.sk_extruder, pressure_advance, new_smooth_time)
+        if new_smooth_time != old_smooth_time:
+            # Need full kinematic flush to change the smooth time
+            toolhead.flush_step_generation()
+            espa(self.sk_extruder, 0.0, pressure_advance, new_smooth_time)
+            motion_queuing = self.printer.lookup_object("motion_queuing")
+            motion_queuing.check_step_generation_scan_windows()
+        else:
+            toolhead.register_lookahead_callback(
+                lambda print_time: espa(
+                    self.sk_extruder,
+                    print_time,
+                    pressure_advance,
+                    new_smooth_time,
+                )
+            )
+
         self.pressure_advance = pressure_advance
         self.pressure_advance_smooth_time = smooth_time
 
@@ -212,9 +225,14 @@ class PrinterExtruder:
         self.filament_area = math.pi * (filament_diameter * 0.5) ** 2
         def_max_cross_section = 4.0 * self.nozzle_diameter**2
         def_max_extrude_ratio = def_max_cross_section / self.filament_area
-        max_cross_section = config.getfloat(
-            "max_extrude_cross_section", def_max_cross_section, above=0.0
+        # None unless set in the config, so SET_NOZZLE_DIAMETER knows
+        # whether to recalculate the default
+        self.config_max_cross_section = config.getfloat(
+            "max_extrude_cross_section", None, above=0.0
         )
+        max_cross_section = self.config_max_cross_section
+        if max_cross_section is None:
+            max_cross_section = def_max_cross_section
         self.max_extrude_ratio = max_cross_section / self.filament_area
         logging.info("Extruder max_extrude_ratio=%.6f", self.max_extrude_ratio)
         toolhead = self.printer.lookup_object("toolhead")
@@ -236,10 +254,9 @@ class PrinterExtruder:
             "instantaneous_corner_velocity", 1.0, minval=0.0
         )
         # Setup extruder trapq (trapezoidal motion queue)
-        ffi_main, ffi_lib = chelper.get_ffi()
-        self.trapq = ffi_main.gc(ffi_lib.trapq_alloc(), ffi_lib.trapq_free)
-        self.trapq_append = ffi_lib.trapq_append
-        self.trapq_finalize_moves = ffi_lib.trapq_finalize_moves
+        self.motion_queuing = self.printer.load_object(config, "motion_queuing")
+        self.trapq = self.motion_queuing.allocate_trapq()
+        self.trapq_append = self.motion_queuing.lookup_trapq_append()
 
         # Setup extruder stepper
         self.extruder_stepper = None
@@ -257,6 +274,13 @@ class PrinterExtruder:
             gcode.register_command("M104", self.cmd_M104)
             gcode.register_command("M109", self.cmd_M109)
             gcode.register_command("M302", self.cmd_M302)
+            gcode.register_mux_command(
+                "SET_NOZZLE_DIAMETER",
+                "EXTRUDER",
+                None,
+                self.cmd_default_SET_NOZZLE_DIAMETER,
+                desc=self.cmd_SET_NOZZLE_DIAMETER_help,
+            )
         gcode.register_mux_command(
             "ACTIVATE_EXTRUDER",
             "EXTRUDER",
@@ -264,10 +288,18 @@ class PrinterExtruder:
             self.cmd_ACTIVATE_EXTRUDER,
             desc=self.cmd_ACTIVATE_EXTRUDER_help,
         )
+        gcode.register_mux_command(
+            "SET_NOZZLE_DIAMETER",
+            "EXTRUDER",
+            self.name,
+            self.cmd_SET_NOZZLE_DIAMETER,
+            desc=self.cmd_SET_NOZZLE_DIAMETER_help,
+        )
 
     def get_status(self, eventtime):
-        sts = self.heater.get_status(eventtime)
+        sts = dict(self.heater.get_status(eventtime))
         sts["can_extrude"] = self.heater.can_extrude
+        sts["nozzle_diameter"] = self.nozzle_diameter
         if self.extruder_stepper is not None:
             sts.update(self.extruder_stepper.get_status(eventtime))
         return sts
@@ -419,6 +451,31 @@ class PrinterExtruder:
         toolhead.flush_step_generation()
         toolhead.set_extruder(self, self.last_position)
         self.printer.send_event("extruder:activate_extruder")
+
+    cmd_SET_NOZZLE_DIAMETER_help = "Set nozzle diameter"
+
+    def cmd_default_SET_NOZZLE_DIAMETER(self, gcmd):
+        extruder = self.printer.lookup_object("toolhead").get_extruder()
+        extruder.cmd_SET_NOZZLE_DIAMETER(gcmd)
+
+    def cmd_SET_NOZZLE_DIAMETER(self, gcmd):
+        diameter = gcmd.get_float("DIAMETER", above=0.0)
+        cross_section = gcmd.get_float(
+            "MAX_EXTRUDE_CROSS_SECTION", None, above=0.0
+        )
+        toolhead = self.printer.lookup_object("toolhead")
+        toolhead.flush_step_generation()
+        self.nozzle_diameter = diameter
+        if cross_section is None:
+            cross_section = self.config_max_cross_section
+        if cross_section is None:
+            cross_section = 4.0 * diameter**2
+        self.max_extrude_ratio = cross_section / self.filament_area
+        msg = (
+            "Extruder '%s': nozzle_diameter=%.3f max_extrude_cross_section=%.3f"
+            % (self.name, diameter, cross_section)
+        )
+        gcmd.respond_info(msg)
 
 
 # Dummy extruder class used when a printer has no extruder at all
