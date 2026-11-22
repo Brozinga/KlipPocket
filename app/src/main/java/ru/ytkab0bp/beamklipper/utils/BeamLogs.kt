@@ -52,7 +52,7 @@ object BeamLogs {
 
         val crash = crashFile(ctx)
         if (crash.exists() && crash.length() > 0) {
-            list += Source("crash", "Última falha") { if (crash.exists()) tail(readTextOrEmpty(crash)) else "-" }
+            list += Source("crash", ctx.getString(R.string.LastFailure)) { if (crash.exists()) tail(readTextOrEmpty(crash)) else "-" }
         }
 
         for (inst in KlipperInstance.getInstances()) {
