@@ -46,8 +46,10 @@ import ru.ytkab0bp.beamklipper.ui.screens.FirmwareScreen
 import ru.ytkab0bp.beamklipper.ui.screens.HappyHareScreen
 import ru.ytkab0bp.beamklipper.ui.screens.HomeScreen
 import ru.ytkab0bp.beamklipper.ui.screens.LogsScreen
+import ru.ytkab0bp.beamklipper.ui.screens.PrintMonitorScreen
 import ru.ytkab0bp.beamklipper.ui.state.AppState
 import ru.ytkab0bp.beamklipper.ui.state.MainViewModel
+import ru.ytkab0bp.beamklipper.ui.state.PrintMonitorViewModel
 import ru.ytkab0bp.beamklipper.ui.theme.Accent
 import ru.ytkab0bp.beamklipper.ui.theme.Ink
 import ru.ytkab0bp.beamklipper.ui.theme.InkOnAccent
@@ -61,11 +63,13 @@ const val NAV_LOGS = 2
 const val NAV_CAMERA = 3
 const val NAV_FIRMWARE = 4
 const val NAV_HAPPY_HARE = 5
+const val NAV_PRINT_MONITOR = 6
 
 @Composable
 fun NavHost(
     isCurrentLauncher: Boolean,
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
+    printMonitorViewModel: PrintMonitorViewModel
 ) {
     var nav by remember { mutableStateOf(NAV_HOME) }
     // Log source the Logs tab opens on (set when jumping there from the firmware flow).
@@ -155,9 +159,11 @@ fun NavHost(
                 NAV_LOGS -> LogsScreen(initialSourceId = logsSource)
                 NAV_FIRMWARE -> FirmwareScreen(onOpenLogs = { logsSource = "flash"; nav = NAV_LOGS })
                 NAV_CAMERA -> CameraPreviewScreen()
+                NAV_PRINT_MONITOR -> PrintMonitorScreen(printMonitorViewModel = printMonitorViewModel)
                 else -> HomeScreen(
                     isCurrentLauncher = isCurrentLauncher,
-                    mainViewModel = mainViewModel
+                    mainViewModel = mainViewModel,
+                    onOpenPrintMonitor = { nav = NAV_PRINT_MONITOR }
                 )
             }
         }

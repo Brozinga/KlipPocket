@@ -347,4 +347,12 @@
     <string name="HHNothingHere">Nothing to ask here.</string>
     <string name="HHFixedValue">This value is fixed by your other answers.</string>
     <string name="LastFailure">Last failure</string>
+    <string name="SelectPrinterViewTemperatures">Select a printer to view its temperatures:</string>
+    <string name="PrintersNoActive">There are no active printers</string>
+    <string name="Back">Back</string>
+    <string name="SelectPrinterNoActive">The selected printer is no longer active</string>
+    <string name="Extruder">Extruder</string>
+    <string name="HotBed">Hot bed</string>
+    <string name="Reach">Reach</string>
+    <string name="PrintMonitor">Print Monitor</string>
 </resources>

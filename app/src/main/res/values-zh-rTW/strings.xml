@@ -332,4 +332,12 @@
     <string name="HHNothingHere">這裡沒有要回答的問題。</string>
     <string name="HHFixedValue">此值由您的其他回答決定。</string>
     <string name="LastFailure">最後一次失敗</string>
+    <string name="SelectPrinterViewTemperatures">選擇一台印表機查看其溫度：</string>
+    <string name="PrintersNoActive">沒有正在使用的印表機。</string>
+    <string name="Back">返回</string>
+    <string name="SelectPrinterNoActive">所選印表機已不再處於作用中狀態。</string>
+    <string name="Extruder">擠出機</string>
+    <string name="HotBed">溫床</string>
+    <string name="Reach">目的</string>
+    <string name="PrintMonitor">列印監視器</string>
 </resources>
