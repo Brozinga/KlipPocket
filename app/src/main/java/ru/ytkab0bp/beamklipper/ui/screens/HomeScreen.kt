@@ -72,6 +72,7 @@ import ru.ytkab0bp.beamklipper.utils.Prefs
 fun HomeScreen(
     isCurrentLauncher: Boolean,
     mainViewModel: MainViewModel,
+    onOpenPrintMonitor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val instances by mainViewModel.instances.collectAsStateWithLifecycle()
@@ -102,7 +103,10 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .background(Paper)
             ) {
-                Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
+                Column(
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                         val running = webState == KlipperInstance.State.RUNNING
                         val webBg = if (running) Accent else PaperAlt
                         val webFg = if (running) InkOnAccent else Ink
@@ -153,8 +157,14 @@ fun HomeScreen(
                                 }
                             }
                         }
-                    }
+
+                        KlipTextButton(
+                            text = stringResource(R.string.PrintMonitor),
+                            onClick = onOpenPrintMonitor,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                 }
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,

@@ -331,4 +331,12 @@
     <string name="HHNothingHere">No hay nada que preguntar aquí.</string>
     <string name="HHFixedValue">Este valor está fijado por tus otras respuestas.</string>
     <string name="LastFailure">Última falla</string>
+    <string name="SelectPrinterViewTemperatures">Selecciona una impresora para ver sus temperaturas:</string>
+    <string name="PrintersNoActive">No hay impresoras activas</string>
+    <string name="Back">Atrás</string>
+    <string name="SelectPrinterNoActive">La impresora seleccionada ya no está activa</string>
+    <string name="Extruder">Extrusor</string>
+    <string name="HotBed">Cama caliente</string>
+    <string name="Reach">Objetivo</string>
+    <string name="PrintMonitor">Monitor de impresión</string>
 </resources>
