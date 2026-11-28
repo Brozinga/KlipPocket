@@ -12,12 +12,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.ytkab0bp.beamklipper.PermissionsChecker
 import ru.ytkab0bp.beamklipper.ui.screens.PermissionScreen
 import ru.ytkab0bp.beamklipper.ui.state.MainViewModel
+import ru.ytkab0bp.beamklipper.ui.state.PrintMonitorViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KlipApp(
     isCurrentLauncher: Boolean,
-    mainViewModel: MainViewModel = viewModel()
+    mainViewModel: MainViewModel = viewModel(),
+    printMonitorViewModel : PrintMonitorViewModel = viewModel()
 ) {
     var permissionBlocked by rememberSaveable { mutableStateOf(PermissionsChecker.needBlockStart()) }
 
@@ -31,7 +33,8 @@ fun KlipApp(
         } else {
             NavHost(
                 isCurrentLauncher = isCurrentLauncher,
-                mainViewModel = mainViewModel
+                mainViewModel = mainViewModel,
+                printMonitorViewModel = printMonitorViewModel
             )
         }
     }

@@ -72,6 +72,7 @@ import ru.ytkab0bp.beamklipper.utils.Prefs
 fun HomeScreen(
     isCurrentLauncher: Boolean,
     mainViewModel: MainViewModel,
+    onOpenPrintMonitor: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val instances by mainViewModel.instances.collectAsStateWithLifecycle()
@@ -102,59 +103,68 @@ fun HomeScreen(
                     .fillMaxWidth()
                     .background(Paper)
             ) {
-                Box(Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)) {
-                        val running = webState == KlipperInstance.State.RUNNING
-                        val webBg = if (running) Accent else PaperAlt
-                        val webFg = if (running) InkOnAccent else Ink
-                        val webFgMuted = if (running) InkOnAccent.copy(alpha = 0.7f) else InkMuted
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(64.dp)
-                                .clip(KlipShape)
-                                .background(webBg, KlipShape)
-                                .border(2.dp, Line, KlipShape)
-                                .clickable(
-                                    onClick = {
-                                        if (running) {
-                                            openWebFrontend(context)
-                                        } else {
-                                            mainViewModel.runStopAll()
-                                        }
-                                    }
-                                )
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    painter = painterResource(Frontends.iconRes(webFrontend)),
-                                    contentDescription = null,
-                                    tint = webFg,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = stringResource(Frontends.nameRes(webFrontend)),
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = webFg,
-                                        fontWeight = FontWeight.Bold
-                                    )
+                Column(
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val running = webState == KlipperInstance.State.RUNNING
+                    val webBg = if (running) Accent else PaperAlt
+                    val webFg = if (running) InkOnAccent else Ink
+                    val webFgMuted = if (running) InkOnAccent.copy(alpha = 0.7f) else InkMuted
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp)
+                            .clip(KlipShape)
+                            .background(webBg, KlipShape)
+                            .border(2.dp, Line, KlipShape)
+                            .clickable(
+                                onClick = {
                                     if (running) {
-                                        Text(
-                                            text = webIpInfo(context),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = webFgMuted
-                                        )
+                                        openWebFrontend(context)
+                                    } else {
+                                        mainViewModel.runStopAll()
                                     }
+                                }
+                            )
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(Frontends.iconRes(webFrontend)),
+                                contentDescription = null,
+                                tint = webFg,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(Frontends.nameRes(webFrontend)),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = webFg,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                if (running) {
+                                    Text(
+                                        text = webIpInfo(context),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = webFgMuted
+                                    )
                                 }
                             }
                         }
                     }
+
+                    KlipTextButton(
+                        text = stringResource(R.string.PrintMonitor),
+                        onClick = onOpenPrintMonitor,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
+            }
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 state = listState,
@@ -164,161 +174,161 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 stickyHeader(key = "instances-label", contentType = "label") {
-                Text(
-                    text = "INSTANCES",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Ink,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Paper)
-                        .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
-                )
-            }
+                    Text(
+                        text = "INSTANCES",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Ink,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Paper)
+                            .padding(start = 4.dp, top = 8.dp, bottom = 8.dp)
+                    )
+                }
 
-            items(
-                instances.chunked(2),
-                key = { it.joinToString("|") { inst -> inst.id ?: inst.name } },
-                contentType = { "inst-row" }
-            ) { chunk ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    chunk.forEach { inst ->
-                        key(inst.id ?: inst.name) {
-                            val k = inst.id ?: inst.name
-                            val stateSnapshot by rememberUpdatedState(instanceStates)
-                            val stateVal by remember(instanceStates, k) {
-                                derivedStateOf { stateSnapshot[k] ?: inst.getState() }
-                            }
-                            val onClickInst by rememberUpdatedState(onClick@{
-                                val id = inst.id ?: return@onClick
-                                val canonical = KlipperInstance.getInstance(id) ?: return@onClick
-                                editorInstance = canonical
-                                editorVisible = true
-                            })
-                            val onLongClickInst by rememberUpdatedState(onLongClick@{
-                                val id = inst.id ?: return@onLongClick
-                                val canonical = KlipperInstance.getInstance(id) ?: return@onLongClick
-                                deleteInstance = canonical
-                            })
-                            val capturedInst = inst
-                            val onToggleInst by rememberUpdatedState(onToggle@{
-                                when (stateVal) {
-                                    KlipperInstance.State.STARTING, KlipperInstance.State.STOPPING -> {}
-                                    KlipperInstance.State.IDLE -> {
-                                        if (!KlipperInstance.hasFreeSlots()) {
-                                            noFreeSlots = true
-                                        } else {
-                                            mainViewModel.toggle(capturedInst)
-                                        }
-                                    }
-                                    else -> mainViewModel.toggle(capturedInst)
+                items(
+                    instances.chunked(2),
+                    key = { it.joinToString("|") { inst -> inst.id ?: inst.name } },
+                    contentType = { "inst-row" }
+                ) { chunk ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        chunk.forEach { inst ->
+                            key(inst.id ?: inst.name) {
+                                val k = inst.id ?: inst.name
+                                val stateSnapshot by rememberUpdatedState(instanceStates)
+                                val stateVal by remember(instanceStates, k) {
+                                    derivedStateOf { stateSnapshot[k] ?: inst.getState() }
                                 }
-                            })
-                            val instBg = PaperAlt
-                            val toggleBg = when (stateVal) {
-                                KlipperInstance.State.RUNNING, KlipperInstance.State.STOPPING -> Danger
-                                else -> Accent
-                            }
-                            KlipTile(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .heightIn(min = 130.dp)
-                                    .combinedClickable(
-                                        onClick = onClickInst,
-                                        onLongClick = onLongClickInst
-                                    ),
-                                background = instBg
-                            ) {
-                                Column(
-                                    modifier = Modifier.fillMaxSize()
+                                val onClickInst by rememberUpdatedState(onClick@{
+                                    val id = inst.id ?: return@onClick
+                                    val canonical = KlipperInstance.getInstance(id) ?: return@onClick
+                                    editorInstance = canonical
+                                    editorVisible = true
+                                })
+                                val onLongClickInst by rememberUpdatedState(onLongClick@{
+                                    val id = inst.id ?: return@onLongClick
+                                    val canonical = KlipperInstance.getInstance(id) ?: return@onLongClick
+                                    deleteInstance = canonical
+                                })
+                                val capturedInst = inst
+                                val onToggleInst by rememberUpdatedState(onToggle@{
+                                    when (stateVal) {
+                                        KlipperInstance.State.STARTING, KlipperInstance.State.STOPPING -> {}
+                                        KlipperInstance.State.IDLE -> {
+                                            if (!KlipperInstance.hasFreeSlots()) {
+                                                noFreeSlots = true
+                                            } else {
+                                                mainViewModel.toggle(capturedInst)
+                                            }
+                                        }
+                                        else -> mainViewModel.toggle(capturedInst)
+                                    }
+                                })
+                                val instBg = PaperAlt
+                                val toggleBg = when (stateVal) {
+                                    KlipperInstance.State.RUNNING, KlipperInstance.State.STOPPING -> Danger
+                                    else -> Accent
+                                }
+                                KlipTile(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .heightIn(min = 130.dp)
+                                        .combinedClickable(
+                                            onClick = onClickInst,
+                                            onLongClick = onLongClickInst
+                                        ),
+                                    background = instBg
                                 ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.Top
+                                    Column(
+                                        modifier = Modifier.fillMaxSize()
                                     ) {
-                                        Icon(
-                                            painter = painterResource(inst.icon.drawable),
-                                            contentDescription = null,
-                                            tint = Ink,
-                                            modifier = Modifier.size(28.dp)
-                                        )
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    Text(
-                                        text = inst.name,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Ink,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(16.dp)
-                                    ) {
-                                        val statusText: String? = when (stateVal) {
-                                            KlipperInstance.State.STARTING -> stringResource(R.string.InstanceStarting)
-                                            KlipperInstance.State.STOPPING -> stringResource(R.string.InstanceStopping)
-                                            KlipperInstance.State.RUNNING -> stringResource(R.string.InstanceRunning)
-                                            KlipperInstance.State.IDLE -> stringResource(R.string.InstanceIdle)
-                                        }
-                                        if (statusText != null) {
-                                            Text(
-                                                text = statusText,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = InkMuted,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis,
-                                                modifier = Modifier.fillMaxWidth()
-                                            )
-                                        }
-                                    }
-                                    Spacer(Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(40.dp)
-                                                .clip(KlipShapePill)
-                                                .background(toggleBg, KlipShapePill)
-                                                .clickable(
-                                                    enabled = stateVal != KlipperInstance.State.STARTING && stateVal != KlipperInstance.State.STOPPING,
-                                                    onClick = onToggleInst
-                                                ),
-                                            contentAlignment = Alignment.Center
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.Top
                                         ) {
                                             Icon(
-                                                painterResource(if (stateVal == KlipperInstance.State.RUNNING || stateVal == KlipperInstance.State.STOPPING) R.drawable.ic_stop_24 else R.drawable.ic_play_28),
+                                                painter = painterResource(inst.icon.drawable),
                                                 contentDescription = null,
-                                                tint = InkOnAccent,
-                                                modifier = Modifier.size(20.dp)
+                                                tint = Ink,
+                                                modifier = Modifier.size(28.dp)
                                             )
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            text = inst.name,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Ink,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(16.dp)
+                                        ) {
+                                            val statusText: String? = when (stateVal) {
+                                                KlipperInstance.State.STARTING -> stringResource(R.string.InstanceStarting)
+                                                KlipperInstance.State.STOPPING -> stringResource(R.string.InstanceStopping)
+                                                KlipperInstance.State.RUNNING -> stringResource(R.string.InstanceRunning)
+                                                KlipperInstance.State.IDLE -> stringResource(R.string.InstanceIdle)
+                                            }
+                                            if (statusText != null) {
+                                                Text(
+                                                    text = statusText,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = InkMuted,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    modifier = Modifier.fillMaxWidth()
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.End
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(40.dp)
+                                                    .clip(KlipShapePill)
+                                                    .background(toggleBg, KlipShapePill)
+                                                    .clickable(
+                                                        enabled = stateVal != KlipperInstance.State.STARTING && stateVal != KlipperInstance.State.STOPPING,
+                                                        onClick = onToggleInst
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Icon(
+                                                    painterResource(if (stateVal == KlipperInstance.State.RUNNING || stateVal == KlipperInstance.State.STOPPING) R.drawable.ic_stop_24 else R.drawable.ic_play_28),
+                                                    contentDescription = null,
+                                                    tint = InkOnAccent,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
-                    if (chunk.size == 1) {
-                        Spacer(Modifier.weight(1f))
+                        if (chunk.size == 1) {
+                            Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
-            }
 
-            item(key = "dashboard-card", contentType = "dashboard") {
-                DashboardCard()
+                item(key = "dashboard-card", contentType = "dashboard") {
+                    DashboardCard()
+                }
             }
-        }
         }
 
         val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
-            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+                android.content.res.Configuration.ORIENTATION_LANDSCAPE
         val fabSize = if (landscape) 56.dp else 72.dp
         Row(
             modifier = Modifier
@@ -336,16 +346,16 @@ fun HomeScreen(
                         .clip(fabShape)
                         .background(Accent, fabShape)
                         .let {
-                                it.clickable(
-                                    onClick = {
-                                        if (instances.size >= KlipperInstance.SLOTS_COUNT) {
-                                            noFreeSlots = true
-                                        } else {
-                                            editorInstance = null
-                                            editorVisible = true
-                                        }
+                            it.clickable(
+                                onClick = {
+                                    if (instances.size >= KlipperInstance.SLOTS_COUNT) {
+                                        noFreeSlots = true
+                                    } else {
+                                        editorInstance = null
+                                        editorVisible = true
                                     }
-                                )
+                                }
+                            )
                         },
                     contentAlignment = Alignment.Center
                 ) {
@@ -366,7 +376,7 @@ fun HomeScreen(
                             .fillMaxSize()
                             .clip(fabShape)
                             .background(if (anyRunning) Danger else Accent, fabShape)
-                                .let {
+                            .let {
                                 it.clickable(onClick = { mainViewModel.runStopAll() })
                             },
                         contentAlignment = Alignment.Center

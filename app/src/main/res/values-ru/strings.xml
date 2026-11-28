@@ -335,4 +335,12 @@
     <string name="HHNothingHere">Здесь нечего спрашивать.</string>
     <string name="HHFixedValue">Это значение задано другими вашими ответами.</string>
     <string name="LastFailure">последняя неудача</string>
+    <string name="SelectPrinterViewTemperatures">Выберите принтер, чтобы просмотреть его температуру:</string>
+    <string name="PrintersNoActive">В настоящее время нет активных принтеров.</string>
+    <string name="Back">Назад</string>
+    <string name="SelectPrinterNoActive">Выбранный принтер больше не активен.</string>
+    <string name="Extruder">Экструдер</string>
+    <string name="HotBed">Горячая кровать</string>
+    <string name="Reach">Цель</string>
+    <string name="PrintMonitor">Монитор печати</string>
 </resources>
